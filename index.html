@@ -268,8 +268,8 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
-            <th>Sale Order</th><th>Renewal</th><th>Wasl</th><th>Remarks</th><th></th>
+            <th>Renewal ID</th><th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
+            <th>Sale Order</th><th>Priority</th><th>Renewal</th><th>Wasl</th><th>Closed</th><th>Remarks</th><th></th>
           </tr>
         </thead>
         <tbody id="requests-tbody"></tbody>
@@ -911,12 +911,13 @@ function renderRequestsTable() {
   const rows = REQUESTS_CACHE.filter(r => {
     if (onlyRenewalPending && r.renewal_status === 'Done') return false;
     if (onlyWaslPending && r.wasl_status === 'Done') return false;
-    if (q && !['plate','encoder','sale_order','mobile','remarks'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
+    if (q && !['plate','encoder','sale_order','mobile','remarks','renewal_id'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
     return true;
   });
 
   document.getElementById('requests-tbody').innerHTML = rows.map(r => `
     <tr>
+      <td>${escapeHTML(r.renewal_id)}</td>
       <td>${escapeHTML(r.date)}</td>
       <td>${escapeHTML(r.encoder)}</td>
       <td>${escapeHTML(r.plate)}</td>
@@ -924,8 +925,18 @@ function renderRequestsTable() {
       <td>${r.amount ? escapeHTML(r.amount) : ''}</td>
       <td>${escapeHTML(r.services)}</td>
       <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:110px;padding:6px 8px"></td>
+      <td>
+        <select id="req-prio-${r.id}" style="padding:6px 8px">
+          <option value="" ${!r.priority ? 'selected' : ''}>—</option>
+          <option value="Low" ${r.priority === 'Low' ? 'selected' : ''}>Low</option>
+          <option value="Medium" ${r.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+          <option value="High" ${r.priority === 'High' ? 'selected' : ''}>High</option>
+          <option value="Urgent" ${r.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
+        </select>
+      </td>
       <td><label><input type="checkbox" id="req-ren-${r.id}" ${r.renewal_status === 'Done' ? 'checked' : ''}></label></td>
       <td><label><input type="checkbox" id="req-wasl-${r.id}" ${r.wasl_status === 'Done' ? 'checked' : ''}></label></td>
+      <td><label><input type="checkbox" id="req-closed-${r.id}" ${r.customer_closed ? 'checked' : ''}></label></td>
       <td><input id="req-rem-${r.id}" value="${escapeHTML(r.remarks)}" style="min-width:120px;padding:6px 8px"></td>
       <td style="white-space:nowrap">
         <button class="small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
@@ -933,7 +944,7 @@ function renderRequestsTable() {
         <span id="req-status-${r.id}" style="font-size:11px;color:#8a96a3"></span>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="11" class="no-results">No requests found</td></tr>';
+  `).join('') || '<tr><td colspan="14" class="no-results">No requests found</td></tr>';
 }
 
 async function updateRequest(docId) {
@@ -941,8 +952,10 @@ async function updateRequest(docId) {
   statusEl.textContent = 'Saving...';
   const updates = {
     sale_order: document.getElementById('req-so-' + docId).value.trim(),
+    priority: document.getElementById('req-prio-' + docId).value,
     renewal_status: document.getElementById('req-ren-' + docId).checked ? 'Done' : 'Pending',
     wasl_status: document.getElementById('req-wasl-' + docId).checked ? 'Done' : 'Pending',
+    customer_closed: document.getElementById('req-closed-' + docId).checked,
     remarks: document.getElementById('req-rem-' + docId).value.trim(),
     needs_sharepoint_sync: true,
     updated_by: auth.currentUser ? auth.currentUser.email : '',
