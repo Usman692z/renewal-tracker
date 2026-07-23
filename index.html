@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicle Renewal Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; background: #0f1419; color: #e4e7eb; padding: 20px; min-height: 100vh; }
+.container { max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 24px; margin-bottom: 4px; color: #4fc3f7; }
+.sub { font-size: 13px; color: #8a96a3; margin-bottom: 20px; }
+select, input, textarea { padding: 12px 14px; font-size: 15px; border-radius: 6px; border: 1px solid #2a3441; background: #1a2128; color: #e4e7eb; font-family: inherit; }
+select { min-width: 180px; }
+input:not([type="checkbox"]), textarea { flex: 1; min-width: 200px; }
+input[type="checkbox"] { width: 16px; height: 16px; min-width: 0; flex: none; padding: 0; vertical-align: middle; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #4fc3f7; }
+button { padding: 12px 24px; font-size: 15px; font-weight: 600; border: none; border-radius: 6px; background: #4fc3f7; color: #0f1419; cursor: pointer; }
+button:hover { background: #29b6f6; }
+button.secondary { background: #2a3441; color: #e4e7eb; }
+button.small { padding: 8px 14px; font-size: 13px; }
+.row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.status { padding: 10px 14px; background: #1a2128; border-radius: 6px; margin-bottom: 16px; font-size: 13px; color: #8a96a3; }
+.status.loading { color: #ffa726; }
+.status.ready { color: #66bb6a; }
+.status.error { color: #ef5350; }
+.results-info { font-size: 13px; color: #8a96a3; margin-bottom: 12px; }
+.card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 18px; margin-bottom: 14px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #2a3441; }
+.card-title { font-size: 17px; font-weight: 600; color: #4fc3f7; }
+.card-id { font-size: 12px; color: #8a96a3; background: #0f1419; padding: 4px 10px; border-radius: 4px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.field { background: #0f1419; padding: 8px 12px; border-radius: 4px; font-size: 13px; }
+.field-name { color: #8a96a3; font-size: 11px; display: block; margin-bottom: 2px; }
+.field-value { color: #e4e7eb; word-break: break-word; }
+.field-value.empty { color: #4a5562; font-style: italic; }
+.no-results { text-align: center; padding: 40px; color: #8a96a3; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+.pagination button { padding: 8px 14px; font-size: 13px; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #2a3441; }
+.tab { padding: 10px 18px; cursor: pointer; color: #8a96a3; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 600; }
+.tab.active { color: #4fc3f7; border-bottom-color: #4fc3f7; }
+.renew-form { background: #0f1419; border-radius: 6px; padding: 14px; margin-top: 10px; display: none; }
+.renew-form.open { display: block; }
+.renew-form .row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8a96a3; }
+.renew-form textarea { width: 100%; min-height: 60px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a3441; }
+th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.pill.yes { background: rgba(102,187,106,0.15); color: #66bb6a; }
+.pill.no { background: rgba(239,83,80,0.15); color: #ef5350; }
+#login-screen { max-width: 360px; margin: 80px auto; }
+#login-screen h1 { text-align: center; }
+#app { display: none; }
+.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.top-bar .who { font-size: 13px; color: #8a96a3; }
+.section { margin-bottom: 12px; }
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a96a3; margin-bottom: 6px; font-weight: 600; }
+.plate-display { display: inline-flex; gap: 6px; align-items: center; background: #fff; color: #000; padding: 6px 12px; border-radius: 4px; font-weight: 700; font-size: 16px; margin-top: 4px; }
+.id-badge { display: inline-block; padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.id-badge.company { background: rgba(79, 195, 247, 0.15); color: #4fc3f7; border: 1px solid #4fc3f7; }
+.id-badge.individual { background: rgba(102, 187, 106, 0.15); color: #66bb6a; border: 1px solid #66bb6a; }
+.id-badge.other { background: rgba(138, 150, 163, 0.15); color: #8a96a3; border: 1px solid #8a96a3; }
+.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tool-card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 14px; }
+.tool-title { font-size: 14px; font-weight: 600; color: #4fc3f7; margin-bottom: 10px; }
+.tool-row { display: flex; gap: 8px; align-items: center; }
+.tool-row input, .tool-row select { flex: 1; min-width: 0; padding: 10px 12px; font-size: 14px; }
+.tool-row .op { color: #8a96a3; font-size: 18px; font-weight: 700; }
+.tool-row button { padding: 10px 18px; }
+.tool-out { margin-top: 10px; padding: 10px 12px; background: #0f1419; border-radius: 4px; font-size: 15px; min-height: 22px; color: #e4e7eb; direction: rtl; text-align: right; }
+.tool-out.ltr { direction: ltr; text-align: left; }
+.tool-out .arabic-plate { display: inline-block; background: #fff; color: #000; padding: 6px 14px; border-radius: 4px; font-size: 20px; font-weight: 700; letter-spacing: 4px; margin-right: 8px; direction: rtl; }
+.tool-out .hint { color: #8a96a3; font-size: 12px; margin-top: 6px; direction: ltr; text-align: left; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>Renewal Tracker</h1>
+  <div class="sub" style="text-align:center">Sign in to continue</div>
+  <div class="card">
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <input id="login-email" type="email" placeholder="Email" autocomplete="username">
+      <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password">
+      <button onclick="doLogin()">Sign In</button>
+      <div id="login-status" class="status" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+<div class="container">
+  <div class="top-bar">
+    <div>
+      <h1>Vehicle Renewal Tracker</h1>
+      <div class="sub">Search a vehicle, record its renewal, track checkpoints</div>
+    </div>
+    <div class="who">
+      <span id="who-email"></span>
+      <button class="secondary small" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="search" onclick="switchTab('search')">Search &amp; Renew</div>
+    <div class="tab" data-tab="deal" onclick="switchTab('deal')">Add Deal</div>
+    <div class="tab" data-tab="requests" onclick="switchTab('requests')">Requests</div>
+    <div class="tab" data-tab="status" onclick="switchTab('status')">Renewals Status</div>
+  </div>
+
+  <div id="tab-deal" style="display:none">
+    <div class="card" style="max-width:520px">
+      <div class="section-label" style="margin-bottom:12px">New Deal</div>
+      <div class="row" style="flex-direction:column;align-items:stretch">
+        <input id="deal-plate" placeholder="Plate (e.g. 3294 ATB)">
+        <input id="deal-mobile" placeholder="Mobile Number">
+        <input id="deal-amount" type="number" placeholder="Amount">
+        <input id="deal-services" placeholder="Services (e.g. Renewal, Transfer)">
+        <input id="deal-sale-order" placeholder="Sale Order # (if known)">
+        <div class="row">
+          <label><input type="checkbox" id="deal-renewal"> Renewal Done</label>
+          <label><input type="checkbox" id="deal-wasl"> Wasl Done</label>
+        </div>
+        <textarea id="deal-remarks" placeholder="Remarks"></textarea>
+        <button onclick="addDeal()">Save Deal</button>
+        <div id="deal-status" class="status" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-search">
+    <div class="tools">
+      <div class="tool-card">
+        <div class="tool-title">🔤 Plate Converter (EN → Arabic)</div>
+        <div class="tool-row">
+          <input id="plate-in" placeholder="e.g. 6913 XJS or just XJS" style="text-transform:uppercase">
+          <button onclick="convertPlate()">Convert</button>
+        </div>
+        <div id="plate-out" class="tool-out"></div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-title">⚖️ Weight × Voltage Calculator</div>
+        <div class="tool-row">
+          <input id="calc-w" placeholder="Weight (e.g. 2415)" type="number" step="any">
+          <span class="op">×</span>
+          <input id="calc-v" placeholder="Voltage (e.g. 0.55)" type="number" step="any">
+          <button onclick="calcMultiply()">=</button>
+        </div>
+        <div id="calc-out" class="tool-out"></div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-title">📅 Expiry Date Extender</div>
+        <div class="tool-row">
+          <input id="exp-old" type="date">
+          <select id="exp-mode" style="min-width:170px">
+            <option value="today-1y">+1 Year from Today</option>
+            <option value="today-months">+Months from Today</option>
+            <option value="exp-1y">+1 Year from Old Expiry</option>
+            <option value="exp-months">+Months from Old Expiry</option>
+          </select>
+        </div>
+        <div class="tool-row" style="margin-top:8px">
+          <input id="exp-months" type="number" min="1" max="12" placeholder="Months (1-12)">
+          <button onclick="calcExpiry()">Calculate</button>
+        </div>
+        <div id="exp-out" class="tool-out ltr"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <select id="field">
+        <option value="__any">Any Field (search all)</option>
+        <option value="pn">Plate Number</option>
+        <option value="vi">Vehicle ID</option>
+        <option value="ci">Company ID</option>
+        <option value="di">Driver ID</option>
+        <option value="vn">Vehicle No</option>
+        <option value="rn">Registration No</option>
+        <option value="im">IMEI</option>
+        <option value="sn">SIM No</option>
+        <option value="sq">Sequence No</option>
+        <option value="cn">Company Name</option>
+        <option value="dn">Driver Name</option>
+      </select>
+      <input id="q" placeholder="Loading data... please wait" autofocus disabled>
+      <button onclick="doSearch()">Search</button>
+      <button class="secondary" onclick="document.getElementById('q').value='';doSearch()">Clear</button>
+    </div>
+    <div id="data-status" class="status loading">Loading vehicle data... please wait</div>
+    <div id="info" class="results-info"></div>
+    <div id="results"></div>
+    <div id="pager" class="pagination"></div>
+  </div>
+
+  <div id="tab-requests" style="display:none">
+    <div class="row">
+      <label><input type="checkbox" id="req-flt-renewal"> Renewal pending</label>
+      <label><input type="checkbox" id="req-flt-wasl"> Wasl pending</label>
+      <input id="req-q" placeholder="Filter by plate / encoder / sale order..." style="max-width:320px">
+      <button class="small" onclick="loadRequests()">Refresh</button>
+    </div>
+    <div id="requests-status" class="status"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
+            <th>Sale Order</th><th>Renewal</th><th>Wasl</th><th>Remarks</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="requests-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-status" style="display:none">
+    <div class="row">
+      <label><input type="checkbox" id="flt-wasl"> Wasl not done</label>
+      <label><input type="checkbox" id="flt-reporting"> Not reporting</label>
+      <label><input type="checkbox" id="flt-renewal"> Renewal not done</label>
+      <button class="small" onclick="loadRenewals()">Refresh</button>
+      <button class="small secondary" onclick="exportExcel()">Export to Excel</button>
+    </div>
+    <div id="renewals-status" class="status"></div>
+    <div style="overflow-x:auto">
+      <table id="renewals-table">
+        <thead>
+          <tr>
+            <th>Vehicle</th><th>Plate</th><th>Company</th><th>Sale Order</th><th>New Exp Date</th>
+            <th>Renewal</th><th>Reporting</th><th>Wasl</th><th>Missing Docs</th><th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="renewals-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ---- Firebase project config (public client key, protected by Firestore rules) ----
+const firebaseConfig = {
+  apiKey: "AIzaSyAeKliE-8JWcYMKUwIkcqUGwwMEEWX6Oj8",
+  authDomain: "renewal-tracker-app.firebaseapp.com",
+  projectId: "renewal-tracker-app",
+  storageBucket: "renewal-tracker-app.firebasestorage.app",
+  messagingSenderId: "371507307662",
+  appId: "1:371507307662:web:67136c40398539a7aa55df"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+function escapeHTML(s) {
+  if (s === null || s === undefined || s === '') return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ==================== Small utility tools ====================
+const ARABIC_MAP = {
+  A:'ا', B:'ب', J:'ح', D:'د', S:'س', X:'ص',
+  T:'ط', E:'ع', G:'ق', K:'ك', L:'ل', Z:'م',
+  N:'ن', H:'ه', U:'و', R:'ر', V:'ى'
+};
+
+function convertPlate() {
+  const raw = document.getElementById('plate-in').value.trim().toUpperCase();
+  const out = document.getElementById('plate-out');
+  if (!raw) { out.innerHTML = ''; return; }
+
+  const numMatch = raw.match(/\d+/);
+  const letterMatch = raw.match(/[A-Z]+/g);
+  const number = numMatch ? numMatch[0] : '';
+  const letters = letterMatch ? letterMatch.join('') : '';
+
+  const unknown = [...letters].filter(c => !ARABIC_MAP[c]);
+  if (unknown.length) {
+    out.innerHTML = `<span style="color:#ef5350">Unknown letter(s): ${unknown.join(', ')}</span>`;
+    return;
+  }
+
+  const arabicLetters = [...letters].reverse().map(c => ARABIC_MAP[c]).join(' ');
+
+  out.innerHTML = `<span class="arabic-plate">${arabicLetters}${number ? ' ' + number : ''}</span>` +
+    `<div class="hint">English: ${letters}${number ? ' ' + number : ''} &nbsp;→&nbsp; Arabic: ${arabicLetters}${number ? ' ' + number : ''}</div>`;
+}
+
+function calcMultiply() {
+  const w = parseFloat(document.getElementById('calc-w').value);
+  const v = parseFloat(document.getElementById('calc-v').value);
+  const out = document.getElementById('calc-out');
+  out.className = 'tool-out ltr';
+  if (isNaN(w) || isNaN(v)) { out.innerHTML = '<span style="color:#8a96a3">Enter both values</span>'; return; }
+  const result = w * v;
+  const rounded = Math.round(result);
+  out.innerHTML = `<strong style="font-size:18px;color:#66bb6a">${w} × ${v} = ${result.toFixed(2)}</strong>` +
+    `<div class="hint">Rounded: <strong>${rounded}</strong></div>`;
+}
+
+function calcExpiry() {
+  const out = document.getElementById('exp-out');
+  out.className = 'tool-out ltr';
+  const mode = document.getElementById('exp-mode').value;
+  const oldVal = document.getElementById('exp-old').value;
+  const months = parseInt(document.getElementById('exp-months').value, 10);
+
+  const needsOld = mode === 'exp-1y' || mode === 'exp-months';
+  const needsMonths = mode === 'today-months' || mode === 'exp-months';
+
+  if (needsOld && !oldVal) { out.innerHTML = '<span style="color:#8a96a3">Enter the old expiry date</span>'; return; }
+  if (needsMonths && (isNaN(months) || months < 1 || months > 12)) {
+    out.innerHTML = '<span style="color:#8a96a3">Enter months (1-12)</span>'; return;
+  }
+
+  const base = needsOld ? new Date(oldVal + 'T00:00:00') : new Date();
+  const result = new Date(base);
+  if (mode === 'today-1y' || mode === 'exp-1y') result.setFullYear(result.getFullYear() + 1);
+  else result.setMonth(result.getMonth() + months);
+
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+  out.innerHTML = `<strong style="font-size:18px;color:#66bb6a">New Expiry: ${fmt(result)}</strong>` +
+    (needsOld ? `<div class="hint">Old Expiry: ${fmt(base)}</div>` : `<div class="hint">From today: ${fmt(base)}</div>`);
+}
+
+document.getElementById('plate-in').addEventListener('keydown', e => { if (e.key === 'Enter') convertPlate(); });
+document.getElementById('calc-w').addEventListener('keydown', e => { if (e.key === 'Enter') calcMultiply(); });
+document.getElementById('calc-v').addEventListener('keydown', e => { if (e.key === 'Enter') calcMultiply(); });
+document.getElementById('exp-old').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
+document.getElementById('exp-months').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
+
+// ==================== Auth ====================
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'block';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('who-email').textContent = user.email;
+  if (!DATA.length) loadVehicleData();
+}
+
+auth.onAuthStateChanged(user => { user ? showApp(user) : showLogin(); });
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const status = document.getElementById('login-status');
+  status.style.display = 'block';
+  status.className = 'status';
+  status.textContent = 'Signing in...';
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    status.style.display = 'none';
+  } catch (err) {
+    status.className = 'status error';
+    status.textContent = err.message;
+  }
+}
+
+function doLogout() { auth.signOut(); }
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ==================== Tabs ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('tab-search').style.display = name === 'search' ? 'block' : 'none';
+  document.getElementById('tab-deal').style.display = name === 'deal' ? 'block' : 'none';
+  document.getElementById('tab-requests').style.display = name === 'requests' ? 'block' : 'none';
+  document.getElementById('tab-status').style.display = name === 'status' ? 'block' : 'none';
+  if (name === 'status') loadRenewals();
+  if (name === 'requests' && !REQUESTS_CACHE.length) loadRequests();
+}
+
+async function addDeal() {
+  const statusEl = document.getElementById('deal-status');
+  statusEl.style.display = 'block';
+  statusEl.className = 'status';
+  statusEl.textContent = 'Saving...';
+  const plate = document.getElementById('deal-plate').value.trim();
+  if (!plate) { statusEl.className = 'status error'; statusEl.textContent = 'Plate is required'; return; }
+
+  const payload = {
+    date: new Date().toISOString().slice(0, 10),
+    encoder: auth.currentUser ? auth.currentUser.email : '',
+    plate: plate,
+    mobile: document.getElementById('deal-mobile').value.trim(),
+    amount: parseFloat(document.getElementById('deal-amount').value) || 0,
+    services: document.getElementById('deal-services').value.trim(),
+    sale_order: document.getElementById('deal-sale-order').value.trim(),
+    renewal_status: document.getElementById('deal-renewal').checked ? 'Done' : 'Pending',
+    wasl_status: document.getElementById('deal-wasl').checked ? 'Done' : 'Pending',
+    remarks: document.getElementById('deal-remarks').value.trim(),
+    source: 'manual',
+    needs_sharepoint_sync: false,
+    created_by: auth.currentUser ? auth.currentUser.email : '',
+    synced_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    const docId = 'deal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    await db.collection('requests').doc(docId).set(payload);
+    statusEl.textContent = 'Saved. Visible in Requests tab.';
+    ['deal-plate','deal-mobile','deal-amount','deal-services','deal-sale-order','deal-remarks'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('deal-renewal').checked = false;
+    document.getElementById('deal-wasl').checked = false;
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+// ==================== Vehicle data (client-side, same as V3 vehicle_search.html) ====================
+
+let DATA = [];
+let RESULTS = [];
+let PAGE = 0;
+const PER_PAGE = 25;
+const SEARCHABLE_FIELDS = ['pn','vi','ci','di','vn','rn','im','sn','sq','cn','dn'];
+
+async function loadVehicleData() {
+  const status = document.getElementById('data-status');
+  try {
+    status.textContent = 'Loading vehicle data...';
+    const snap = await db.collection('vehicle_data_chunks').orderBy('index').get();
+    if (snap.empty) throw new Error('No vehicle data uploaded yet');
+    const b64 = snap.docs.map(d => d.data().data).join('');
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const ds = new DecompressionStream('gzip');
+    const blob = new Blob([bin]);
+    const stream = blob.stream().pipeThrough(ds);
+    const text = await new Response(stream).text();
+    DATA = JSON.parse(text);
+    status.className = 'status ready';
+    status.textContent = `Ready — ${DATA.length.toLocaleString()} vehicle records loaded. Type to search.`;
+    document.getElementById('q').disabled = false;
+    document.getElementById('q').placeholder = 'Enter search value...';
+    document.getElementById('q').focus();
+  } catch (e) {
+    status.className = 'status error';
+    status.textContent = 'Failed to load vehicle data: ' + e.message;
+  }
+}
+
+function fld(label, val) {
+  const isEmpty = !val || val === '' || val === 'nan';
+  return `<div class="field"><span class="field-name">${label}</span><span class="field-value${isEmpty?' empty':''}">${isEmpty ? '—' : escapeHTML(val)}</span></div>`;
+}
+
+// Rough industry estimate only (GVWR isn't a fixed function of curb weight —
+// it depends on the manufacturer's payload rating). ~1.4x is a common
+// curb-weight-to-GVWR ratio for typical trucks/pickups. Replace with real
+// per-vehicle data if/when it's available.
+const FULL_LOAD_ESTIMATE_FACTOR = 1.4;
+
+function calcFullLoadWeight(emptyWeight) {
+  const w = parseFloat(emptyWeight);
+  if (isNaN(w)) return '';
+  return Math.round(w * FULL_LOAD_ESTIMATE_FACTOR * 100) / 100;
+}
+
+function identityBadge(idn) {
+  if (!idn || idn === '') return '';
+  const first = String(idn).trim().charAt(0);
+  if (first === '7') return '<div class="id-badge company">🏢 Company (Commercial Registration)</div>';
+  if (first === '1') return '<div class="id-badge individual">👤 Individual (National ID)</div>';
+  return '<div class="id-badge other">Other ID type (starts with ' + first + ')</div>';
+}
+
+function renderCard(r) {
+  const hasPlate = r.pn && r.pn !== '';
+  const plateBlock = hasPlate ? `<div class="plate-display">${escapeHTML(r.pl||'')} ${escapeHTML(r.pm||'')} ${escapeHTML(r.pr||'')} &nbsp;|&nbsp; ${escapeHTML(r.pn)}</div>` : '';
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-title">${escapeHTML(r.vnm) || escapeHTML(r.vn) || 'Vehicle #' + escapeHTML(r.vi)}</div>
+      <div class="card-id">Vehicle ID: ${escapeHTML(r.vi)}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Vehicle Data</div>
+      <div class="grid">
+        ${fld('Vehicle No', r.vn)}
+        ${fld('Vehicle Name', r.vnm)}
+        ${fld('Registration No', r.rn)}
+        ${fld('Type', r.tp)}
+        ${fld('Vehicle Type', r.vt)}
+        ${fld('IMEI', r.im)}
+        ${fld('SIM No', r.sn)}
+        ${fld('Weight Factor', r.wf)}
+        ${fld('Empty Weight', r.ew)}
+        ${fld('Head Weight', r.hw)}
+        ${fld('Driver ID', r.di)}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Custom &amp; Optional (KSA / Regulatory)</div>
+      <div class="grid">
+        ${fld('Weight Sensor Analog Number', 1)}
+        ${fld('Empty Vehicle Weight (kg)', r.ew)}
+        ${fld('Empty Vehicle Voltage (V)', 1.5)}
+        ${fld('Full Load Vehicle Weight (kg)', calcFullLoadWeight(r.ew))}
+        ${fld('Full Load Vehicle Voltage (V)', 4.5)}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Wasl / Plate</div>
+      ${plateBlock}
+      <div class="grid" style="margin-top:8px">
+        ${fld('Plate No', r.pn)}
+        ${fld('Right Letter', r.pr)}
+        ${fld('Middle Letter', r.pm)}
+        ${fld('Left Letter', r.pl)}
+        ${fld('Sequence No', r.sq)}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Company</div>
+      ${identityBadge(r.idn)}
+      <div class="grid">
+        ${fld('Company ID', r.ci)}
+        ${fld('Company Name', r.cn)}
+        ${fld('Contact No', r.c1)}
+        ${fld('Identity No', r.idn)}
+        ${fld('CR Issue Date', r.crd)}
+        ${fld('Odoo Customer ID', r.ocid)}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Driver</div>
+      <div class="grid">
+        ${fld('Driver ID', r.di)}
+        ${fld('First Name', r.dn)}
+        ${fld('Last Name', r.dl)}
+        ${fld('Date of Birth', r.db)}
+        ${fld('License No', r.ln)}
+        ${fld('License Expiry', r.le)}
+      </div>
+    </div>
+    <button class="small" onclick="toggleRenewForm('${r.vi}')">Renew this vehicle</button>
+    <div class="renew-form" id="renew-form-${r.vi}">
+      <div class="row">
+        <input id="rf-sale-${r.vi}" placeholder="New Sale Order #">
+        <input id="rf-exp-${r.vi}" type="date">
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="rf-renewal-${r.vi}"> Renewal Done</label>
+        <label><input type="checkbox" id="rf-reporting-${r.vi}"> Vehicle Reporting</label>
+        <label><input type="checkbox" id="rf-wasl-${r.vi}"> Wasl Done</label>
+      </div>
+      <div class="row">
+        <textarea id="rf-docs-${r.vi}" placeholder="Missing documents (if any)"></textarea>
+      </div>
+      <div class="row">
+        <button onclick="saveRenewal('${r.vi}')">Save Renewal</button>
+        <button class="secondary" onclick="toggleRenewForm('${r.vi}')">Cancel</button>
+      </div>
+      <div id="rf-status-${r.vi}" class="status" style="display:none"></div>
+    </div>
+  </div>`;
+}
+
+function toggleRenewForm(vi) {
+  document.getElementById('renew-form-' + vi).classList.toggle('open');
+}
+
+async function saveRenewal(vi) {
+  const statusEl = document.getElementById('rf-status-' + vi);
+  statusEl.style.display = 'block';
+  statusEl.className = 'status';
+  statusEl.textContent = 'Saving...';
+  const vehicle = DATA.find(r => r.vi === vi) || {};
+  const payload = {
+    vehicle_id: vi,
+    vehicle_no: vehicle.vn || '',
+    vehicle_name: vehicle.vnm || '',
+    plate_no: vehicle.pn || '',
+    company_name: vehicle.cn || '',
+    new_sale_order: document.getElementById('rf-sale-' + vi).value.trim(),
+    new_exp_date: document.getElementById('rf-exp-' + vi).value,
+    renewal_done: document.getElementById('rf-renewal-' + vi).checked,
+    vehicle_reporting: document.getElementById('rf-reporting-' + vi).checked,
+    wasl_done: document.getElementById('rf-wasl-' + vi).checked,
+    missing_docs: document.getElementById('rf-docs-' + vi).value.trim(),
+    created_by: auth.currentUser ? auth.currentUser.email : '',
+    created_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    await db.collection('renewals').add(payload);
+    statusEl.textContent = 'Saved.';
+    setTimeout(() => { toggleRenewForm(vi); statusEl.style.display = 'none'; }, 1000);
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+function doSearch() {
+  const field = document.getElementById('field').value;
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  if (!q) {
+    RESULTS = [];
+    document.getElementById('results').innerHTML = '<div class="no-results">Enter a value to search</div>';
+    document.getElementById('info').textContent = '';
+    document.getElementById('pager').innerHTML = '';
+    return;
+  }
+  const looksLikeFullPlate = field === 'pn' && /\d/.test(q) && /[a-z]/i.test(q);
+  if (looksLikeFullPlate) {
+    const exact = findVehicleByPlateText(q);
+    if (exact) {
+      RESULTS = [exact];
+      PAGE = 0;
+      renderPage();
+      document.getElementById('info').textContent = `Exact match for plate "${document.getElementById('q').value.trim()}"`;
+      document.getElementById('pager').innerHTML = '';
+      return;
+    }
+  }
+
+  RESULTS = DATA.filter(r => {
+    if (field === '__any') {
+      for (const k of SEARCHABLE_FIELDS.concat(['vnm','idn'])) {
+        if (r[k] && String(r[k]).toLowerCase().includes(q)) return true;
+      }
+      return false;
+    }
+    const v = r[field];
+    if (!v) return false;
+    return String(v).toLowerCase().includes(q);
+  });
+  PAGE = 0;
+  renderPage();
+}
+
+function renderPage() {
+  const start = PAGE * PER_PAGE;
+  const slice = RESULTS.slice(start, start + PER_PAGE);
+  document.getElementById('results').innerHTML = slice.map(renderCard).join('') || '<div class="no-results">No matches found</div>';
+  const totalPages = Math.ceil(RESULTS.length / PER_PAGE);
+  document.getElementById('info').textContent = RESULTS.length > 0
+    ? `Showing ${start+1}–${Math.min(start+PER_PAGE, RESULTS.length)} of ${RESULTS.length.toLocaleString()} matches`
+    : '';
+  const pager = document.getElementById('pager');
+  if (totalPages > 1) {
+    pager.innerHTML = `
+      <button onclick="PAGE=0;renderPage()" ${PAGE===0?'disabled':''}>« First</button>
+      <button onclick="PAGE--;renderPage()" ${PAGE===0?'disabled':''}>‹ Prev</button>
+      <span style="padding:8px 14px;color:#8a96a3;font-size:13px">Page ${PAGE+1} / ${totalPages}</span>
+      <button onclick="PAGE++;renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Next ›</button>
+      <button onclick="PAGE=${totalPages-1};renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Last »</button>
+    `;
+  } else {
+    pager.innerHTML = '';
+  }
+}
+
+let searchTimer = null;
+document.getElementById('q').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 200);
+});
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(searchTimer); doSearch(); } });
+document.getElementById('field').addEventListener('change', doSearch);
+
+// ==================== Requests tab (synced from SharePoint sheet) ====================
+let REQUESTS_CACHE = [];
+
+let requestsUnsubscribe = null;
+
+function isEmptyRequest(r) {
+  return !(r.plate || r.encoder || r.mobile || r.sale_order || r.amount);
+}
+
+function loadRequests() {
+  const statusEl = document.getElementById('requests-status');
+  statusEl.className = 'status';
+  statusEl.textContent = 'Loading...';
+  if (requestsUnsubscribe) requestsUnsubscribe();
+  // Real-time listener: edits by any user (or a background sync) appear
+  // automatically for everyone, no manual refresh needed.
+  requestsUnsubscribe = db.collection('requests').orderBy('date', 'desc').limit(2000)
+    .onSnapshot(snap => {
+      REQUESTS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => !isEmptyRequest(r));
+      const latest = REQUESTS_CACHE.find(r => r.synced_at && r.synced_at.toDate);
+      const synced = latest ? ' (last sync: ' + latest.synced_at.toDate().toLocaleString() + ')' : '';
+      statusEl.className = 'status ready';
+      statusEl.textContent = `${REQUESTS_CACHE.length} request(s)${synced} — live`;
+      // Don't re-render while the user is typing in a row, it would wipe their input.
+      const active = document.activeElement;
+      if (!active || !document.getElementById('requests-tbody').contains(active)) {
+        renderRequestsTable();
+      }
+    }, err => {
+      statusEl.className = 'status error';
+      statusEl.textContent = err.message;
+    });
+}
+
+function renderRequestsTable() {
+  const onlyRenewalPending = document.getElementById('req-flt-renewal').checked;
+  const onlyWaslPending = document.getElementById('req-flt-wasl').checked;
+  const q = document.getElementById('req-q').value.trim().toLowerCase();
+
+  const rows = REQUESTS_CACHE.filter(r => {
+    if (onlyRenewalPending && r.renewal_status === 'Done') return false;
+    if (onlyWaslPending && r.wasl_status === 'Done') return false;
+    if (q && !['plate','encoder','sale_order','mobile','remarks'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  document.getElementById('requests-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHTML(r.date)}</td>
+      <td>${escapeHTML(r.encoder)}</td>
+      <td>${escapeHTML(r.plate)}</td>
+      <td>${escapeHTML(r.mobile)}</td>
+      <td>${r.amount ? escapeHTML(r.amount) : ''}</td>
+      <td>${escapeHTML(r.services)}</td>
+      <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:110px;padding:6px 8px"></td>
+      <td><label><input type="checkbox" id="req-ren-${r.id}" ${r.renewal_status === 'Done' ? 'checked' : ''}></label></td>
+      <td><label><input type="checkbox" id="req-wasl-${r.id}" ${r.wasl_status === 'Done' ? 'checked' : ''}></label></td>
+      <td><input id="req-rem-${r.id}" value="${escapeHTML(r.remarks)}" style="min-width:120px;padding:6px 8px"></td>
+      <td style="white-space:nowrap">
+        <button class="small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
+        <button class="small" onclick="updateRequest('${r.id}')">Update</button>
+        <span id="req-status-${r.id}" style="font-size:11px;color:#8a96a3"></span>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="11" class="no-results">No requests found</td></tr>';
+}
+
+async function updateRequest(docId) {
+  const statusEl = document.getElementById('req-status-' + docId);
+  statusEl.textContent = 'Saving...';
+  const updates = {
+    sale_order: document.getElementById('req-so-' + docId).value.trim(),
+    renewal_status: document.getElementById('req-ren-' + docId).checked ? 'Done' : 'Pending',
+    wasl_status: document.getElementById('req-wasl-' + docId).checked ? 'Done' : 'Pending',
+    remarks: document.getElementById('req-rem-' + docId).value.trim(),
+    needs_sharepoint_sync: true,
+    updated_by: auth.currentUser ? auth.currentUser.email : '',
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    await db.collection('requests').doc(docId).update(updates);
+    const idx = REQUESTS_CACHE.findIndex(r => r.id === docId);
+    if (idx !== -1) Object.assign(REQUESTS_CACHE[idx], updates);
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch (err) {
+    statusEl.style.color = '#ef5350';
+    statusEl.textContent = err.message;
+  }
+}
+
+function findVehicleByPlateText(plateText) {
+  const clean = String(plateText).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const num = (clean.match(/\d+/) || [''])[0];
+  const letters = (clean.match(/[A-Z]+/) || [''])[0];
+  if (!num) return null;
+  const candidates = DATA.filter(r => String(r.pn) === num);
+  if (candidates.length <= 1) return candidates[0] || null;
+  if (!letters) return null;
+  // pl/pm/pr store the Arabic letters, not English — match against
+  // Vehicle No / Vehicle Name instead, which are recorded in English.
+  return candidates.find(r => {
+    const vn = String(r.vn || '').toUpperCase().replace(/[^A-Z]/g, '');
+    const vnm = String(r.vnm || '').toUpperCase().replace(/[^A-Z]/g, '');
+    return vn === letters || vnm === letters;
+  }) || null;
+}
+
+function searchFromRequest(plate) {
+  switchTab('search');
+  const vehicle = findVehicleByPlateText(plate);
+  if (vehicle) {
+    RESULTS = [vehicle];
+    PAGE = 0;
+    renderPage();
+    document.getElementById('info').textContent = `Exact match for plate "${plate}"`;
+    document.getElementById('pager').innerHTML = '';
+    return;
+  }
+  // Fallback: couldn't resolve one exact vehicle, fall back to a normal search.
+  const firstNum = String(plate).match(/\d+/);
+  document.getElementById('field').value = firstNum ? 'pn' : '__any';
+  document.getElementById('q').value = firstNum ? firstNum[0] : plate;
+  doSearch();
+}
+
+['req-flt-renewal', 'req-flt-wasl'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderRequestsTable));
+document.getElementById('req-q').addEventListener('input', () => {
+  clearTimeout(window.reqFilterTimer);
+  window.reqFilterTimer = setTimeout(renderRequestsTable, 200);
+});
+
+// ==================== Renewals status tab (Firestore) ====================
+let RENEWALS_CACHE = [];
+
+async function loadRenewals() {
+  const statusEl = document.getElementById('renewals-status');
+  statusEl.textContent = 'Loading...';
+  try {
+    const snap = await db.collection('renewals').orderBy('created_at', 'desc').limit(200).get();
+    RENEWALS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    statusEl.textContent = `${RENEWALS_CACHE.length} renewal record(s)`;
+    renderRenewalsTable();
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+function pill(v) { return `<span class="pill ${v ? 'yes' : 'no'}">${v ? 'Yes' : 'No'}</span>`; }
+
+function renderRenewalsTable() {
+  const onlyWaslMissing = document.getElementById('flt-wasl').checked;
+  const onlyNotReporting = document.getElementById('flt-reporting').checked;
+  const onlyRenewalMissing = document.getElementById('flt-renewal').checked;
+
+  const rows = RENEWALS_CACHE.filter(r => {
+    if (onlyWaslMissing && r.wasl_done) return false;
+    if (onlyNotReporting && r.vehicle_reporting) return false;
+    if (onlyRenewalMissing && r.renewal_done) return false;
+    return true;
+  });
+
+  document.getElementById('renewals-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHTML(r.vehicle_name || r.vehicle_no || r.vehicle_id)}</td>
+      <td>${escapeHTML(r.plate_no)}</td>
+      <td>${escapeHTML(r.company_name)}</td>
+      <td>${escapeHTML(r.new_sale_order)}</td>
+      <td>${escapeHTML(r.new_exp_date)}</td>
+      <td>${pill(r.renewal_done)}</td>
+      <td>${pill(r.vehicle_reporting)}</td>
+      <td>${pill(r.wasl_done)}</td>
+      <td>${escapeHTML(r.missing_docs)}</td>
+      <td>${r.created_at && r.created_at.toDate ? r.created_at.toDate().toLocaleDateString() : ''}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="10" class="no-results">No renewal records</td></tr>';
+}
+
+['flt-wasl', 'flt-reporting', 'flt-renewal'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderRenewalsTable));
+
+function exportExcel() {
+  const rows = RENEWALS_CACHE.map(r => ({
+    Vehicle: r.vehicle_name || r.vehicle_no || r.vehicle_id,
+    Plate: r.plate_no || '',
+    Company: r.company_name || '',
+    'Sale Order': r.new_sale_order || '',
+    'New Exp Date': r.new_exp_date || '',
+    'Renewal Done': r.renewal_done ? 'Yes' : 'No',
+    'Vehicle Reporting': r.vehicle_reporting ? 'Yes' : 'No',
+    'Wasl Done': r.wasl_done ? 'Yes' : 'No',
+    'Missing Docs': r.missing_docs || '',
+    'Created By': r.created_by || '',
+    'Updated At': r.created_at && r.created_at.toDate ? r.created_at.toDate().toISOString().slice(0, 10) : ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Renewals');
+  XLSX.writeFile(wb, `renewals-export-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+</script>
+</body>
+</html>

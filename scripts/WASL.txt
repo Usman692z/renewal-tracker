@@ -1,0 +1,8 @@
+empty voltage: 1.5
+full load voltage: 4.5
+ 
+empty vehicle weight: from istamar
+full load vehicle weight: ask customer or divide empty vehicle weight/voltage
+ 
+weight sensor analog number: 1
+ 
