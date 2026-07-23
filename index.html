@@ -78,9 +78,23 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 .tool-out.ltr { direction: ltr; text-align: left; }
 .tool-out .arabic-plate { display: inline-block; background: #fff; color: #000; padding: 6px 14px; border-radius: 4px; font-size: 20px; font-weight: 700; letter-spacing: 4px; margin-right: 8px; direction: rtl; }
 .tool-out .hint { color: #8a96a3; font-size: 12px; margin-top: 6px; direction: ltr; text-align: left; }
+.toast-wrap { position: fixed; top: 16px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: #1a2128; border: 1px solid #2a3441; border-left: 4px solid #4fc3f7; border-radius: 6px; padding: 10px 16px; font-size: 13px; color: #e4e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 220px; animation: toast-in 0.2s ease-out; }
+.toast.success { border-left-color: #66bb6a; }
+.toast.error { border-left-color: #ef5350; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.stat-tile { background: #0f1419; padding: 10px 12px; border-radius: 4px; }
+.stat-tile .num { font-size: 20px; font-weight: 700; color: #4fc3f7; }
+.stat-tile .lbl { font-size: 11px; color: #8a96a3; text-transform: uppercase; }
+.req-row.open { border-left: 3px solid #ffa726; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #2a3441; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="toast-wrap" class="toast-wrap"></div>
 
 <div id="login-screen">
   <h1>Renewal Tracker</h1>
@@ -110,28 +124,69 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 
   <div class="tabs">
     <div class="tab active" data-tab="search" onclick="switchTab('search')">Search &amp; Renew</div>
-    <div class="tab" data-tab="deal" onclick="switchTab('deal')">Add Deal</div>
+    <div class="tab" data-tab="deal" onclick="switchTab('deal')">Renewal Request</div>
     <div class="tab" data-tab="requests" onclick="switchTab('requests')">Requests</div>
     <div class="tab" data-tab="status" onclick="switchTab('status')">Renewals Status</div>
   </div>
 
   <div id="tab-deal" style="display:none">
-    <div class="card" style="max-width:520px">
-      <div class="section-label" style="margin-bottom:12px">New Deal</div>
-      <div class="row" style="flex-direction:column;align-items:stretch">
-        <input id="deal-plate" placeholder="Plate (e.g. 3294 ATB)">
-        <input id="deal-mobile" placeholder="Mobile Number">
-        <input id="deal-amount" type="number" placeholder="Amount">
-        <input id="deal-services" placeholder="Services (e.g. Renewal, Transfer)">
-        <input id="deal-sale-order" placeholder="Sale Order # (if known)">
-        <div class="row">
-          <label><input type="checkbox" id="deal-renewal"> Renewal Done</label>
-          <label><input type="checkbox" id="deal-wasl"> Wasl Done</label>
+    <div class="row" style="align-items:flex-start;flex-wrap:wrap">
+      <div class="card" style="max-width:480px;flex:1;min-width:340px">
+        <div class="section-label" style="margin-bottom:12px">New Renewal Request</div>
+        <div class="row" style="flex-direction:column;align-items:stretch">
+          <div class="field"><span class="field-name">Encoder Name</span><span class="field-value" id="deal-encoder-display">—</span></div>
+          <input id="deal-mobile" placeholder="Mobile Number" type="tel">
+          <div class="field"><span class="field-name">Renewal ID</span><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
+          <input id="deal-plate" placeholder="Plate Number (e.g. 3294 ATB)">
+          <input id="deal-amount" type="number" placeholder="Amount">
+
+          <div class="section-label" style="margin-top:6px">Request Type</div>
+          <div class="row" style="gap:14px">
+            <label><input type="checkbox" id="deal-type-renewal"> Renewal</label>
+            <label><input type="checkbox" id="deal-type-transfer"> Transfer</label>
+            <label><input type="checkbox" id="deal-type-platechange"> Plate Change</label>
+          </div>
+          <div class="row" style="gap:14px">
+            <label><input type="checkbox" id="deal-type-newinstall"> New Installation</label>
+            <label><input type="checkbox" id="deal-type-services"> Services</label>
+          </div>
+
+          <input id="deal-sale-order" placeholder="Sale Order # (if known)">
+
+          <select id="deal-priority">
+            <option value="">Priority...</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+
+          <textarea id="deal-remarks" placeholder="Remarks by CS Team"></textarea>
+
+          <div class="row" style="gap:14px">
+            <label>Renewal Status
+              <select id="deal-renewal-status" style="margin-left:6px">
+                <option value="Pending">Pending</option>
+                <option value="Done">Done</option>
+              </select>
+            </label>
+            <label>WASL Status
+              <select id="deal-wasl-status" style="margin-left:6px">
+                <option value="Pending">Pending</option>
+                <option value="Done">Done</option>
+                <option value="Document Pending">Document Pending</option>
+                <option value="Cancel">Cancel</option>
+              </select>
+            </label>
+          </div>
+          <label><input type="checkbox" id="deal-customer-closed"> Customer Closed</label>
+
+          <button onclick="saveRenewalRequest()">Save Renewal Request</button>
+          <div id="deal-status" class="status" style="display:none"></div>
         </div>
-        <textarea id="deal-remarks" placeholder="Remarks"></textarea>
-        <button onclick="addDeal()">Save Deal</button>
-        <div id="deal-status" class="status" style="display:none"></div>
       </div>
+
+      <div style="flex:1;min-width:340px" id="deal-history-pane"></div>
     </div>
   </div>
 
@@ -347,6 +402,7 @@ function showApp(user) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('who-email').textContent = user.email;
+  fillEncoderName();
   if (!DATA.length) loadVehicleData();
 }
 
@@ -383,25 +439,162 @@ function switchTab(name) {
   if (name === 'requests' && !REQUESTS_CACHE.length) loadRequests();
 }
 
-async function addDeal() {
+// ==================== Toasts ====================
+function showToast(message, type) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = message;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ==================== Renewal Request module ====================
+let DEAL_HISTORY_UNSUB = null;
+let DEAL_HISTORY_DOCS = [];
+
+function fillEncoderName() {
+  const el = document.getElementById('deal-encoder-display');
+  if (el) el.textContent = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '—';
+}
+
+function computeRenewalId(mobile, existingDocs) {
+  const digits = String(mobile).replace(/\D/g, '');
+  const last4 = digits.slice(-4) || '0000';
+  const base = 'RN-' + last4;
+  const existingIds = new Set(existingDocs.map(r => r.renewal_id).filter(Boolean));
+  if (!existingIds.has(base)) return base;
+  let n = 1;
+  while (existingIds.has(base + '-' + String(n).padStart(2, '0'))) n++;
+  return base + '-' + String(n).padStart(2, '0');
+}
+
+function renderCustomerHistory() {
+  const pane = document.getElementById('deal-history-pane');
+  const docs = DEAL_HISTORY_DOCS;
+  if (!docs.length) {
+    pane.innerHTML = '<div class="status">No previous requests for this mobile number.</div>';
+    return;
+  }
+  const sorted = [...docs].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const totalVehicles = new Set(docs.map(r => r.plate).filter(Boolean)).size;
+  const open = docs.filter(r => r.renewal_status !== 'Done' || r.wasl_status !== 'Done').length;
+  const completed = docs.length - open;
+  const last = sorted[0];
+
+  pane.innerHTML = `
+    <div class="card">
+      <div class="section-label" style="margin-bottom:10px">Customer Summary</div>
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="num">${docs.length}</div><div class="lbl">Total Requests</div></div>
+        <div class="stat-tile"><div class="num">${totalVehicles}</div><div class="lbl">Total Vehicles</div></div>
+        <div class="stat-tile"><div class="num">${open}</div><div class="lbl">Open</div></div>
+        <div class="stat-tile"><div class="num">${completed}</div><div class="lbl">Completed</div></div>
+      </div>
+      <div class="grid">
+        ${fld('Mobile Number', last.mobile)}
+        ${fld('Last Renewal Date', last.date)}
+        ${fld('Last Remarks', last.remarks)}
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-label" style="margin-bottom:10px">Previous Requests</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Renewal ID</th><th>Plate</th><th>Amount</th><th>Sale Order</th><th>Type</th><th>Renewal</th><th>WASL</th><th>Date</th></tr></thead>
+          <tbody>
+            ${sorted.map(r => {
+              const isOpen = r.renewal_status !== 'Done' || r.wasl_status !== 'Done';
+              const types = ['renewal','transfer','plate_change','new_install'].filter(k => r[k]).map(k => k.replace('_',' ')).join(', ') || r.services || '';
+              return `<tr class="req-row${isOpen ? ' open' : ''}">
+                <td>${escapeHTML(r.renewal_id)}</td><td>${escapeHTML(r.plate)}</td><td>${r.amount || ''}</td>
+                <td>${escapeHTML(r.sale_order)}</td><td>${escapeHTML(types)}</td>
+                <td>${pill(r.renewal_status === 'Done')}</td><td>${pill(r.wasl_status === 'Done')}</td>
+                <td>${escapeHTML(r.date)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function lookupCustomerHistory(mobile) {
+  if (DEAL_HISTORY_UNSUB) { DEAL_HISTORY_UNSUB(); DEAL_HISTORY_UNSUB = null; }
+  if (!mobile) {
+    DEAL_HISTORY_DOCS = [];
+    document.getElementById('deal-history-pane').innerHTML = '';
+    document.getElementById('deal-renewal-id-display').textContent = 'Enter mobile number first';
+    return;
+  }
+  document.getElementById('deal-history-pane').innerHTML = '<div class="status"><span class="spinner"></span>Searching customer history...</div>';
+  document.getElementById('deal-renewal-id-display').textContent = 'Calculating...';
+  DEAL_HISTORY_UNSUB = db.collection('requests').where('mobile', '==', mobile).onSnapshot(snap => {
+    DEAL_HISTORY_DOCS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCustomerHistory();
+    document.getElementById('deal-renewal-id-display').textContent = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
+  }, err => {
+    document.getElementById('deal-history-pane').innerHTML = `<div class="status error">${err.message}</div>`;
+  });
+}
+
+let dealMobileTimer = null;
+document.getElementById('deal-mobile').addEventListener('input', () => {
+  clearTimeout(dealMobileTimer);
+  dealMobileTimer = setTimeout(() => lookupCustomerHistory(document.getElementById('deal-mobile').value.trim()), 400);
+});
+
+async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
+  const plate = document.getElementById('deal-plate').value.trim();
+  const mobile = document.getElementById('deal-mobile').value.trim();
+  const saleOrder = document.getElementById('deal-sale-order').value.trim();
+
+  if (!plate || !mobile) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Mobile Number and Plate Number are required';
+    return;
+  }
+
+  const dupPlate = DEAL_HISTORY_DOCS.find(r => r.plate === plate);
+  const dupSaleOrder = saleOrder && DEAL_HISTORY_DOCS.find(r => r.sale_order === saleOrder);
+  if (dupPlate || dupSaleOrder) {
+    const msg = dupSaleOrder
+      ? `Sale Order "${saleOrder}" already exists for this customer (Renewal ID ${dupSaleOrder.renewal_id}). Save anyway?`
+      : `This plate already has a request for this customer (Renewal ID ${dupPlate.renewal_id}). Save anyway?`;
+    if (!confirm(msg)) return;
+  }
+
   statusEl.style.display = 'block';
   statusEl.className = 'status';
-  statusEl.textContent = 'Saving...';
-  const plate = document.getElementById('deal-plate').value.trim();
-  if (!plate) { statusEl.className = 'status error'; statusEl.textContent = 'Plate is required'; return; }
+  statusEl.innerHTML = '<span class="spinner"></span>Saving...';
+
+  const renewalId = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
+  const typeFlags = {
+    renewal: document.getElementById('deal-type-renewal').checked,
+    transfer: document.getElementById('deal-type-transfer').checked,
+    plate_change: document.getElementById('deal-type-platechange').checked,
+    new_install: document.getElementById('deal-type-newinstall').checked
+  };
+  const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
+  if (document.getElementById('deal-type-services').checked) requestType.push('services');
 
   const payload = {
     date: new Date().toISOString().slice(0, 10),
     encoder: auth.currentUser ? auth.currentUser.email : '',
+    renewal_id: renewalId,
     plate: plate,
-    mobile: document.getElementById('deal-mobile').value.trim(),
+    mobile: mobile,
     amount: parseFloat(document.getElementById('deal-amount').value) || 0,
-    services: document.getElementById('deal-services').value.trim(),
-    sale_order: document.getElementById('deal-sale-order').value.trim(),
-    renewal_status: document.getElementById('deal-renewal').checked ? 'Done' : 'Pending',
-    wasl_status: document.getElementById('deal-wasl').checked ? 'Done' : 'Pending',
+    ...typeFlags,
+    services: requestType.join(', '),
+    sale_order: saleOrder,
+    priority: document.getElementById('deal-priority').value,
     remarks: document.getElementById('deal-remarks').value.trim(),
+    renewal_status: document.getElementById('deal-renewal-status').value,
+    wasl_status: document.getElementById('deal-wasl-status').value,
+    customer_closed: document.getElementById('deal-customer-closed').checked,
     source: 'manual',
     needs_sharepoint_sync: false,
     created_by: auth.currentUser ? auth.currentUser.email : '',
@@ -411,13 +604,17 @@ async function addDeal() {
   try {
     const docId = 'deal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     await db.collection('requests').doc(docId).set(payload);
-    statusEl.textContent = 'Saved. Visible in Requests tab.';
-    ['deal-plate','deal-mobile','deal-amount','deal-services','deal-sale-order','deal-remarks'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('deal-renewal').checked = false;
-    document.getElementById('deal-wasl').checked = false;
+    statusEl.style.display = 'none';
+    showToast(`Saved — Renewal ID ${renewalId}. Visible in Requests tab.`, 'success');
+    ['deal-plate','deal-amount','deal-sale-order','deal-remarks'].forEach(id => document.getElementById(id).value = '');
+    ['deal-type-renewal','deal-type-transfer','deal-type-platechange','deal-type-newinstall','deal-type-services','deal-customer-closed'].forEach(id => document.getElementById(id).checked = false);
+    document.getElementById('deal-priority').value = '';
+    document.getElementById('deal-renewal-status').value = 'Pending';
+    document.getElementById('deal-wasl-status').value = 'Pending';
   } catch (err) {
     statusEl.className = 'status error';
     statusEl.textContent = err.message;
+    showToast(err.message, 'error');
   }
 }
 
