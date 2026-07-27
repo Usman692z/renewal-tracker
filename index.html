@@ -181,6 +181,36 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
           </div>
           <label><input type="checkbox" id="deal-customer-closed"> Customer Closed</label>
 
+          <div class="section-label" style="margin-top:6px">Case Stage</div>
+          <select id="deal-stage" onchange="onStageChange()">
+            <option value="1">1 — Payment Received (Case Created)</option>
+            <option value="2">2 — Sale Order Create</option>
+            <option value="3">3 — Renewal Processing</option>
+            <option value="4">4 — Renewal Done</option>
+            <option value="5">5 — WASL Processing</option>
+            <option value="6">6 — WASL Completed</option>
+            <option value="7">7 — Device Check</option>
+            <option value="8">8 — Customer Close</option>
+          </select>
+
+          <div id="deal-device-status-block" style="display:none">
+            <div class="row" style="gap:14px">
+              <label><input type="radio" name="deal-device-status" value="Reporting" onchange="onDeviceStatusChange()"> Reporting</label>
+              <label><input type="radio" name="deal-device-status" value="Non Reporting" onchange="onDeviceStatusChange()"> Non Reporting</label>
+            </div>
+            <div id="deal-reporting-block" style="display:none">
+              <label><input type="checkbox" id="deal-invoice-vat-sent"> 2nd Phase — Invoice (VAT) Sent</label>
+            </div>
+            <div id="deal-nonreporting-block" style="display:none">
+              <label>Fix Status
+                <select id="deal-fix-status" style="margin-left:6px">
+                  <option value="Pending">Pending (Terminal)</option>
+                  <option value="Fixed">Fixed</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
           <button onclick="saveRenewalRequest()">Save Renewal Request</button>
           <div id="deal-status" class="status" style="display:none"></div>
         </div>
@@ -269,7 +299,7 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
         <thead>
           <tr>
             <th>Renewal ID</th><th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
-            <th>Sale Order</th><th>Priority</th><th>Renewal</th><th>Wasl</th><th>Closed</th><th>Remarks</th><th></th>
+            <th>Sale Order</th><th>Priority</th><th>Stage</th><th>Device</th><th>Renewal</th><th>Wasl</th><th>Closed</th><th>Remarks</th><th></th>
           </tr>
         </thead>
         <tbody id="requests-tbody"></tbody>
@@ -501,7 +531,7 @@ function renderCustomerHistory() {
       <div class="section-label" style="margin-bottom:10px">Previous Requests</div>
       <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Renewal ID</th><th>Plate</th><th>Amount</th><th>Sale Order</th><th>Type</th><th>Renewal</th><th>WASL</th><th>Date</th></tr></thead>
+          <thead><tr><th>Renewal ID</th><th>Plate</th><th>Amount</th><th>Sale Order</th><th>Type</th><th>Stage</th><th>Renewal</th><th>WASL</th><th>Date</th></tr></thead>
           <tbody>
             ${sorted.map(r => {
               const isOpen = r.renewal_status !== 'Done' || r.wasl_status !== 'Done';
@@ -509,6 +539,7 @@ function renderCustomerHistory() {
               return `<tr class="req-row${isOpen ? ' open' : ''}">
                 <td>${escapeHTML(r.renewal_id)}</td><td>${escapeHTML(r.plate)}</td><td>${r.amount || ''}</td>
                 <td>${escapeHTML(r.sale_order)}</td><td>${escapeHTML(types)}</td>
+                <td>${r.stage ? r.stage + ' — ' + escapeHTML(r.stage_label) : ''}</td>
                 <td>${pill(r.renewal_status === 'Done')}</td><td>${pill(r.wasl_status === 'Done')}</td>
                 <td>${escapeHTML(r.date)}</td>
               </tr>`;
@@ -543,6 +574,22 @@ document.getElementById('deal-mobile').addEventListener('input', () => {
   clearTimeout(dealMobileTimer);
   dealMobileTimer = setTimeout(() => lookupCustomerHistory(document.getElementById('deal-mobile').value.trim()), 400);
 });
+
+const STAGE_LABELS = {
+  1: 'Payment Received (Case Created)', 2: 'Sale Order Create', 3: 'Renewal Processing',
+  4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
+};
+
+function onStageChange() {
+  const stage = parseInt(document.getElementById('deal-stage').value, 10);
+  document.getElementById('deal-device-status-block').style.display = stage >= 7 ? 'block' : 'none';
+}
+
+function onDeviceStatusChange() {
+  const val = document.querySelector('input[name="deal-device-status"]:checked');
+  document.getElementById('deal-reporting-block').style.display = val && val.value === 'Reporting' ? 'block' : 'none';
+  document.getElementById('deal-nonreporting-block').style.display = val && val.value === 'Non Reporting' ? 'block' : 'none';
+}
 
 async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
@@ -595,6 +642,11 @@ async function saveRenewalRequest() {
     renewal_status: document.getElementById('deal-renewal-status').value,
     wasl_status: document.getElementById('deal-wasl-status').value,
     customer_closed: document.getElementById('deal-customer-closed').checked,
+    stage: parseInt(document.getElementById('deal-stage').value, 10),
+    stage_label: STAGE_LABELS[document.getElementById('deal-stage').value],
+    device_status: (document.querySelector('input[name="deal-device-status"]:checked') || {}).value || '',
+    invoice_vat_sent: document.getElementById('deal-invoice-vat-sent').checked,
+    fix_status: document.getElementById('deal-fix-status').value,
     source: 'manual',
     needs_sharepoint_sync: false,
     created_by: auth.currentUser ? auth.currentUser.email : '',
@@ -611,6 +663,12 @@ async function saveRenewalRequest() {
     document.getElementById('deal-priority').value = '';
     document.getElementById('deal-renewal-status').value = 'Pending';
     document.getElementById('deal-wasl-status').value = 'Pending';
+    document.getElementById('deal-stage').value = '1';
+    document.getElementById('deal-invoice-vat-sent').checked = false;
+    document.getElementById('deal-fix-status').value = 'Pending';
+    document.querySelectorAll('input[name="deal-device-status"]').forEach(el => el.checked = false);
+    onStageChange();
+    onDeviceStatusChange();
   } catch (err) {
     statusEl.className = 'status error';
     statusEl.textContent = err.message;
@@ -934,6 +992,18 @@ function renderRequestsTable() {
           <option value="Urgent" ${r.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
         </select>
       </td>
+      <td>
+        <select id="req-stage-${r.id}" style="padding:6px 8px">
+          ${Object.entries(STAGE_LABELS).map(([n, label]) => `<option value="${n}" ${String(r.stage) === n ? 'selected' : ''}>${n} — ${label}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select id="req-device-${r.id}" style="padding:6px 8px">
+          <option value="" ${!r.device_status ? 'selected' : ''}>—</option>
+          <option value="Reporting" ${r.device_status === 'Reporting' ? 'selected' : ''}>Reporting</option>
+          <option value="Non Reporting" ${r.device_status === 'Non Reporting' ? 'selected' : ''}>Non Reporting</option>
+        </select>
+      </td>
       <td><label><input type="checkbox" id="req-ren-${r.id}" ${r.renewal_status === 'Done' ? 'checked' : ''}></label></td>
       <td><label><input type="checkbox" id="req-wasl-${r.id}" ${r.wasl_status === 'Done' ? 'checked' : ''}></label></td>
       <td><label><input type="checkbox" id="req-closed-${r.id}" ${r.customer_closed ? 'checked' : ''}></label></td>
@@ -944,15 +1014,19 @@ function renderRequestsTable() {
         <span id="req-status-${r.id}" style="font-size:11px;color:#8a96a3"></span>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="14" class="no-results">No requests found</td></tr>';
+  `).join('') || '<tr><td colspan="16" class="no-results">No requests found</td></tr>';
 }
 
 async function updateRequest(docId) {
   const statusEl = document.getElementById('req-status-' + docId);
   statusEl.textContent = 'Saving...';
+  const stageVal = parseInt(document.getElementById('req-stage-' + docId).value, 10);
   const updates = {
     sale_order: document.getElementById('req-so-' + docId).value.trim(),
     priority: document.getElementById('req-prio-' + docId).value,
+    stage: stageVal,
+    stage_label: STAGE_LABELS[stageVal],
+    device_status: document.getElementById('req-device-' + docId).value,
     renewal_status: document.getElementById('req-ren-' + docId).checked ? 'Done' : 'Pending',
     wasl_status: document.getElementById('req-wasl-' + docId).checked ? 'Done' : 'Pending',
     customer_closed: document.getElementById('req-closed-' + docId).checked,
