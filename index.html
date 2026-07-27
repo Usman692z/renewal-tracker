@@ -431,12 +431,21 @@ function showLogin() {
 function showApp(user) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('who-email').textContent = user.email;
+  document.getElementById('who-email').textContent = user.email || 'Guest (test mode)';
   fillEncoderName();
   if (!DATA.length) loadVehicleData();
 }
 
-auth.onAuthStateChanged(user => { user ? showApp(user) : showLogin(); });
+// TEMP TEST MODE (2026-07-23): login screen bypassed via silent anonymous
+// sign-in so anyone with the URL gets straight into the app — no access
+// control right now. Revert by removing the anonymous-sign-in branch below
+// and restoring `user ? showApp(user) : showLogin();`.
+const TEMP_TEST_MODE_NO_LOGIN = true;
+auth.onAuthStateChanged(user => {
+  if (user) { showApp(user); return; }
+  if (TEMP_TEST_MODE_NO_LOGIN) { auth.signInAnonymously().catch(err => showToast('Auto sign-in failed: ' + err.message, 'error')); return; }
+  showLogin();
+});
 
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
@@ -485,7 +494,7 @@ let DEAL_HISTORY_DOCS = [];
 
 function fillEncoderName() {
   const el = document.getElementById('deal-encoder-display');
-  if (el) el.textContent = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '—';
+  if (el) el.textContent = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—';
 }
 
 function computeRenewalId(mobile, existingDocs) {
