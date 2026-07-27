@@ -91,33 +91,23 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #2a3441; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Renewal Request wizard */
-.wizard-steps { display: flex; align-items: center; margin-bottom: 20px; }
-.wizard-step { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
-.wizard-dot { width: 30px; height: 30px; border-radius: 50%; background: #0f1419; border: 2px solid #2a3441; color: #8a96a3; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; transition: all 0.2s ease-out; }
-.wizard-step.active .wizard-dot { border-color: #4fc3f7; color: #4fc3f7; background: rgba(79,195,247,0.12); }
-.wizard-step.done .wizard-dot { border-color: #66bb6a; background: #66bb6a; color: #0f1419; }
-.wizard-lbl { font-size: 11px; color: #8a96a3; white-space: nowrap; }
-.wizard-step.active .wizard-lbl { color: #e4e7eb; font-weight: 600; }
-.wizard-line { flex: 1; height: 2px; background: #2a3441; margin: 0 4px 20px; min-width: 12px; }
-.wizard-panel { animation: fade-in 0.2s ease-out; }
-@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.wizard-nav { display: flex; justify-content: space-between; margin-top: 18px; gap: 10px; }
 .input-label { display: block; font-size: 12px; color: #8a96a3; margin-bottom: 4px; font-weight: 600; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; background: #0f1419; border: 1px solid #2a3441; border-radius: 20px; padding: 7px 14px; font-size: 13px; cursor: pointer; transition: border-color 0.15s; }
 .chip:has(input:checked) { border-color: #4fc3f7; color: #4fc3f7; }
-.stage-track { display: flex; overflow-x: auto; gap: 0; padding-bottom: 6px; }
-.stage-node { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 76px; position: relative; }
-.stage-node:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: 55%; width: 100%; height: 2px; background: #2a3441; z-index: 0; }
-.stage-num { width: 26px; height: 26px; border-radius: 50%; background: #0f1419; border: 2px solid #2a3441; color: #8a96a3; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; z-index: 1; transition: all 0.2s ease-out; }
-.stage-lbl { font-size: 10px; color: #8a96a3; text-align: center; line-height: 1.3; }
-.stage-node.current .stage-num { border-color: #4fc3f7; background: rgba(79,195,247,0.15); color: #4fc3f7; }
-.stage-node.current .stage-lbl { color: #e4e7eb; font-weight: 600; }
-.stage-node.past .stage-num { border-color: #66bb6a; background: #66bb6a; color: #0f1419; }
-.stage-node.past::after { background: #66bb6a; }
+
+/* Pipeline tab */
+.stage-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.stage-pill { background: #1a2128; border: 1px solid #2a3441; border-radius: 20px; padding: 8px 16px; font-size: 13px; cursor: pointer; color: #8a96a3; white-space: nowrap; }
+.stage-pill .cnt { display: inline-block; margin-left: 6px; background: #0f1419; border-radius: 10px; padding: 1px 7px; font-size: 11px; }
+.stage-pill.active { border-color: #4fc3f7; color: #4fc3f7; background: rgba(79,195,247,0.1); }
+.pipeline-card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+.pipeline-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pipeline-card-title { font-weight: 600; color: #4fc3f7; font-size: 14px; }
+.pipeline-card-sub { font-size: 12px; color: #8a96a3; }
+.pipeline-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -152,164 +142,73 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 
   <div class="tabs">
     <div class="tab active" data-tab="search" onclick="switchTab('search')">Search &amp; Renew</div>
-    <div class="tab" data-tab="deal" onclick="switchTab('deal')">Renewal Request</div>
+    <div class="tab" data-tab="deal" onclick="switchTab('deal')">New Request</div>
+    <div class="tab" data-tab="pipeline" onclick="switchTab('pipeline')">Pipeline</div>
     <div class="tab" data-tab="requests" onclick="switchTab('requests')">Requests</div>
     <div class="tab" data-tab="status" onclick="switchTab('status')">Renewals Status</div>
   </div>
 
   <div id="tab-deal" style="display:none">
     <div class="row" style="align-items:flex-start;flex-wrap:wrap;gap:20px">
-      <div class="card" style="max-width:560px;flex:1;min-width:360px">
+      <div class="card" style="max-width:480px;flex:1;min-width:340px">
+        <div class="section-label" style="margin-bottom:12px">New Request — Stage 1: Payment Received</div>
+        <div class="grid2">
+          <div>
+            <label class="input-label">Mobile Number</label>
+            <input id="deal-mobile" placeholder="e.g. 0501234567" type="tel">
+          </div>
+          <div>
+            <label class="input-label">Encoder Name</label>
+            <div class="field"><span class="field-value" id="deal-encoder-display">—</span></div>
+          </div>
+        </div>
+        <label class="input-label" style="margin-top:10px">Renewal ID</label>
+        <div class="field"><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
 
-        <div class="wizard-steps">
-          <div class="wizard-step" data-wstep="1" onclick="goToWizardStep(1)"><div class="wizard-dot">1</div><div class="wizard-lbl">Customer</div></div>
-          <div class="wizard-line"></div>
-          <div class="wizard-step" data-wstep="2" onclick="goToWizardStep(2)"><div class="wizard-dot">2</div><div class="wizard-lbl">Vehicle</div></div>
-          <div class="wizard-line"></div>
-          <div class="wizard-step" data-wstep="3" onclick="goToWizardStep(3)"><div class="wizard-dot">3</div><div class="wizard-lbl">Status</div></div>
-          <div class="wizard-line"></div>
-          <div class="wizard-step" data-wstep="4" onclick="goToWizardStep(4)"><div class="wizard-dot">4</div><div class="wizard-lbl">Case Stage</div></div>
+        <div class="grid2" style="margin-top:10px">
+          <div>
+            <label class="input-label">Plate Number</label>
+            <input id="deal-plate" placeholder="e.g. 3294 ATB">
+          </div>
+          <div>
+            <label class="input-label">Amount</label>
+            <input id="deal-amount" type="number" placeholder="0.00">
+          </div>
         </div>
 
-        <!-- Step 1: Customer -->
-        <div class="wizard-panel" id="wpanel-1">
-          <div class="section-label">Customer</div>
-          <div class="grid2">
-            <div>
-              <label class="input-label">Mobile Number</label>
-              <input id="deal-mobile" placeholder="e.g. 0501234567" type="tel">
-            </div>
-            <div>
-              <label class="input-label">Encoder Name</label>
-              <div class="field"><span class="field-value" id="deal-encoder-display">—</span></div>
-            </div>
-          </div>
-          <label class="input-label" style="margin-top:10px">Renewal ID</label>
-          <div class="field"><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
-          <div class="wizard-nav"><span></span><button onclick="goToWizardStep(2)">Next: Vehicle →</button></div>
+        <label class="input-label" style="margin-top:10px">Request Type</label>
+        <div class="chip-row">
+          <label class="chip"><input type="checkbox" id="deal-type-renewal"> Renewal</label>
+          <label class="chip"><input type="checkbox" id="deal-type-transfer"> Transfer</label>
+          <label class="chip"><input type="checkbox" id="deal-type-platechange"> Plate Change</label>
+          <label class="chip"><input type="checkbox" id="deal-type-newinstall"> New Installation</label>
+          <label class="chip"><input type="checkbox" id="deal-type-services"> Services</label>
         </div>
 
-        <!-- Step 2: Vehicle & Request -->
-        <div class="wizard-panel" id="wpanel-2" style="display:none">
-          <div class="section-label">Vehicle &amp; Request</div>
-          <div class="grid2">
-            <div>
-              <label class="input-label">Plate Number</label>
-              <input id="deal-plate" placeholder="e.g. 3294 ATB">
-            </div>
-            <div>
-              <label class="input-label">Amount</label>
-              <input id="deal-amount" type="number" placeholder="0.00">
-            </div>
-          </div>
+        <label class="input-label" style="margin-top:10px">Priority</label>
+        <select id="deal-priority">
+          <option value="">Select...</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+          <option value="Urgent">Urgent</option>
+        </select>
 
-          <label class="input-label" style="margin-top:10px">Request Type</label>
-          <div class="chip-row">
-            <label class="chip"><input type="checkbox" id="deal-type-renewal"> Renewal</label>
-            <label class="chip"><input type="checkbox" id="deal-type-transfer"> Transfer</label>
-            <label class="chip"><input type="checkbox" id="deal-type-platechange"> Plate Change</label>
-            <label class="chip"><input type="checkbox" id="deal-type-newinstall"> New Installation</label>
-            <label class="chip"><input type="checkbox" id="deal-type-services"> Services</label>
-          </div>
+        <label class="input-label" style="margin-top:10px">Remarks by CS Team</label>
+        <textarea id="deal-remarks" placeholder="Notes for this request..."></textarea>
 
-          <div class="grid2" style="margin-top:10px">
-            <div>
-              <label class="input-label">Sale Order #</label>
-              <input id="deal-sale-order" placeholder="If known">
-            </div>
-            <div>
-              <label class="input-label">Priority</label>
-              <select id="deal-priority">
-                <option value="">Select...</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Urgent">Urgent</option>
-              </select>
-            </div>
-          </div>
-          <div class="wizard-nav"><button class="secondary" onclick="goToWizardStep(1)">← Back</button><button onclick="goToWizardStep(3)">Next: Status →</button></div>
-        </div>
-
-        <!-- Step 3: Status & Remarks -->
-        <div class="wizard-panel" id="wpanel-3" style="display:none">
-          <div class="section-label">Status &amp; Remarks</div>
-          <div class="grid2">
-            <div>
-              <label class="input-label">Renewal Status</label>
-              <select id="deal-renewal-status">
-                <option value="Pending">Pending</option>
-                <option value="Done">Done</option>
-              </select>
-            </div>
-            <div>
-              <label class="input-label">WASL Status</label>
-              <select id="deal-wasl-status">
-                <option value="Pending">Pending</option>
-                <option value="Done">Done</option>
-                <option value="Document Pending">Document Pending</option>
-                <option value="Cancel">Cancel</option>
-              </select>
-            </div>
-          </div>
-          <label class="chip" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="deal-customer-closed"> Customer Closed</label>
-          <label class="input-label" style="margin-top:10px">Remarks by CS Team</label>
-          <textarea id="deal-remarks" placeholder="Notes for this request..."></textarea>
-          <div class="wizard-nav"><button class="secondary" onclick="goToWizardStep(2)">← Back</button><button onclick="goToWizardStep(4)">Next: Case Stage →</button></div>
-        </div>
-
-        <!-- Step 4: Case Stage -->
-        <div class="wizard-panel" id="wpanel-4" style="display:none">
-          <div class="section-label">Case Stage</div>
-          <div class="stage-track" id="stage-track">
-            <div class="stage-node" data-stage="1"><div class="stage-num">1</div><div class="stage-lbl">Payment Received</div></div>
-            <div class="stage-node" data-stage="2"><div class="stage-num">2</div><div class="stage-lbl">Sale Order Create</div></div>
-            <div class="stage-node" data-stage="3"><div class="stage-num">3</div><div class="stage-lbl">Renewal Processing</div></div>
-            <div class="stage-node" data-stage="4"><div class="stage-num">4</div><div class="stage-lbl">Renewal Done</div></div>
-            <div class="stage-node" data-stage="5"><div class="stage-num">5</div><div class="stage-lbl">WASL Processing</div></div>
-            <div class="stage-node" data-stage="6"><div class="stage-num">6</div><div class="stage-lbl">WASL Completed</div></div>
-            <div class="stage-node" data-stage="7"><div class="stage-num">7</div><div class="stage-lbl">Device Check</div></div>
-            <div class="stage-node" data-stage="8"><div class="stage-num">8</div><div class="stage-lbl">Customer Close</div></div>
-          </div>
-          <select id="deal-stage" onchange="onStageChange()" style="margin-top:12px">
-            <option value="1">1 — Payment Received (Case Created)</option>
-            <option value="2">2 — Sale Order Create</option>
-            <option value="3">3 — Renewal Processing</option>
-            <option value="4">4 — Renewal Done</option>
-            <option value="5">5 — WASL Processing</option>
-            <option value="6">6 — WASL Completed</option>
-            <option value="7">7 — Device Check</option>
-            <option value="8">8 — Customer Close</option>
-          </select>
-
-          <div id="deal-device-status-block" style="display:none;margin-top:10px">
-            <label class="input-label">Device Status</label>
-            <div class="chip-row">
-              <label class="chip"><input type="radio" name="deal-device-status" value="Reporting" onchange="onDeviceStatusChange()"> Reporting</label>
-              <label class="chip"><input type="radio" name="deal-device-status" value="Non Reporting" onchange="onDeviceStatusChange()"> Non Reporting</label>
-            </div>
-            <div id="deal-reporting-block" style="display:none;margin-top:8px">
-              <label class="chip" style="display:inline-flex"><input type="checkbox" id="deal-invoice-vat-sent"> 2nd Phase — Invoice (VAT) Sent</label>
-            </div>
-            <div id="deal-nonreporting-block" style="display:none;margin-top:8px">
-              <label class="input-label">Fix Status</label>
-              <select id="deal-fix-status">
-                <option value="Pending">Pending (Terminal)</option>
-                <option value="Fixed">Fixed</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="wizard-nav">
-            <button class="secondary" onclick="goToWizardStep(3)">← Back</button>
-            <button onclick="saveRenewalRequest()">✓ Save Renewal Request</button>
-          </div>
-          <div id="deal-status" class="status" style="display:none"></div>
-        </div>
+        <button style="margin-top:14px" onclick="saveRenewalRequest()">Create Request (Stage 1)</button>
+        <div id="deal-status" class="status" style="display:none"></div>
       </div>
 
       <div style="flex:1;min-width:340px" id="deal-history-pane"></div>
     </div>
+  </div>
+
+  <div id="tab-pipeline" style="display:none">
+    <div class="stage-pills" id="stage-pills"></div>
+    <div id="pipeline-status" class="status"></div>
+    <div id="pipeline-list"></div>
   </div>
 
   <div id="tab-search">
@@ -564,10 +463,12 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.getElementById('tab-search').style.display = name === 'search' ? 'block' : 'none';
   document.getElementById('tab-deal').style.display = name === 'deal' ? 'block' : 'none';
+  document.getElementById('tab-pipeline').style.display = name === 'pipeline' ? 'block' : 'none';
   document.getElementById('tab-requests').style.display = name === 'requests' ? 'block' : 'none';
   document.getElementById('tab-status').style.display = name === 'status' ? 'block' : 'none';
   if (name === 'status') loadRenewals();
-  if (name === 'requests' && !REQUESTS_CACHE.length) loadRequests();
+  if ((name === 'requests' || name === 'pipeline') && !REQUESTS_CACHE.length) loadRequests();
+  if (name === 'pipeline') renderPipeline();
 }
 
 // ==================== Toasts ====================
@@ -681,38 +582,10 @@ const STAGE_LABELS = {
   4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
 };
 
-let currentWizardStep = 1;
-function goToWizardStep(n) {
-  currentWizardStep = n;
-  for (let i = 1; i <= 4; i++) {
-    document.getElementById('wpanel-' + i).style.display = i === n ? 'block' : 'none';
-    const stepEl = document.querySelector(`.wizard-step[data-wstep="${i}"]`);
-    stepEl.classList.toggle('active', i === n);
-    stepEl.classList.toggle('done', i < n);
-  }
-}
-
-function onStageChange() {
-  const stage = parseInt(document.getElementById('deal-stage').value, 10);
-  document.getElementById('deal-device-status-block').style.display = stage >= 7 ? 'block' : 'none';
-  document.querySelectorAll('.stage-node').forEach(node => {
-    const n = parseInt(node.dataset.stage, 10);
-    node.classList.toggle('current', n === stage);
-    node.classList.toggle('past', n < stage);
-  });
-}
-
-function onDeviceStatusChange() {
-  const val = document.querySelector('input[name="deal-device-status"]:checked');
-  document.getElementById('deal-reporting-block').style.display = val && val.value === 'Reporting' ? 'block' : 'none';
-  document.getElementById('deal-nonreporting-block').style.display = val && val.value === 'Non Reporting' ? 'block' : 'none';
-}
-
 async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
   const plate = document.getElementById('deal-plate').value.trim();
   const mobile = document.getElementById('deal-mobile').value.trim();
-  const saleOrder = document.getElementById('deal-sale-order').value.trim();
 
   if (!plate || !mobile) {
     statusEl.style.display = 'block';
@@ -722,12 +595,8 @@ async function saveRenewalRequest() {
   }
 
   const dupPlate = DEAL_HISTORY_DOCS.find(r => r.plate === plate);
-  const dupSaleOrder = saleOrder && DEAL_HISTORY_DOCS.find(r => r.sale_order === saleOrder);
-  if (dupPlate || dupSaleOrder) {
-    const msg = dupSaleOrder
-      ? `Sale Order "${saleOrder}" already exists for this customer (Renewal ID ${dupSaleOrder.renewal_id}). Save anyway?`
-      : `This plate already has a request for this customer (Renewal ID ${dupPlate.renewal_id}). Save anyway?`;
-    if (!confirm(msg)) return;
+  if (dupPlate) {
+    if (!confirm(`This plate already has a request for this customer (Renewal ID ${dupPlate.renewal_id}). Create a new one anyway?`)) return;
   }
 
   statusEl.style.display = 'block';
@@ -753,17 +622,17 @@ async function saveRenewalRequest() {
     amount: parseFloat(document.getElementById('deal-amount').value) || 0,
     ...typeFlags,
     services: requestType.join(', '),
-    sale_order: saleOrder,
+    sale_order: '',
     priority: document.getElementById('deal-priority').value,
     remarks: document.getElementById('deal-remarks').value.trim(),
-    renewal_status: document.getElementById('deal-renewal-status').value,
-    wasl_status: document.getElementById('deal-wasl-status').value,
-    customer_closed: document.getElementById('deal-customer-closed').checked,
-    stage: parseInt(document.getElementById('deal-stage').value, 10),
-    stage_label: STAGE_LABELS[document.getElementById('deal-stage').value],
-    device_status: (document.querySelector('input[name="deal-device-status"]:checked') || {}).value || '',
-    invoice_vat_sent: document.getElementById('deal-invoice-vat-sent').checked,
-    fix_status: document.getElementById('deal-fix-status').value,
+    renewal_status: 'Pending',
+    wasl_status: 'Pending',
+    customer_closed: false,
+    stage: 1,
+    stage_label: STAGE_LABELS[1],
+    device_status: '',
+    invoice_vat_sent: false,
+    fix_status: 'Pending',
     source: 'manual',
     needs_sharepoint_sync: false,
     created_by: auth.currentUser ? auth.currentUser.email : '',
@@ -774,19 +643,10 @@ async function saveRenewalRequest() {
     const docId = 'deal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     await db.collection('requests').doc(docId).set(payload);
     statusEl.style.display = 'none';
-    showToast(`Saved — Renewal ID ${renewalId}. Visible in Requests tab.`, 'success');
-    ['deal-plate','deal-amount','deal-sale-order','deal-remarks'].forEach(id => document.getElementById(id).value = '');
-    ['deal-type-renewal','deal-type-transfer','deal-type-platechange','deal-type-newinstall','deal-type-services','deal-customer-closed'].forEach(id => document.getElementById(id).checked = false);
+    showToast(`Request created — Renewal ID ${renewalId}. Now in Pipeline, Stage 1.`, 'success');
+    ['deal-plate','deal-amount','deal-remarks'].forEach(id => document.getElementById(id).value = '');
+    ['deal-type-renewal','deal-type-transfer','deal-type-platechange','deal-type-newinstall','deal-type-services'].forEach(id => document.getElementById(id).checked = false);
     document.getElementById('deal-priority').value = '';
-    document.getElementById('deal-renewal-status').value = 'Pending';
-    document.getElementById('deal-wasl-status').value = 'Pending';
-    document.getElementById('deal-stage').value = '1';
-    document.getElementById('deal-invoice-vat-sent').checked = false;
-    document.getElementById('deal-fix-status').value = 'Pending';
-    document.querySelectorAll('input[name="deal-device-status"]').forEach(el => el.checked = false);
-    onStageChange();
-    onDeviceStatusChange();
-    goToWizardStep(1);
   } catch (err) {
     statusEl.className = 'status error';
     statusEl.textContent = err.message;
@@ -1073,10 +933,119 @@ function loadRequests() {
       if (!active || !document.getElementById('requests-tbody').contains(active)) {
         renderRequestsTable();
       }
+      if (document.getElementById('tab-pipeline').style.display !== 'none') renderPipeline();
     }, err => {
       statusEl.className = 'status error';
       statusEl.textContent = err.message;
     });
+}
+
+// ==================== Pipeline tab (stage-by-stage, immediate save) ====================
+let currentPipelineStage = 1;
+
+function selectPipelineStage(n) {
+  currentPipelineStage = n;
+  renderPipeline();
+}
+
+function renderPipeline() {
+  const pillsEl = document.getElementById('stage-pills');
+  const counts = {};
+  REQUESTS_CACHE.forEach(r => { const s = r.stage || 1; counts[s] = (counts[s] || 0) + 1; });
+  pillsEl.innerHTML = Object.entries(STAGE_LABELS).map(([n, label]) => `
+    <div class="stage-pill${parseInt(n,10) === currentPipelineStage ? ' active' : ''}" onclick="selectPipelineStage(${n})">
+      ${n} · ${label}<span class="cnt">${counts[n] || 0}</span>
+    </div>
+  `).join('');
+
+  const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === currentPipelineStage);
+  document.getElementById('pipeline-status').textContent = `${cases.length} case(s) at this stage`;
+  document.getElementById('pipeline-list').innerHTML = cases.map(renderPipelineCard).join('')
+    || '<div class="no-results">No cases at this stage</div>';
+}
+
+function renderPipelineCard(r) {
+  const head = `
+    <div class="pipeline-card-head">
+      <div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — ${escapeHTML(r.plate)}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · ${r.amount || 0}</div>
+      </div>
+    </div>`;
+  let action = '';
+  const stage = r.stage || 1;
+
+  if (stage === 1) {
+    action = `<div class="pipeline-actions">
+      <input id="pl-so-${r.id}" placeholder="Sale Order #" style="max-width:160px">
+      <button class="small" onclick="advancePipelineCase('${r.id}', {sale_order: document.getElementById('pl-so-${r.id}').value.trim()}, 2)">Create Sale Order → Stage 2</button>
+    </div>`;
+  } else if (stage === 2) {
+    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 3)">Start Renewal Processing → Stage 3</button></div>`;
+  } else if (stage === 3) {
+    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {renewal_status: 'Done'}, 4)">Mark Renewal Done → Stage 4</button></div>`;
+  } else if (stage === 4) {
+    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 5)">Start WASL Processing → Stage 5</button></div>`;
+  } else if (stage === 5) {
+    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {wasl_status: 'Done'}, 6)">Mark WASL Completed → Stage 6</button></div>`;
+  } else if (stage === 6) {
+    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 7)">Proceed to Device Check → Stage 7</button></div>`;
+  } else if (stage === 7) {
+    action = `<div class="pipeline-actions">
+      <select id="pl-device-${r.id}" onchange="renderPipelineDeviceSub('${r.id}')">
+        <option value="" ${!r.device_status ? 'selected' : ''}>Device status...</option>
+        <option value="Reporting" ${r.device_status === 'Reporting' ? 'selected' : ''}>Reporting</option>
+        <option value="Non Reporting" ${r.device_status === 'Non Reporting' ? 'selected' : ''}>Non Reporting</option>
+      </select>
+      <span id="pl-device-sub-${r.id}"></span>
+    </div>`;
+  } else if (stage === 8) {
+    action = r.customer_closed
+      ? `<div class="pipeline-actions"><span class="pill yes">Closed</span></div>`
+      : `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {customer_closed: true}, 8)">Close Case</button></div>`;
+  }
+
+  const card = `<div class="pipeline-card" id="pl-card-${r.id}">${head}${action}</div>`;
+  return card;
+}
+
+function renderPipelineDeviceSub(docId) {
+  const val = document.getElementById('pl-device-' + docId).value;
+  const el = document.getElementById('pl-device-sub-' + docId);
+  if (val === 'Reporting') {
+    el.innerHTML = `<label class="chip" style="display:inline-flex"><input type="checkbox" id="pl-vat-${docId}"> Invoice (VAT) Sent</label>
+      <button class="small" onclick="advancePipelineCase('${docId}', {device_status:'Reporting', invoice_vat_sent: document.getElementById('pl-vat-${docId}').checked}, 8)">Close Case → Stage 8</button>`;
+  } else if (val === 'Non Reporting') {
+    el.innerHTML = `<select id="pl-fix-${docId}">
+        <option value="Pending">Pending (Terminal)</option>
+        <option value="Fixed">Fixed</option>
+      </select>
+      <button class="small" onclick="advancePipelineNonReporting('${docId}')">Save</button>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function advancePipelineNonReporting(docId) {
+  const fixStatus = document.getElementById('pl-fix-' + docId).value;
+  if (fixStatus !== 'Fixed') { showToast('Must be Fixed before closing the case', 'error'); return; }
+  advancePipelineCase(docId, { device_status: 'Non Reporting', fix_status: fixStatus }, 8);
+}
+
+async function advancePipelineCase(docId, extraFields, newStage) {
+  try {
+    await db.collection('requests').doc(docId).update({
+      ...extraFields,
+      stage: newStage,
+      stage_label: STAGE_LABELS[newStage],
+      needs_sharepoint_sync: true,
+      updated_by: auth.currentUser ? auth.currentUser.email : '',
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Advanced to Stage ${newStage} — ${STAGE_LABELS[newStage]}`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 function renderRequestsTable() {
@@ -1276,9 +1245,6 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Renewals');
   XLSX.writeFile(wb, `renewals-export-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
-
-goToWizardStep(1);
-onStageChange();
 </script>
 </body>
 </html>
