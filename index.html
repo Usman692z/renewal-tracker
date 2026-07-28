@@ -194,7 +194,10 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
         <div id="deal-status" class="status" style="display:none"></div>
       </div>
 
-      <div style="flex:1;min-width:340px" id="deal-history-pane"></div>
+      <div style="flex:1;min-width:340px">
+        <div id="odoo-panel"></div>
+        <div id="deal-history-pane"></div>
+      </div>
     </div>
   </div>
 
@@ -511,6 +514,14 @@ function addVehicleRow() {
     </div>
   `;
   wrap.appendChild(row);
+  let plateTimer = null;
+  row.querySelector('.v-plate').addEventListener('input', (e) => {
+    clearTimeout(plateTimer);
+    plateTimer = setTimeout(() => {
+      const mobile = document.getElementById('deal-mobile').value.trim();
+      lookupOdoo(mobile, e.target.value.trim());
+    }, 400);
+  });
 }
 
 function removeVehicleRow(btn) {
@@ -600,10 +611,70 @@ function lookupCustomerHistory(mobile) {
   });
 }
 
+// ==================== Odoo lookup (Customers / Sale Orders / Tickets) ====================
+const ODOO_BRIDGE_URL = 'https://odoo-bridge-ni5z.onrender.com';
+
+function renderOdooPanel(data, error) {
+  const el = document.getElementById('odoo-panel');
+  if (error) { el.innerHTML = `<div class="status error">Odoo: ${escapeHTML(error)}</div>`; return; }
+  if (!data) { el.innerHTML = ''; return; }
+
+  const customerBlock = data.customer
+    ? `${fld('Odoo Customer', data.customer.name)}${fld('Phone', data.customer.phone || data.customer.mobile)}${fld('Email', data.customer.email)}`
+    : `<div class="field"><span class="field-value empty">No matching Odoo customer</span></div>`;
+
+  const soRows = (data.saleOrders || []).map(so => `
+    <tr><td>${escapeHTML(so.name)}</td><td>${escapeHTML(so.state)}</td><td>${so.amount_total || ''}</td>
+    <td>${escapeHTML(so.date)}</td><td>${so.no_of_vehicles || ''}</td></tr>`).join('');
+
+  const ticketRows = (data.tickets || []).map(t => `
+    <tr><td>${escapeHTML(t.name)}</td><td>${escapeHTML(t.subject_name)}</td><td>${escapeHTML(t.state)}</td>
+    <td>${escapeHTML((t.create_date||'').slice(0,10))}</td></tr>`).join('');
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="section-label" style="margin-bottom:10px">Odoo — Live Check</div>
+      <div class="grid">${customerBlock}</div>
+      ${data.saleOrders && data.saleOrders.length ? `
+        <div class="section-label" style="margin-top:12px">Existing Sale Orders in Odoo (${data.saleOrders.length})</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Order #</th><th>Status</th><th>Amount</th><th>Date</th><th># Vehicles</th></tr></thead>
+          <tbody>${soRows}</tbody>
+        </table></div>` : '<div class="status" style="margin-top:8px">No existing Sale Orders found in Odoo for this plate/customer.</div>'}
+      ${data.tickets && data.tickets.length ? `
+        <div class="section-label" style="margin-top:12px">Tickets in Odoo (${data.tickets.length})</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Ticket #</th><th>Subject</th><th>State</th><th>Created</th></tr></thead>
+          <tbody>${ticketRows}</tbody>
+        </table></div>` : ''}
+    </div>`;
+}
+
+async function lookupOdoo(mobile, plate) {
+  if (!mobile && !plate) { renderOdooPanel(null); return; }
+  document.getElementById('odoo-panel').innerHTML = '<div class="status"><span class="spinner"></span>Checking Odoo...</div>';
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const params = new URLSearchParams();
+    if (mobile) params.set('mobile', mobile);
+    if (plate) params.set('plate', plate);
+    const res = await fetch(`${ODOO_BRIDGE_URL}/api/lookup?${params}`, { headers: { Authorization: 'Bearer ' + token } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Odoo lookup failed');
+    renderOdooPanel(data);
+  } catch (err) {
+    renderOdooPanel(null, err.message);
+  }
+}
+
 let dealMobileTimer = null;
 document.getElementById('deal-mobile').addEventListener('input', () => {
   clearTimeout(dealMobileTimer);
-  dealMobileTimer = setTimeout(() => lookupCustomerHistory(document.getElementById('deal-mobile').value.trim()), 400);
+  dealMobileTimer = setTimeout(() => {
+    const mobile = document.getElementById('deal-mobile').value.trim();
+    lookupCustomerHistory(mobile);
+    lookupOdoo(mobile);
+  }, 400);
 });
 
 const STAGE_LABELS = {
