@@ -21,7 +21,7 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
-    // Renewal requests synced from the SharePoint sheet (via local sync script).
+    // Renewal requests / pipeline cases created and managed entirely in-app.
     match /requests/{requestId} {
       allow read, create, update: if request.auth != null;
       allow delete: if false;

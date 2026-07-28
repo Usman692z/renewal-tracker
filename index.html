@@ -644,7 +644,6 @@ async function saveRenewalRequest() {
     invoice_vat_sent: false,
     fix_status: 'Pending',
     source: 'manual',
-    needs_sharepoint_sync: false,
     created_by: auth.currentUser ? auth.currentUser.email : '',
     synced_at: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -915,7 +914,7 @@ document.getElementById('q').addEventListener('input', () => {
 document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(searchTimer); doSearch(); } });
 document.getElementById('field').addEventListener('change', doSearch);
 
-// ==================== Requests tab (synced from SharePoint sheet) ====================
+// ==================== Requests tab ====================
 let REQUESTS_CACHE = [];
 
 let requestsUnsubscribe = null;
@@ -1032,7 +1031,6 @@ async function advancePipelineCase(docId, extraFields, newStage) {
       ...extraFields,
       stage: newStage,
       stage_label: STAGE_LABELS[newStage],
-      needs_sharepoint_sync: true,
       updated_by: auth.currentUser ? auth.currentUser.email : '',
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1112,7 +1110,6 @@ async function updateRequest(docId) {
     wasl_status: document.getElementById('req-wasl-' + docId).checked ? 'Done' : 'Pending',
     customer_closed: document.getElementById('req-closed-' + docId).checked,
     remarks: document.getElementById('req-rem-' + docId).value.trim(),
-    needs_sharepoint_sync: true,
     updated_by: auth.currentUser ? auth.currentUser.email : '',
     updated_at: firebase.firestore.FieldValue.serverTimestamp()
   };
