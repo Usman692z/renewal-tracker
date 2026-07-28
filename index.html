@@ -104,9 +104,12 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 .pipeline-card-title { font-weight: 600; color: #4fc3f7; font-size: 14px; }
 .pipeline-card-sub { font-size: 12px; color: #8a96a3; }
 .pipeline-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-.vehicle-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.vehicle-row input { flex: 1; min-width: 0; }
+.vehicle-row { background: #0f1419; border: 1px solid #2a3441; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+.vehicle-row .vr-top { display: flex; gap: 8px; align-items: center; }
+.vehicle-row .vr-top input { flex: 1; min-width: 0; }
 .vehicle-row .remove-btn { background: #2a3441; color: #ef5350; border: none; border-radius: 6px; width: 36px; height: 42px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.vehicle-row .chip-row { margin-top: 8px; }
+.vehicle-row .chip { padding: 5px 11px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -174,15 +177,6 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
         <label class="input-label" style="margin-top:10px">Vehicles</label>
         <div id="deal-vehicles"></div>
         <button class="secondary small" type="button" onclick="addVehicleRow()">+ Add Vehicle</button>
-
-        <label class="input-label" style="margin-top:10px">Request Type</label>
-        <div class="chip-row">
-          <label class="chip"><input type="checkbox" id="deal-type-renewal"> Renewal</label>
-          <label class="chip"><input type="checkbox" id="deal-type-transfer"> Transfer</label>
-          <label class="chip"><input type="checkbox" id="deal-type-platechange"> Plate Change</label>
-          <label class="chip"><input type="checkbox" id="deal-type-newinstall"> New Installation</label>
-          <label class="chip"><input type="checkbox" id="deal-type-services"> Services</label>
-        </div>
 
         <label class="input-label" style="margin-top:10px">Priority</label>
         <select id="deal-priority">
@@ -503,9 +497,18 @@ function addVehicleRow() {
   const row = document.createElement('div');
   row.className = 'vehicle-row';
   row.innerHTML = `
-    <input placeholder="Plate Number (e.g. 3294 ATB)" class="v-plate">
-    <input type="number" placeholder="Amount" class="v-amount" style="max-width:120px">
-    <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle">×</button>
+    <div class="vr-top">
+      <input placeholder="Plate Number (e.g. 3294 ATB)" class="v-plate">
+      <input type="number" placeholder="Amount" class="v-amount" style="max-width:120px">
+      <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle">×</button>
+    </div>
+    <div class="chip-row">
+      <label class="chip"><input type="checkbox" class="v-type-renewal"> Renewal</label>
+      <label class="chip"><input type="checkbox" class="v-type-transfer"> Transfer</label>
+      <label class="chip"><input type="checkbox" class="v-type-platechange"> Plate Change</label>
+      <label class="chip"><input type="checkbox" class="v-type-newinstall"> New Installation</label>
+      <label class="chip"><input type="checkbox" class="v-type-services"> Services</label>
+    </div>
   `;
   wrap.appendChild(row);
 }
@@ -612,10 +615,22 @@ async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
   const mobile = document.getElementById('deal-mobile').value.trim();
   const vehicles = [...document.querySelectorAll('#deal-vehicles .vehicle-row')]
-    .map(row => ({
-      plate: row.querySelector('.v-plate').value.trim(),
-      amount: parseFloat(row.querySelector('.v-amount').value) || 0
-    }))
+    .map(row => {
+      const typeFlags = {
+        renewal: row.querySelector('.v-type-renewal').checked,
+        transfer: row.querySelector('.v-type-transfer').checked,
+        plate_change: row.querySelector('.v-type-platechange').checked,
+        new_install: row.querySelector('.v-type-newinstall').checked
+      };
+      const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
+      if (row.querySelector('.v-type-services').checked) requestType.push('services');
+      return {
+        plate: row.querySelector('.v-plate').value.trim(),
+        amount: parseFloat(row.querySelector('.v-amount').value) || 0,
+        ...typeFlags,
+        services: requestType.join(', ')
+      };
+    })
     .filter(v => v.plate);
 
   if (!mobile || !vehicles.length) {
@@ -635,22 +650,11 @@ async function saveRenewalRequest() {
   statusEl.innerHTML = '<span class="spinner"></span>Saving...';
 
   const renewalId = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
-  const typeFlags = {
-    renewal: document.getElementById('deal-type-renewal').checked,
-    transfer: document.getElementById('deal-type-transfer').checked,
-    plate_change: document.getElementById('deal-type-platechange').checked,
-    new_install: document.getElementById('deal-type-newinstall').checked
-  };
-  const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
-  if (document.getElementById('deal-type-services').checked) requestType.push('services');
-
   const basePayload = {
     date: new Date().toISOString().slice(0, 10),
     encoder: auth.currentUser ? auth.currentUser.email : '',
     renewal_id: renewalId,
     mobile: mobile,
-    ...typeFlags,
-    services: requestType.join(', '),
     sale_order: '',
     priority: document.getElementById('deal-priority').value,
     remarks: document.getElementById('deal-remarks').value.trim(),
@@ -670,14 +674,13 @@ async function saveRenewalRequest() {
   try {
     await Promise.all(vehicles.map((v, i) => {
       const docId = 'deal-' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 6);
-      return db.collection('requests').doc(docId).set({ ...basePayload, plate: v.plate, amount: v.amount });
+      return db.collection('requests').doc(docId).set({ ...basePayload, ...v });
     }));
     statusEl.style.display = 'none';
     showToast(`Request created — Renewal ID ${renewalId} (${vehicles.length} vehicle${vehicles.length > 1 ? 's' : ''}). Now in Pipeline, Stage 1.`, 'success');
     document.getElementById('deal-vehicles').innerHTML = '';
     addVehicleRow();
     document.getElementById('deal-remarks').value = '';
-    ['deal-type-renewal','deal-type-transfer','deal-type-platechange','deal-type-newinstall','deal-type-services'].forEach(id => document.getElementById(id).checked = false);
     document.getElementById('deal-priority').value = '';
   } catch (err) {
     statusEl.className = 'status error';
