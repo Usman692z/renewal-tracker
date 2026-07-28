@@ -104,6 +104,9 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
 .pipeline-card-title { font-weight: 600; color: #4fc3f7; font-size: 14px; }
 .pipeline-card-sub { font-size: 12px; color: #8a96a3; }
 .pipeline-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.vehicle-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.vehicle-row input { flex: 1; min-width: 0; }
+.vehicle-row .remove-btn { background: #2a3441; color: #ef5350; border: none; border-radius: 6px; width: 36px; height: 42px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -147,7 +150,7 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
     <div class="tab" data-tab="stage6" onclick="switchTab('stage6')">6 · WASL Completed</div>
     <div class="tab" data-tab="stage7" onclick="switchTab('stage7')">7 · Device Check</div>
     <div class="tab" data-tab="stage8" onclick="switchTab('stage8')">8 · Customer Close</div>
-    <div class="tab" data-tab="requests" onclick="switchTab('requests')">Requests</div>
+    <div class="tab" data-tab="requests" onclick="switchTab('requests')">Master (All Stages)</div>
     <div class="tab" data-tab="status" onclick="switchTab('status')">Renewals Status</div>
   </div>
 
@@ -168,16 +171,9 @@ th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercas
         <label class="input-label" style="margin-top:10px">Renewal ID</label>
         <div class="field"><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
 
-        <div class="grid2" style="margin-top:10px">
-          <div>
-            <label class="input-label">Plate Number</label>
-            <input id="deal-plate" placeholder="e.g. 3294 ATB">
-          </div>
-          <div>
-            <label class="input-label">Amount</label>
-            <input id="deal-amount" type="number" placeholder="0.00">
-          </div>
-        </div>
+        <label class="input-label" style="margin-top:10px">Vehicles</label>
+        <div id="deal-vehicles"></div>
+        <button class="secondary small" type="button" onclick="addVehicleRow()">+ Add Vehicle</button>
 
         <label class="input-label" style="margin-top:10px">Request Type</label>
         <div class="chip-row">
@@ -438,6 +434,8 @@ function showApp(user) {
 // control right now. Revert by removing the anonymous-sign-in branch below
 // and restoring `user ? showApp(user) : showLogin();`.
 const TEMP_TEST_MODE_NO_LOGIN = true;
+addVehicleRow();
+
 auth.onAuthStateChanged(user => {
   if (user) { showApp(user); return; }
   if (TEMP_TEST_MODE_NO_LOGIN) { auth.signInAnonymously().catch(err => showToast('Auto sign-in failed: ' + err.message, 'error')); return; }
@@ -498,6 +496,24 @@ let DEAL_HISTORY_DOCS = [];
 function fillEncoderName() {
   const el = document.getElementById('deal-encoder-display');
   if (el) el.textContent = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—';
+}
+
+function addVehicleRow() {
+  const wrap = document.getElementById('deal-vehicles');
+  const row = document.createElement('div');
+  row.className = 'vehicle-row';
+  row.innerHTML = `
+    <input placeholder="Plate Number (e.g. 3294 ATB)" class="v-plate">
+    <input type="number" placeholder="Amount" class="v-amount" style="max-width:120px">
+    <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle">×</button>
+  `;
+  wrap.appendChild(row);
+}
+
+function removeVehicleRow(btn) {
+  const wrap = document.getElementById('deal-vehicles');
+  btn.closest('.vehicle-row').remove();
+  if (!wrap.children.length) addVehicleRow();
 }
 
 function computeRenewalId(mobile, existingDocs) {
@@ -594,19 +610,24 @@ const STAGE_LABELS = {
 
 async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
-  const plate = document.getElementById('deal-plate').value.trim();
   const mobile = document.getElementById('deal-mobile').value.trim();
+  const vehicles = [...document.querySelectorAll('#deal-vehicles .vehicle-row')]
+    .map(row => ({
+      plate: row.querySelector('.v-plate').value.trim(),
+      amount: parseFloat(row.querySelector('.v-amount').value) || 0
+    }))
+    .filter(v => v.plate);
 
-  if (!plate || !mobile) {
+  if (!mobile || !vehicles.length) {
     statusEl.style.display = 'block';
     statusEl.className = 'status error';
-    statusEl.textContent = 'Mobile Number and Plate Number are required';
+    statusEl.textContent = 'Mobile Number and at least one Plate Number are required';
     return;
   }
 
-  const dupPlate = DEAL_HISTORY_DOCS.find(r => r.plate === plate);
+  const dupPlate = vehicles.map(v => DEAL_HISTORY_DOCS.find(r => r.plate === v.plate)).find(Boolean);
   if (dupPlate) {
-    if (!confirm(`This plate already has a request for this customer (Renewal ID ${dupPlate.renewal_id}). Create a new one anyway?`)) return;
+    if (!confirm(`Plate "${dupPlate.plate}" already has a request for this customer (Renewal ID ${dupPlate.renewal_id}). Create new one(s) anyway?`)) return;
   }
 
   statusEl.style.display = 'block';
@@ -623,13 +644,11 @@ async function saveRenewalRequest() {
   const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
   if (document.getElementById('deal-type-services').checked) requestType.push('services');
 
-  const payload = {
+  const basePayload = {
     date: new Date().toISOString().slice(0, 10),
     encoder: auth.currentUser ? auth.currentUser.email : '',
     renewal_id: renewalId,
-    plate: plate,
     mobile: mobile,
-    amount: parseFloat(document.getElementById('deal-amount').value) || 0,
     ...typeFlags,
     services: requestType.join(', '),
     sale_order: '',
@@ -649,11 +668,15 @@ async function saveRenewalRequest() {
   };
 
   try {
-    const docId = 'deal-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    await db.collection('requests').doc(docId).set(payload);
+    await Promise.all(vehicles.map((v, i) => {
+      const docId = 'deal-' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 6);
+      return db.collection('requests').doc(docId).set({ ...basePayload, plate: v.plate, amount: v.amount });
+    }));
     statusEl.style.display = 'none';
-    showToast(`Request created — Renewal ID ${renewalId}. Now in Pipeline, Stage 1.`, 'success');
-    ['deal-plate','deal-amount','deal-remarks'].forEach(id => document.getElementById(id).value = '');
+    showToast(`Request created — Renewal ID ${renewalId} (${vehicles.length} vehicle${vehicles.length > 1 ? 's' : ''}). Now in Pipeline, Stage 1.`, 'success');
+    document.getElementById('deal-vehicles').innerHTML = '';
+    addVehicleRow();
+    document.getElementById('deal-remarks').value = '';
     ['deal-type-renewal','deal-type-transfer','deal-type-platechange','deal-type-newinstall','deal-type-services'].forEach(id => document.getElementById(id).checked = false);
     document.getElementById('deal-priority').value = '';
   } catch (err) {
