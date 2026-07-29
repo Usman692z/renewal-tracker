@@ -1953,8 +1953,11 @@ function loadRequests() {
 // Add, remove or reorder a field here and the card, the save and the
 // validation all follow; nothing else needs touching.
 const STAGE_FORMS = {
-  1: [
-    { key: 'sale_order', label: 'Sale Order #', type: 'text', required: true }
+  // Stage 1 is only "payment received" — the sale order is created in Odoo at
+  // stage 2, so its number is captured there, not here.
+  2: [
+    { key: 'sale_order', label: 'Sale Order #', type: 'text', required: true },
+    { key: 'quotation_no', label: 'Quotation No', type: 'text' }
   ],
   3: [
     { key: 'old_expiry', label: 'Old Expiry Date', type: 'date' },
@@ -2064,15 +2067,14 @@ function renderPipelineCard(r) {
 
   if (stage === 1) {
     action = `<div class="pipeline-actions">
-      <button class="small" onclick="advanceWithForm('${r.id}', 1, {}, 2)">Create Sale Order → Stage 2</button>${saveBtn}
+      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 2)">Payment Confirmed → Stage 2</button>
     </div>`;
   } else if (stage === 2) {
     action = `<div class="pipeline-actions">
       <a class="btn-link" href="${odooNewUrl('sale.order.wags')}" target="_blank" rel="noopener">
         ${icon('plus')}Create Sale Order in Odoo
       </a>
-      ${r.sale_order ? `<span class="so-ref">SO: <strong>${escapeHTML(r.sale_order)}</strong></span>` : ''}
-      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 3)">Start Renewal Processing → Stage 3</button>
+      <button class="small" onclick="advanceWithForm('${r.id}', 2, {}, 3)">Start Renewal Processing → Stage 3</button>${saveBtn}
     </div>`;
   } else if (stage === 3) {
     action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → Stage 4</button>${saveBtn}</div>`;
