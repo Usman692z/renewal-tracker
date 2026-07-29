@@ -422,12 +422,14 @@ tr.plate-match:hover td { background: #FEF9C3; }
           <button style="margin-top:10px;width:100%" onclick="saveRenewalRequest()">Create Request (Stage 1)</button>
           <div id="deal-status" class="status" style="display:none;margin:12px 0 0"></div>
         </div>
-        <div id="deal-plate-history" style="flex-basis:100%"></div>
-
         <div style="flex:1;min-width:330px">
           <div id="odoo-panel"></div>
           <div id="deal-history-pane"></div>
         </div>
+
+        <!-- Full width and last, so it wraps onto its own line under both
+             columns instead of pushing the Odoo panel off to the side. -->
+        <div id="deal-plate-history" style="flex-basis:100%"></div>
       </div>
     </div>
 
