@@ -4,320 +4,626 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vehicle Renewal Tracker</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
+/* ============================================================
+   Design tokens — Soft UI Evolution, light, dense (ops console)
+   ============================================================ */
+:root {
+  --c-primary: #1E40AF;      --c-primary-hover: #1D4ED8;   --c-on-primary: #FFFFFF;
+  --c-primary-soft: #EFF4FF; --c-secondary: #3B82F6;       --c-accent: #D97706;
+  --c-bg: #F1F5F9;           --c-surface: #FFFFFF;         --c-surface-2: #F8FAFC;
+  --c-fg: #0F172A;           --c-fg-muted: #475569;        --c-fg-subtle: #64748B;
+  --c-border: #E2E8F0;       --c-border-strong: #CBD5E1;
+  --c-success: #047857;      --c-success-bg: #ECFDF5;
+  --c-danger: #DC2626;       --c-danger-bg: #FEF2F2;
+  --c-warn: #B45309;         --c-warn-bg: #FFFBEB;
+
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px; --r-full: 999px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  --sh-1: 0 1px 2px rgba(15,23,42,.06);
+  --sh-2: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+  --sh-3: 0 6px 20px rgba(15,23,42,.10);
+
+  --font-sans: "Fira Sans", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Fira Code", ui-monospace, Consolas, monospace;
+  --dur: 180ms; --ease: cubic-bezier(.4, 0, .2, 1);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; background: #0f1419; color: #e4e7eb; padding: 20px; min-height: 100vh; }
-.container { max-width: 1200px; margin: 0 auto; }
-h1 { font-size: 24px; margin-bottom: 4px; color: #4fc3f7; }
-.sub { font-size: 13px; color: #8a96a3; margin-bottom: 20px; }
-select, input, textarea { padding: 12px 14px; font-size: 15px; border-radius: 6px; border: 1px solid #2a3441; background: #1a2128; color: #e4e7eb; font-family: inherit; }
-select { min-width: 180px; }
-input:not([type="checkbox"]), textarea { flex: 1; min-width: 200px; }
-input[type="checkbox"] { width: 16px; height: 16px; min-width: 0; flex: none; padding: 0; vertical-align: middle; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: #4fc3f7; }
-button { padding: 12px 24px; font-size: 15px; font-weight: 600; border: none; border-radius: 6px; background: #4fc3f7; color: #0f1419; cursor: pointer; }
-button:hover { background: #29b6f6; }
-button.secondary { background: #2a3441; color: #e4e7eb; }
-button.small { padding: 8px 14px; font-size: 13px; }
-.row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-.status { padding: 10px 14px; background: #1a2128; border-radius: 6px; margin-bottom: 16px; font-size: 13px; color: #8a96a3; }
-.status.loading { color: #ffa726; }
-.status.ready { color: #66bb6a; }
-.status.error { color: #ef5350; }
-.results-info { font-size: 13px; color: #8a96a3; margin-bottom: 12px; }
-.card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 18px; margin-bottom: 14px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #2a3441; }
-.card-title { font-size: 17px; font-weight: 600; color: #4fc3f7; }
-.card-id { font-size: 12px; color: #8a96a3; background: #0f1419; padding: 4px 10px; border-radius: 4px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.field { background: #0f1419; padding: 8px 12px; border-radius: 4px; font-size: 13px; }
-.field-name { color: #8a96a3; font-size: 11px; display: block; margin-bottom: 2px; }
-.field-value { color: #e4e7eb; word-break: break-word; }
-.field-value.empty { color: #4a5562; font-style: italic; }
-.no-results { text-align: center; padding: 40px; color: #8a96a3; }
-.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
-.pagination button { padding: 8px 14px; font-size: 13px; }
-.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
-.tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #2a3441; flex-wrap: wrap; }
-.tab { padding: 10px 18px; cursor: pointer; color: #8a96a3; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 600; }
-.tab.active { color: #4fc3f7; border-bottom-color: #4fc3f7; }
-.renew-form { background: #0f1419; border-radius: 6px; padding: 14px; margin-top: 10px; display: none; }
-.renew-form.open { display: block; }
-.renew-form .row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8a96a3; }
-.renew-form textarea { width: 100%; min-height: 60px; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  background: var(--c-bg); color: var(--c-fg); min-height: 100vh;
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; border-radius: var(--r-sm); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ---------- Form controls ---------- */
+select, input, textarea {
+  padding: 8px 10px; font-size: 14px; font-family: inherit;
+  border-radius: var(--r-md); border: 1px solid var(--c-border-strong);
+  background: var(--c-surface); color: var(--c-fg);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+select { min-width: 170px; cursor: pointer; }
+input:not([type="checkbox"]), textarea { flex: 1; min-width: 180px; }
+input[type="checkbox"] { width: 16px; height: 16px; min-width: 0; flex: none; padding: 0; accent-color: var(--c-primary); cursor: pointer; vertical-align: middle; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(30,64,175,.12); }
+input::placeholder, textarea::placeholder { color: #94A3B8; }
+input:disabled, select:disabled { background: var(--c-surface-2); color: var(--c-fg-subtle); cursor: not-allowed; }
+textarea { min-height: 62px; resize: vertical; }
+.input-label { display: block; font-size: 12px; font-weight: 600; color: var(--c-fg-muted); margin-bottom: 4px; }
+
+button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 16px; min-height: 38px; font-size: 14px; font-weight: 600; font-family: inherit;
+  border: 1px solid transparent; border-radius: var(--r-md);
+  background: var(--c-primary); color: var(--c-on-primary); cursor: pointer;
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  box-shadow: var(--sh-1);
+}
+button:hover { background: var(--c-primary-hover); }
+button:active { box-shadow: none; }
+button.secondary { background: var(--c-surface); color: var(--c-fg-muted); border-color: var(--c-border-strong); }
+button.secondary:hover { background: var(--c-surface-2); border-color: var(--c-fg-subtle); color: var(--c-fg); }
+button.ghost { background: transparent; color: var(--c-fg-muted); border-color: transparent; box-shadow: none; }
+button.ghost:hover { background: var(--c-surface-2); color: var(--c-fg); }
+button.danger { background: var(--c-surface); color: var(--c-danger); border-color: #FCA5A5; }
+button.danger:hover { background: var(--c-danger-bg); }
+button.small { padding: 6px 11px; min-height: 32px; font-size: 13px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button svg { width: 15px; height: 15px; flex: none; }
+
+.row { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ---------- App shell ---------- */
+.shell { display: grid; grid-template-columns: 246px 1fr; min-height: 100vh; }
+.sidebar {
+  background: var(--c-surface); border-right: 1px solid var(--c-border);
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.brand { padding: var(--sp-4); border-bottom: 1px solid var(--c-border); display: flex; gap: 10px; align-items: center; }
+.brand-mark {
+  width: 32px; height: 32px; border-radius: var(--r-md); flex: none;
+  background: var(--c-primary); color: #fff; display: grid; place-items: center;
+}
+.brand-mark svg { width: 18px; height: 18px; }
+.brand-name { font-size: 14px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+.brand-sub { font-size: 11px; color: var(--c-fg-subtle); }
+.nav { padding: var(--sp-3) var(--sp-2); flex: 1; }
+.nav-group { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #94A3B8; padding: var(--sp-3) 10px 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; margin-bottom: 1px; min-height: 36px;
+  border: none; border-radius: var(--r-md); background: transparent;
+  color: var(--c-fg-muted); font-size: 13px; font-weight: 500; text-align: left;
+  cursor: pointer; box-shadow: none; justify-content: flex-start;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav-item:hover { background: var(--c-surface-2); color: var(--c-fg); }
+.nav-item.active { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
+.nav-item svg { width: 16px; height: 16px; flex: none; opacity: .85; }
+.nav-item .step {
+  width: 20px; height: 20px; flex: none; border-radius: var(--r-full);
+  background: var(--c-surface-2); border: 1px solid var(--c-border-strong);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--c-fg-subtle);
+  display: grid; place-items: center;
+}
+.nav-item.active .step { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.nav-item .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-badge {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  background: var(--c-surface-2); color: var(--c-fg-subtle);
+  border-radius: var(--r-full); padding: 1px 7px; min-width: 22px; text-align: center;
+}
+.nav-item.active .nav-badge { background: #fff; color: var(--c-primary); }
+.nav-foot { padding: var(--sp-3); border-top: 1px solid var(--c-border); }
+.user-chip { display: flex; align-items: center; gap: 9px; margin-bottom: var(--sp-2); }
+.avatar {
+  width: 30px; height: 30px; flex: none; border-radius: var(--r-full);
+  background: var(--c-primary-soft); color: var(--c-primary);
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+}
+.user-meta { min-width: 0; }
+.user-mail { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-role { font-size: 11px; color: var(--c-fg-subtle); text-transform: capitalize; }
+.nav-foot button { width: 100%; }
+
+.main { min-width: 0; padding: var(--sp-5) var(--sp-5) var(--sp-6); }
+.page-head { margin-bottom: var(--sp-4); }
+.page-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.sub { font-size: 13px; color: var(--c-fg-subtle); margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--c-border); }
+  .nav { display: flex; overflow-x: auto; gap: 4px; padding: var(--sp-2); }
+  .nav-group { display: none; }
+  .nav-item { width: auto; white-space: nowrap; margin-bottom: 0; }
+  .nav-foot { display: flex; gap: var(--sp-2); align-items: center; }
+  .nav-foot button { width: auto; }
+  .user-chip { margin-bottom: 0; flex: 1; }
+  .main { padding: var(--sp-4) var(--sp-3) var(--sp-5); }
+}
+
+/* ---------- Surfaces ---------- */
+.card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-4); margin-bottom: var(--sp-3); box-shadow: var(--sh-2); }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--c-border); }
+.card-title { font-size: 15px; font-weight: 700; }
+.card-id { font-family: var(--font-mono); font-size: 11px; color: var(--c-fg-subtle); background: var(--c-surface-2); border: 1px solid var(--c-border); padding: 3px 9px; border-radius: var(--r-sm); }
+.section { margin-bottom: var(--sp-4); }
+.section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--c-fg-subtle); margin-bottom: 6px; }
+
+.status { padding: 9px 12px; background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-border-strong); border-radius: var(--r-md); margin-bottom: var(--sp-3); font-size: 13px; color: var(--c-fg-muted); }
+.status.loading { border-left-color: var(--c-accent); color: var(--c-warn); background: var(--c-warn-bg); }
+.status.ready { border-left-color: var(--c-success); color: var(--c-success); background: var(--c-success-bg); }
+.status.error { border-left-color: var(--c-danger); color: var(--c-danger); background: var(--c-danger-bg); }
+.results-info { font-size: 13px; color: var(--c-fg-subtle); margin-bottom: var(--sp-3); }
+.no-results { text-align: center; padding: var(--sp-6) var(--sp-4); color: var(--c-fg-subtle); background: var(--c-surface); border: 1px dashed var(--c-border-strong); border-radius: var(--r-lg); font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; margin-bottom: var(--sp-2); }
+.field { background: var(--c-surface-2); border: 1px solid var(--c-border); padding: 6px 10px; border-radius: var(--r-sm); font-size: 13px; }
+.field-name { color: var(--c-fg-subtle); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 1px; }
+.field-value { color: var(--c-fg); word-break: break-word; font-weight: 500; }
+.field-value.empty { color: #94A3B8; font-weight: 400; }
+
+/* ---------- Tables ---------- */
+.table-wrap { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); overflow-x: auto; box-shadow: var(--sh-2); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a3441; }
-th { color: #8a96a3; font-weight: 600; font-size: 11px; text-transform: uppercase; }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-.pill.yes { background: rgba(102,187,106,0.15); color: #66bb6a; }
-.pill.no { background: rgba(239,83,80,0.15); color: #ef5350; }
-#login-screen { max-width: 360px; margin: 80px auto; }
-#login-screen h1 { text-align: center; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--c-border); vertical-align: middle; }
+th { color: var(--c-fg-subtle); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; background: var(--c-surface-2); position: sticky; top: 0; z-index: 1; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background var(--dur) var(--ease); }
+tbody tr:hover { background: var(--c-surface-2); }
+td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
+
+.pill { display: inline-block; padding: 2px 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 600; border: 1px solid transparent; }
+.pill.yes { background: var(--c-success-bg); color: var(--c-success); border-color: #A7F3D0; }
+.pill.no { background: var(--c-danger-bg); color: var(--c-danger); border-color: #FECACA; }
+
+/* ---------- Login ---------- */
+#login-screen { max-width: 380px; margin: 10vh auto; padding: 0 var(--sp-4); }
+#login-screen .brand { border: none; justify-content: center; padding-bottom: var(--sp-2); }
+#login-screen .page-title, #login-screen .sub { text-align: center; }
+#login-screen .card { padding: var(--sp-5); }
 #app { display: none; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.top-bar .who { font-size: 13px; color: #8a96a3; }
-.section { margin-bottom: 12px; }
-.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a96a3; margin-bottom: 6px; font-weight: 600; }
-.plate-display { display: inline-flex; gap: 6px; align-items: center; background: #fff; color: #000; padding: 6px 12px; border-radius: 4px; font-weight: 700; font-size: 16px; margin-top: 4px; }
-.id-badge { display: inline-block; padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
-.id-badge.company { background: rgba(79, 195, 247, 0.15); color: #4fc3f7; border: 1px solid #4fc3f7; }
-.id-badge.individual { background: rgba(102, 187, 106, 0.15); color: #66bb6a; border: 1px solid #66bb6a; }
-.id-badge.other { background: rgba(138, 150, 163, 0.15); color: #8a96a3; border: 1px solid #8a96a3; }
-.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.tool-card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 14px; }
-.tool-title { font-size: 14px; font-weight: 600; color: #4fc3f7; margin-bottom: 10px; }
-.tool-row { display: flex; gap: 8px; align-items: center; }
-.tool-row input, .tool-row select { flex: 1; min-width: 0; padding: 10px 12px; font-size: 14px; }
-.tool-row .op { color: #8a96a3; font-size: 18px; font-weight: 700; }
-.tool-row button { padding: 10px 18px; }
-.tool-out { margin-top: 10px; padding: 10px 12px; background: #0f1419; border-radius: 4px; font-size: 15px; min-height: 22px; color: #e4e7eb; direction: rtl; text-align: right; }
+
+.plate-display {
+  display: inline-flex; gap: 8px; align-items: center;
+  background: #fff; color: #0F172A; border: 2px solid var(--c-fg); border-radius: var(--r-md);
+  padding: 5px 12px; font-weight: 700; font-size: 15px; font-family: var(--font-mono); margin-top: 4px;
+}
+.id-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: var(--r-full); font-size: 12px; font-weight: 600; margin-bottom: var(--sp-2); border: 1px solid; }
+.id-badge svg { width: 14px; height: 14px; }
+.id-badge.company { background: var(--c-primary-soft); color: var(--c-primary); border-color: #BFDBFE; }
+.id-badge.individual { background: var(--c-success-bg); color: var(--c-success); border-color: #A7F3D0; }
+.id-badge.other { background: var(--c-surface-2); color: var(--c-fg-muted); border-color: var(--c-border-strong); }
+
+/* ---------- Utility tool cards ---------- */
+.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.tool-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); box-shadow: var(--sh-2); }
+.tool-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--c-fg); margin-bottom: var(--sp-3); }
+.tool-title svg { width: 16px; height: 16px; color: var(--c-primary); }
+.tool-row { display: flex; gap: var(--sp-2); align-items: center; }
+.tool-row input, .tool-row select { flex: 1; min-width: 0; }
+.tool-row .op { color: var(--c-fg-subtle); font-size: 16px; font-weight: 700; }
+.tool-out { margin-top: var(--sp-3); padding: 9px 12px; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); font-size: 14px; min-height: 40px; color: var(--c-fg); direction: rtl; text-align: right; }
 .tool-out.ltr { direction: ltr; text-align: left; }
-.tool-out .arabic-plate { display: inline-block; background: #fff; color: #000; padding: 6px 14px; border-radius: 4px; font-size: 20px; font-weight: 700; letter-spacing: 4px; margin-right: 8px; direction: rtl; }
-.tool-out .hint { color: #8a96a3; font-size: 12px; margin-top: 6px; direction: ltr; text-align: left; }
-.toast-wrap { position: fixed; top: 16px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
-.toast { background: #1a2128; border: 1px solid #2a3441; border-left: 4px solid #4fc3f7; border-radius: 6px; padding: 10px 16px; font-size: 13px; color: #e4e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.4); min-width: 220px; animation: toast-in 0.2s ease-out; }
-.toast.success { border-left-color: #66bb6a; }
-.toast.error { border-left-color: #ef5350; }
-@keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.stat-tile { background: #0f1419; padding: 10px 12px; border-radius: 4px; }
-.stat-tile .num { font-size: 20px; font-weight: 700; color: #4fc3f7; }
-.stat-tile .lbl { font-size: 11px; color: #8a96a3; text-transform: uppercase; }
-.req-row.open { border-left: 3px solid #ffa726; }
-.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #2a3441; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+.tool-out:empty { display: none; }
+.tool-out .arabic-plate { display: inline-block; background: #fff; color: #0F172A; border: 2px solid var(--c-fg); padding: 4px 14px; border-radius: var(--r-md); font-size: 19px; font-weight: 700; letter-spacing: 4px; direction: rtl; }
+.tool-out .hint { color: var(--c-fg-subtle); font-size: 12px; margin-top: 6px; direction: ltr; text-align: left; }
+.tool-out .ok { color: var(--c-success); font-size: 16px; font-weight: 700; }
+.tool-out .warn { color: var(--c-danger); font-weight: 600; }
+
+/* ---------- Toasts ---------- */
+.toast-wrap { position: fixed; top: 14px; right: 14px; z-index: 1000; display: flex; flex-direction: column; gap: var(--sp-2); max-width: min(360px, calc(100vw - 28px)); }
+.toast { background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-primary); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; color: var(--c-fg); box-shadow: var(--sh-3); animation: toast-in .2s var(--ease); }
+.toast.success { border-left-color: var(--c-success); }
+.toast.error { border-left-color: var(--c-danger); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.stat-tile { background: var(--c-surface-2); border: 1px solid var(--c-border); padding: 9px 12px; border-radius: var(--r-md); }
+.stat-tile .num { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--c-primary); line-height: 1.2; }
+.stat-tile .lbl { font-size: 10px; color: var(--c-fg-subtle); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; margin-top: 2px; }
+
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--c-border-strong); border-top-color: var(--c-primary); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: -2px; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.input-label { display: block; font-size: 12px; color: #8a96a3; margin-bottom: 4px; font-weight: 600; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; background: #0f1419; border: 1px solid #2a3441; border-radius: 20px; padding: 7px 14px; font-size: 13px; cursor: pointer; transition: border-color 0.15s; }
-.chip:has(input:checked) { border-color: #4fc3f7; color: #4fc3f7; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--c-surface); border: 1px solid var(--c-border-strong); border-radius: var(--r-full); padding: 5px 12px; font-size: 12.5px; font-weight: 500; color: var(--c-fg-muted); cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.chip:hover { border-color: var(--c-fg-subtle); }
+.chip:has(input:checked) { border-color: var(--c-primary); background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
 
-/* Pipeline stage tabs */
-.pipeline-card { background: #1a2128; border: 1px solid #2a3441; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
-.pipeline-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.pipeline-card-title { font-weight: 600; color: #4fc3f7; font-size: 14px; }
-.pipeline-card-sub { font-size: 12px; color: #8a96a3; }
-.pipeline-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-.vehicle-row { background: #0f1419; border: 1px solid #2a3441; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-.vehicle-row .vr-top { display: flex; gap: 8px; align-items: center; }
-.vehicle-row .vr-top input { flex: 1; min-width: 0; }
-.vehicle-row .remove-btn { background: #2a3441; color: #ef5350; border: none; border-radius: 6px; width: 36px; height: 42px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
-.vehicle-row .chip-row { margin-top: 8px; }
-.vehicle-row .chip { padding: 5px 11px; font-size: 12px; }
+/* ---------- Pipeline ---------- */
+.pipeline-card { background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-secondary); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-2); box-shadow: var(--sh-1); transition: box-shadow var(--dur) var(--ease); }
+.pipeline-card:hover { box-shadow: var(--sh-2); }
+.pipeline-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); flex-wrap: wrap; }
+.pipeline-card-title { font-weight: 700; font-size: 14px; }
+.pipeline-card-title .plate { font-family: var(--font-mono); color: var(--c-primary); }
+.pipeline-card-sub { font-size: 12px; color: var(--c-fg-subtle); margin-top: 2px; }
+.pipeline-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--c-border); }
+.stage-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2) var(--sp-3); margin-top: var(--sp-3); padding: var(--sp-3); background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); }
+.stage-field { flex: 1 1 170px; min-width: 0; }
+.stage-field input { width: 100%; min-width: 0; background: var(--c-surface); }
+.stage-form .input-label { margin-bottom: 3px; }
+.stage-form .req { color: var(--c-danger); }
+.stage-check { align-self: center; background: var(--c-surface); }
+.so-ref { font-size: 12px; color: var(--c-fg-subtle); }
+.so-ref strong { font-family: var(--font-mono); color: var(--c-fg); }
+
+/* Links styled as buttons — real <a> so middle-click / new-tab still work */
+.btn-link {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 11px; min-height: 32px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--c-border-strong); border-radius: var(--r-md);
+  background: var(--c-surface); color: var(--c-primary); text-decoration: none;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.btn-link:hover { background: var(--c-primary-soft); border-color: var(--c-primary); }
+.btn-link svg { width: 14px; height: 14px; flex: none; }
+.odoo-link {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  color: var(--c-primary); font-weight: 600; font-size: 12.5px; text-decoration: none;
+}
+.odoo-link:hover { text-decoration: underline; }
+.odoo-link svg { width: 12px; height: 12px; flex: none; opacity: .7; }
+.actions-cell { white-space: nowrap; }
+.actions-cell > * { vertical-align: middle; }
+.actions-cell .odoo-link { margin-right: var(--sp-2); }
+.tpl-tag { display: inline-block; padding: 2px 8px; border-radius: var(--r-sm); font-size: 11.5px; font-weight: 600; background: var(--c-primary-soft); color: var(--c-primary); white-space: nowrap; }
+tr.plate-match td { background: #FEFCE8; }
+tr.plate-match:hover td { background: #FEF9C3; }
+.match-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-full); font-family: var(--font-sans); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--c-warn-bg); color: var(--c-warn); border: 1px solid #FDE68A; }
+.req-row.open td { box-shadow: inset 3px 0 0 var(--c-accent); }
+
+.vehicle-row { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-2); margin-bottom: var(--sp-2); }
+.vehicle-row .vr-top { display: flex; gap: 6px; align-items: center; }
+.vehicle-row .vr-top input { flex: 1; min-width: 0; background: var(--c-surface); }
+.vehicle-row .remove-btn { background: var(--c-surface); color: var(--c-danger); border: 1px solid var(--c-border-strong); border-radius: var(--r-md); width: 36px; min-height: 36px; padding: 0; flex: none; box-shadow: none; }
+.vehicle-row .remove-btn:hover { background: var(--c-danger-bg); border-color: #FCA5A5; }
+.vehicle-row .chip-row { margin-top: var(--sp-2); }
+.vehicle-row .chip { padding: 4px 10px; font-size: 12px; }
+
+.renew-form { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-3); margin-top: var(--sp-3); display: none; }
+.renew-form.open { display: block; }
+.renew-form .row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--c-fg-muted); }
+.renew-form textarea { width: 100%; background: var(--c-surface); }
+
+.pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: var(--sp-4); }
+.pagination button { padding: 6px 12px; min-height: 32px; font-size: 13px; }
+.pagination .page-of { padding: 0 var(--sp-3); color: var(--c-fg-subtle); font-size: 13px; font-family: var(--font-mono); }
+
+/* ---------- Admin ---------- */
+.banner { display: flex; align-items: flex-start; gap: 9px; background: var(--c-warn-bg); border: 1px solid #FDE68A; border-radius: var(--r-md); padding: 10px 13px; font-size: 13px; color: var(--c-warn); margin-bottom: var(--sp-4); }
+.banner svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.perm-grid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.perm-grid label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--c-fg-muted); white-space: nowrap; }
+.role-tag { display: inline-block; padding: 2px 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 600; }
+.role-tag.admin { background: var(--c-primary-soft); color: var(--c-primary); }
+.role-tag.agent { background: var(--c-surface-2); color: var(--c-fg-muted); border: 1px solid var(--c-border-strong); }
+.locked { text-align: center; padding: var(--sp-6); color: var(--c-fg-subtle); }
 </style>
 </head>
 <body>
 
-<div id="toast-wrap" class="toast-wrap"></div>
+<div id="toast-wrap" class="toast-wrap" aria-live="polite"></div>
 
+<!-- ============================ LOGIN ============================ -->
 <div id="login-screen">
-  <h1>Renewal Tracker</h1>
-  <div class="sub" style="text-align:center">Sign in to continue</div>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h1.5a1.5 1.5 0 0 0 1.5-1.5v-3.9a2 2 0 0 0-.6-1.4L19 6.3a2 2 0 0 0-1.4-.6H14m0 10.3V5.7m0 10.3H5.5A1.5 1.5 0 0 1 4 14.5v-9A1.5 1.5 0 0 1 5.5 4H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+    <div><div class="brand-name">Renewal Tracker</div><div class="brand-sub">Vehicle operations</div></div>
+  </div>
+  <div class="page-head"><div class="sub">Sign in to continue</div></div>
   <div class="card">
-    <div class="row" style="flex-direction:column;align-items:stretch">
-      <input id="login-email" type="email" placeholder="Email" autocomplete="username">
-      <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password">
-      <button onclick="doLogin()">Sign In</button>
-      <div id="login-status" class="status" style="display:none"></div>
-    </div>
+    <label class="input-label" for="login-email">Email</label>
+    <input id="login-email" type="email" autocomplete="username" style="width:100%;margin-bottom:12px">
+    <label class="input-label" for="login-pass">Password</label>
+    <input id="login-pass" type="password" autocomplete="current-password" style="width:100%;margin-bottom:16px">
+    <button onclick="doLogin()" style="width:100%">Sign In</button>
+    <div id="login-status" class="status" style="display:none;margin:12px 0 0"></div>
   </div>
 </div>
 
+<!-- ============================ APP ============================ -->
 <div id="app">
-<div class="container">
-  <div class="top-bar">
-    <div>
-      <h1>Vehicle Renewal Tracker</h1>
-      <div class="sub">Search a vehicle, record its renewal, track checkpoints</div>
-    </div>
-    <div class="who">
-      <span id="who-email"></span>
-      <button class="secondary small" onclick="doLogout()">Sign Out</button>
-    </div>
-  </div>
+<div class="shell">
 
-  <div class="tabs">
-    <div class="tab active" data-tab="search" onclick="switchTab('search')">Search &amp; Renew</div>
-    <div class="tab" data-tab="deal" onclick="switchTab('deal')">New Request</div>
-    <div class="tab" data-tab="stage1" onclick="switchTab('stage1')">1 · Payment Received</div>
-    <div class="tab" data-tab="stage2" onclick="switchTab('stage2')">2 · Sale Order</div>
-    <div class="tab" data-tab="stage3" onclick="switchTab('stage3')">3 · Renewal Processing</div>
-    <div class="tab" data-tab="stage4" onclick="switchTab('stage4')">4 · Renewal Done</div>
-    <div class="tab" data-tab="stage5" onclick="switchTab('stage5')">5 · WASL Processing</div>
-    <div class="tab" data-tab="stage6" onclick="switchTab('stage6')">6 · WASL Completed</div>
-    <div class="tab" data-tab="stage7" onclick="switchTab('stage7')">7 · Device Check</div>
-    <div class="tab" data-tab="stage8" onclick="switchTab('stage8')">8 · Customer Close</div>
-    <div class="tab" data-tab="requests" onclick="switchTab('requests')">Master (All Stages)</div>
-    <div class="tab" data-tab="status" onclick="switchTab('status')">Renewals Status</div>
-  </div>
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h1.5a1.5 1.5 0 0 0 1.5-1.5v-3.9a2 2 0 0 0-.6-1.4L19 6.3a2 2 0 0 0-1.4-.6H14m0 10.3V5.7m0 10.3H5.5A1.5 1.5 0 0 1 4 14.5v-9A1.5 1.5 0 0 1 5.5 4H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+      <div><div class="brand-name">Renewal Tracker</div><div class="brand-sub">Vehicle operations</div></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Main navigation"></nav>
+    <div class="nav-foot">
+      <div class="user-chip">
+        <span class="avatar" id="who-initial" aria-hidden="true">?</span>
+        <div class="user-meta">
+          <div class="user-mail" id="who-email"></div>
+          <div class="user-role" id="who-role"></div>
+        </div>
+      </div>
+      <button class="secondary small" onclick="doLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </aside>
 
-  <div id="tab-deal" style="display:none">
-    <div class="row" style="align-items:flex-start;flex-wrap:wrap;gap:20px">
-      <div class="card" style="max-width:480px;flex:1;min-width:340px">
-        <div class="section-label" style="margin-bottom:12px">New Request — Stage 1: Payment Received</div>
-        <div class="grid2">
-          <div>
-            <label class="input-label">Mobile Number</label>
-            <input id="deal-mobile" placeholder="e.g. 0501234567" type="tel">
+  <main class="main">
+    <div id="test-mode-banner"></div>
+    <div class="page-head">
+      <h1 class="page-title" id="page-title">Search &amp; Renew</h1>
+      <div class="sub" id="page-sub">Search a vehicle, record its renewal, track checkpoints</div>
+    </div>
+
+    <!-- ---------- New Request ---------- -->
+    <div id="tab-deal" style="display:none">
+      <div class="row" style="align-items:flex-start;flex-wrap:wrap;gap:20px">
+        <div class="card" style="max-width:480px;flex:1;min-width:330px">
+          <div class="section-label" style="margin-bottom:12px">New Request — Stage 1: Payment Received</div>
+          <div class="grid2">
+            <div>
+              <label class="input-label" for="deal-mobile">Mobile Number</label>
+              <input id="deal-mobile" placeholder="e.g. 0501234567" type="tel" autocomplete="tel">
+            </div>
+            <div>
+              <label class="input-label">Encoder Name</label>
+              <div class="field"><span class="field-value" id="deal-encoder-display">—</span></div>
+            </div>
           </div>
-          <div>
-            <label class="input-label">Encoder Name</label>
-            <div class="field"><span class="field-value" id="deal-encoder-display">—</span></div>
-          </div>
-        </div>
-        <label class="input-label" style="margin-top:10px">Renewal ID</label>
-        <div class="field"><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
+          <label class="input-label" style="margin-top:12px">Renewal ID</label>
+          <div class="field"><span class="field-value" id="deal-renewal-id-display">Enter mobile number first</span></div>
 
-        <label class="input-label" style="margin-top:10px">Vehicles</label>
-        <div id="deal-vehicles"></div>
-        <button class="secondary small" type="button" onclick="addVehicleRow()">+ Add Vehicle</button>
+          <label class="input-label" style="margin-top:12px">Vehicles</label>
+          <div id="deal-vehicles"></div>
+          <button class="secondary small" type="button" onclick="addVehicleRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add Vehicle
+          </button>
 
-        <label class="input-label" style="margin-top:10px">Priority</label>
-        <select id="deal-priority">
-          <option value="">Select...</option>
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-          <option value="Urgent">Urgent</option>
-        </select>
-
-        <label class="input-label" style="margin-top:10px">Remarks by CS Team</label>
-        <textarea id="deal-remarks" placeholder="Notes for this request..."></textarea>
-
-        <button style="margin-top:14px" onclick="saveRenewalRequest()">Create Request (Stage 1)</button>
-        <div id="deal-status" class="status" style="display:none"></div>
-      </div>
-
-      <div style="flex:1;min-width:340px">
-        <div id="odoo-panel"></div>
-        <div id="deal-history-pane"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-stage1" style="display:none"><div id="stage1-status" class="status"></div><div id="stage1-list"></div></div>
-  <div id="tab-stage2" style="display:none"><div id="stage2-status" class="status"></div><div id="stage2-list"></div></div>
-  <div id="tab-stage3" style="display:none"><div id="stage3-status" class="status"></div><div id="stage3-list"></div></div>
-  <div id="tab-stage4" style="display:none"><div id="stage4-status" class="status"></div><div id="stage4-list"></div></div>
-  <div id="tab-stage5" style="display:none"><div id="stage5-status" class="status"></div><div id="stage5-list"></div></div>
-  <div id="tab-stage6" style="display:none"><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
-  <div id="tab-stage7" style="display:none"><div id="stage7-status" class="status"></div><div id="stage7-list"></div></div>
-  <div id="tab-stage8" style="display:none"><div id="stage8-status" class="status"></div><div id="stage8-list"></div></div>
-
-  <div id="tab-search">
-    <div class="tools">
-      <div class="tool-card">
-        <div class="tool-title">🔤 Plate Converter (EN → Arabic)</div>
-        <div class="tool-row">
-          <input id="plate-in" placeholder="e.g. 6913 XJS or just XJS" style="text-transform:uppercase">
-          <button onclick="convertPlate()">Convert</button>
-        </div>
-        <div id="plate-out" class="tool-out"></div>
-      </div>
-
-      <div class="tool-card">
-        <div class="tool-title">⚖️ Weight × Voltage Calculator</div>
-        <div class="tool-row">
-          <input id="calc-w" placeholder="Weight (e.g. 2415)" type="number" step="any">
-          <span class="op">×</span>
-          <input id="calc-v" placeholder="Voltage (e.g. 0.55)" type="number" step="any">
-          <button onclick="calcMultiply()">=</button>
-        </div>
-        <div id="calc-out" class="tool-out"></div>
-      </div>
-
-      <div class="tool-card">
-        <div class="tool-title">📅 Expiry Date Extender</div>
-        <div class="tool-row">
-          <input id="exp-old" type="date">
-          <select id="exp-mode" style="min-width:170px">
-            <option value="today-1y">+1 Year from Today</option>
-            <option value="today-months">+Months from Today</option>
-            <option value="exp-1y">+1 Year from Old Expiry</option>
-            <option value="exp-months">+Months from Old Expiry</option>
+          <label class="input-label" for="deal-priority" style="margin-top:12px">Priority</label>
+          <select id="deal-priority" style="width:100%">
+            <option value="">Select...</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
           </select>
+
+          <label class="input-label" for="deal-remarks" style="margin-top:12px">Remarks by CS Team</label>
+          <textarea id="deal-remarks" placeholder="Notes for this request..." style="width:100%"></textarea>
+
+          <div class="row" style="margin:14px 0 0;gap:6px">
+            <a class="btn-link" id="deal-new-so-link" href="" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Create Sale Order
+            </a>
+            <a class="btn-link" id="deal-all-so-link" href="" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+              Open Sale Orders
+            </a>
+          </div>
+          <button style="margin-top:10px;width:100%" onclick="saveRenewalRequest()">Create Request (Stage 1)</button>
+          <div id="deal-status" class="status" style="display:none;margin:12px 0 0"></div>
         </div>
-        <div class="tool-row" style="margin-top:8px">
-          <input id="exp-months" type="number" min="1" max="12" placeholder="Months (1-12)">
-          <button onclick="calcExpiry()">Calculate</button>
+        <div id="deal-plate-history" style="flex-basis:100%"></div>
+
+        <div style="flex:1;min-width:330px">
+          <div id="odoo-panel"></div>
+          <div id="deal-history-pane"></div>
         </div>
-        <div id="exp-out" class="tool-out ltr"></div>
       </div>
     </div>
 
-    <div class="row">
-      <select id="field">
-        <option value="__any">Any Field (search all)</option>
-        <option value="pn">Plate Number</option>
-        <option value="vi">Vehicle ID</option>
-        <option value="ci">Company ID</option>
-        <option value="di">Driver ID</option>
-        <option value="vn">Vehicle No</option>
-        <option value="rn">Registration No</option>
-        <option value="im">IMEI</option>
-        <option value="sn">SIM No</option>
-        <option value="sq">Sequence No</option>
-        <option value="cn">Company Name</option>
-        <option value="dn">Driver Name</option>
-      </select>
-      <input id="q" placeholder="Loading data... please wait" autofocus disabled>
-      <button onclick="doSearch()">Search</button>
-      <button class="secondary" onclick="document.getElementById('q').value='';doSearch()">Clear</button>
-    </div>
-    <div id="data-status" class="status loading">Loading vehicle data... please wait</div>
-    <div id="info" class="results-info"></div>
-    <div id="results"></div>
-    <div id="pager" class="pagination"></div>
-  </div>
+    <!-- ---------- Pipeline stages ---------- -->
+    <div id="tab-stage1" style="display:none"><div id="stage1-status" class="status"></div><div id="stage1-list"></div></div>
+    <div id="tab-stage2" style="display:none"><div id="stage2-status" class="status"></div><div id="stage2-list"></div></div>
+    <div id="tab-stage3" style="display:none"><div id="stage3-status" class="status"></div><div id="stage3-list"></div></div>
+    <div id="tab-stage4" style="display:none"><div id="stage4-status" class="status"></div><div id="stage4-list"></div></div>
+    <div id="tab-stage5" style="display:none"><div id="stage5-status" class="status"></div><div id="stage5-list"></div></div>
+    <div id="tab-stage6" style="display:none"><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
+    <div id="tab-stage7" style="display:none"><div id="stage7-status" class="status"></div><div id="stage7-list"></div></div>
+    <div id="tab-stage8" style="display:none"><div id="stage8-status" class="status"></div><div id="stage8-list"></div></div>
 
-  <div id="tab-requests" style="display:none">
-    <div class="row">
-      <label><input type="checkbox" id="req-flt-renewal"> Renewal pending</label>
-      <label><input type="checkbox" id="req-flt-wasl"> Wasl pending</label>
-      <input id="req-q" placeholder="Filter by plate / encoder / sale order..." style="max-width:320px">
-      <button class="small" onclick="loadRequests()">Refresh</button>
-    </div>
-    <div id="requests-status" class="status"></div>
-    <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>Renewal ID</th><th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
-            <th>Sale Order</th><th>Priority</th><th>Stage</th><th>Device</th><th>Renewal</th><th>Wasl</th><th>Closed</th><th>Remarks</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="requests-tbody"></tbody>
-      </table>
-    </div>
-  </div>
+    <!-- ---------- Search & Renew ---------- -->
+    <div id="tab-search">
+      <div class="tools">
+        <div class="tool-card">
+          <div class="tool-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+            Plate Converter (EN to Arabic)
+          </div>
+          <div class="tool-row">
+            <input id="plate-in" placeholder="e.g. 6913 XJS or just XJS" style="text-transform:uppercase" aria-label="Plate in English">
+            <button onclick="convertPlate()">Convert</button>
+          </div>
+          <div id="plate-out" class="tool-out"></div>
+        </div>
 
-  <div id="tab-status" style="display:none">
-    <div class="row">
-      <label><input type="checkbox" id="flt-wasl"> Wasl not done</label>
-      <label><input type="checkbox" id="flt-reporting"> Not reporting</label>
-      <label><input type="checkbox" id="flt-renewal"> Renewal not done</label>
-      <button class="small" onclick="loadRenewals()">Refresh</button>
-      <button class="small secondary" onclick="exportExcel()">Export to Excel</button>
+        <div class="tool-card">
+          <div class="tool-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>
+            Weight × Voltage Calculator
+          </div>
+          <div class="tool-row">
+            <input id="calc-w" placeholder="Weight (e.g. 2415)" type="number" step="any" aria-label="Weight">
+            <span class="op" aria-hidden="true">×</span>
+            <input id="calc-v" placeholder="Voltage (e.g. 0.55)" type="number" step="any" aria-label="Voltage">
+            <button onclick="calcMultiply()" aria-label="Calculate">=</button>
+          </div>
+          <div id="calc-out" class="tool-out"></div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Expiry Date Extender
+          </div>
+          <div class="tool-row">
+            <input id="exp-old" type="date" aria-label="Old expiry date">
+            <select id="exp-mode" aria-label="Extension mode">
+              <option value="today-1y">+1 Year from Today</option>
+              <option value="today-months">+Months from Today</option>
+              <option value="exp-1y">+1 Year from Old Expiry</option>
+              <option value="exp-months">+Months from Old Expiry</option>
+            </select>
+          </div>
+          <div class="tool-row" style="margin-top:8px">
+            <input id="exp-months" type="number" min="1" max="12" placeholder="Months (1-12)" aria-label="Months">
+            <button onclick="calcExpiry()">Calculate</button>
+          </div>
+          <div id="exp-out" class="tool-out ltr"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <select id="field" aria-label="Search field">
+          <option value="__any">Any Field (search all)</option>
+          <option value="pn">Plate Number</option>
+          <option value="vi">Vehicle ID</option>
+          <option value="ci">Company ID</option>
+          <option value="di">Driver ID</option>
+          <option value="vn">Vehicle No</option>
+          <option value="rn">Registration No</option>
+          <option value="im">IMEI</option>
+          <option value="sn">SIM No</option>
+          <option value="sq">Sequence No</option>
+          <option value="cn">Company Name</option>
+          <option value="dn">Driver Name</option>
+        </select>
+        <input id="q" placeholder="Loading data... please wait" autofocus disabled aria-label="Search value">
+        <button onclick="doSearch()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search
+        </button>
+        <button class="secondary" onclick="document.getElementById('q').value='';doSearch()">Clear</button>
+      </div>
+      <div id="data-status" class="status loading">Loading vehicle data... please wait</div>
+      <div id="info" class="results-info"></div>
+      <div id="results"></div>
+      <div id="pager" class="pagination"></div>
     </div>
-    <div id="renewals-status" class="status"></div>
-    <div style="overflow-x:auto">
-      <table id="renewals-table">
-        <thead>
-          <tr>
-            <th>Vehicle</th><th>Plate</th><th>Company</th><th>Sale Order</th><th>New Exp Date</th>
-            <th>Renewal</th><th>Reporting</th><th>Wasl</th><th>Missing Docs</th><th>Updated</th>
-          </tr>
-        </thead>
-        <tbody id="renewals-tbody"></tbody>
-      </table>
+
+    <!-- ---------- Master ---------- -->
+    <div id="tab-requests" style="display:none">
+      <div class="row">
+        <label class="chip"><input type="checkbox" id="req-flt-renewal"> Renewal pending</label>
+        <label class="chip"><input type="checkbox" id="req-flt-wasl"> Wasl pending</label>
+        <input id="req-q" placeholder="Filter by plate / encoder / sale order..." style="max-width:300px">
+        <button class="secondary small" onclick="loadRequests()">Refresh</button>
+      </div>
+      <div id="requests-status" class="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Renewal ID</th><th>Date</th><th>Encoder</th><th>Plate</th><th>Mobile</th><th>Amount</th><th>Services</th>
+              <th>Sale Order</th><th>Priority</th><th>Stage</th><th>Device</th><th>Renewal</th><th>Wasl</th><th>Closed</th><th>Remarks</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="requests-tbody"></tbody>
+        </table>
+      </div>
     </div>
-  </div>
+
+    <!-- ---------- Renewals status ---------- -->
+    <div id="tab-status" style="display:none">
+      <div class="row">
+        <label class="chip"><input type="checkbox" id="flt-wasl"> Wasl not done</label>
+        <label class="chip"><input type="checkbox" id="flt-reporting"> Not reporting</label>
+        <label class="chip"><input type="checkbox" id="flt-renewal"> Renewal not done</label>
+        <button class="secondary small" onclick="loadRenewals()">Refresh</button>
+        <button class="secondary small" onclick="exportExcel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Export to Excel
+        </button>
+      </div>
+      <div id="renewals-status" class="status"></div>
+      <div class="table-wrap">
+        <table id="renewals-table">
+          <thead>
+            <tr>
+              <th>Vehicle</th><th>Plate</th><th>Company</th><th>Sale Order</th><th>New Exp Date</th>
+              <th>Renewal</th><th>Reporting</th><th>Wasl</th><th>Missing Docs</th><th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="renewals-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- Odoo sale orders ---------- -->
+    <div id="tab-odoo" style="display:none">
+      <div class="row">
+        <input id="odoo-q" placeholder="Order no (S75879), customer name, phone, or plate..." style="max-width:360px" aria-label="Odoo search">
+        <select id="odoo-state" aria-label="Order status">
+          <option value="">Any status</option>
+          <option value="draft">Quotation</option>
+          <option value="sent">Quotation Sent</option>
+          <option value="approved">Quotation Approved</option>
+          <option value="sale">Sale Order</option>
+          <option value="create_jobs">Create Jobs</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+          <option value="cancel">Cancelled</option>
+        </select>
+        <button onclick="searchOdooOrders()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search Odoo
+        </button>
+        <button class="secondary" onclick="document.getElementById('odoo-q').value='';document.getElementById('odoo-state').value='';searchOdooOrders()">Latest orders</button>
+      </div>
+      <div id="odoo-orders-status" class="status">Search, or hit "Latest orders" for the newest sale orders in Odoo.</div>
+      <div id="odoo-orders-hint"></div>
+      <div id="odoo-orders-result"></div>
+    </div>
+
+    <!-- ---------- Odoo tickets ---------- -->
+    <div id="tab-tickets" style="display:none">
+      <div class="row">
+        <input id="ticket-q" placeholder="Ticket no (TICK2549), subject, customer or phone..." style="max-width:360px" aria-label="Ticket search">
+        <select id="ticket-state" aria-label="Ticket state">
+          <option value="">Any state</option>
+          <option value="draft">Draft</option>
+          <option value="approved">Approved</option>
+          <option value="assigned">Assigned</option>
+          <option value="complete">Complete</option>
+          <option value="closed">Closed</option>
+          <option value="re_opened">Re-Opened</option>
+          <option value="reject">Rejected</option>
+        </select>
+        <button onclick="searchOdooTickets()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search Tickets
+        </button>
+        <button class="secondary" onclick="document.getElementById('ticket-q').value='';document.getElementById('ticket-state').value='';searchOdooTickets()">Latest tickets</button>
+        <a class="btn-link" href="" id="new-ticket-link" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          New Ticket in Odoo
+        </a>
+      </div>
+      <div id="tickets-status" class="status">Search, or hit "Latest tickets" for the newest tickets in Odoo.</div>
+      <div id="tickets-result"></div>
+    </div>
+
+    <!-- ---------- Users & Access (admin) ---------- -->
+    <div id="tab-admin" style="display:none">
+      <div id="admin-body"></div>
+    </div>
+
+  </main>
 </div>
 </div>
 
@@ -336,8 +642,29 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 function escapeHTML(s) {
-  if (s === null || s === undefined || s === '') return '';
+  // Odoo returns `false` for every empty field — printing "false" in a cell is
+  // never what we want, so treat it as empty here rather than at each caller.
+  if (s === null || s === undefined || s === '' || s === false) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ==================== Icons (inline SVG, single stroke family) ====================
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13A4 4 0 0 1 16 11"/>',
+  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>',
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+  receipt: '<path d="M4 2v20l2.5-1.5L9 22l3-1.5L15 22l2.5-1.5L20 22V2l-2.5 1.5L15 2l-3 1.5L9 2 6.5 3.5Z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  ticket: '<path d="M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v14"/>',
+  external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>'
+};
+function icon(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 }
 
 // ==================== Small utility tools ====================
@@ -359,7 +686,7 @@ function convertPlate() {
 
   const unknown = [...letters].filter(c => !ARABIC_MAP[c]);
   if (unknown.length) {
-    out.innerHTML = `<span style="color:#ef5350">Unknown letter(s): ${unknown.join(', ')}</span>`;
+    out.innerHTML = `<span class="warn">Unknown letter(s): ${escapeHTML(unknown.join(', '))}</span>`;
     return;
   }
 
@@ -374,11 +701,10 @@ function calcMultiply() {
   const v = parseFloat(document.getElementById('calc-v').value);
   const out = document.getElementById('calc-out');
   out.className = 'tool-out ltr';
-  if (isNaN(w) || isNaN(v)) { out.innerHTML = '<span style="color:#8a96a3">Enter both values</span>'; return; }
+  if (isNaN(w) || isNaN(v)) { out.innerHTML = '<span class="hint" style="margin:0">Enter both values</span>'; return; }
   const result = w * v;
-  const rounded = Math.round(result);
-  out.innerHTML = `<strong style="font-size:18px;color:#66bb6a">${w} × ${v} = ${result.toFixed(2)}</strong>` +
-    `<div class="hint">Rounded: <strong>${rounded}</strong></div>`;
+  out.innerHTML = `<span class="ok">${w} × ${v} = ${result.toFixed(2)}</span>` +
+    `<div class="hint">Rounded: <strong>${Math.round(result)}</strong></div>`;
 }
 
 function calcExpiry() {
@@ -391,9 +717,9 @@ function calcExpiry() {
   const needsOld = mode === 'exp-1y' || mode === 'exp-months';
   const needsMonths = mode === 'today-months' || mode === 'exp-months';
 
-  if (needsOld && !oldVal) { out.innerHTML = '<span style="color:#8a96a3">Enter the old expiry date</span>'; return; }
+  if (needsOld && !oldVal) { out.innerHTML = '<span class="hint" style="margin:0">Enter the old expiry date</span>'; return; }
   if (needsMonths && (isNaN(months) || months < 1 || months > 12)) {
-    out.innerHTML = '<span style="color:#8a96a3">Enter months (1-12)</span>'; return;
+    out.innerHTML = '<span class="hint" style="margin:0">Enter months (1-12)</span>'; return;
   }
 
   const base = needsOld ? new Date(oldVal + 'T00:00:00') : new Date();
@@ -402,7 +728,7 @@ function calcExpiry() {
   else result.setMonth(result.getMonth() + months);
 
   const fmt = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
-  out.innerHTML = `<strong style="font-size:18px;color:#66bb6a">New Expiry: ${fmt(result)}</strong>` +
+  out.innerHTML = `<span class="ok">New Expiry: ${fmt(result)}</span>` +
     (needsOld ? `<div class="hint">Old Expiry: ${fmt(base)}</div>` : `<div class="hint">From today: ${fmt(base)}</div>`);
 }
 
@@ -411,6 +737,118 @@ document.getElementById('calc-w').addEventListener('keydown', e => { if (e.key =
 document.getElementById('calc-v').addEventListener('keydown', e => { if (e.key === 'Enter') calcMultiply(); });
 document.getElementById('exp-old').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
 document.getElementById('exp-months').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
+
+// ==================== Navigation registry & access control ====================
+const STAGE_LABELS = {
+  1: 'Payment Received (Case Created)', 2: 'Sale Order Create', 3: 'Renewal Processing',
+  4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
+};
+const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7','stage8'];
+
+// One registry drives the sidebar, the page header, and the admin permission
+// checkboxes — add a tab here and it shows up in all three.
+const TAB_REGISTRY = [
+  { key: 'search',   group: 'Operations', label: 'Search & Renew',    icon: 'search', sub: 'Search a vehicle, record its renewal, track checkpoints' },
+  { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
+  ...STAGE_TAB_NAMES.map((k, i) => ({
+    key: k, group: 'Pipeline', step: i + 1,
+    label: ['Payment Received','Sale Order','Renewal Processing','Renewal Done','WASL Processing','WASL Completed','Device Check','Customer Close'][i],
+    sub: `Stage ${i + 1} — ${STAGE_LABELS[i + 1]}`
+  })),
+  { key: 'odoo',     group: 'Odoo',    label: 'Sale Orders (Odoo)', icon: 'receipt', sub: 'Search live Odoo sale orders by order no, customer, phone or plate' },
+  { key: 'tickets',  group: 'Odoo',    label: 'Tickets (Odoo)',     icon: 'ticket',  sub: 'Search live Odoo tickets, open them, or raise a new one' },
+  { key: 'requests', group: 'Reports', label: 'Master (All Stages)', icon: 'table', sub: 'Every case in one editable table' },
+  { key: 'status',   group: 'Reports', label: 'Renewals Status',     icon: 'list',  sub: 'Per-vehicle renewal records, exportable to Excel' },
+  { key: 'admin',    group: 'Administration', label: 'Users & Access', icon: 'users', sub: 'Decide what each user can open', adminOnly: true }
+];
+const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
+const DEFAULT_AGENT_TABS = ['search'];
+
+// TEMP TEST MODE (2026-07-23): login screen bypassed via silent anonymous
+// sign-in so anyone with the URL gets straight into the app. While this is on
+// everyone is treated as admin, otherwise nobody could test the stage tabs.
+// Turn it off (false) to enforce real logins and per-user access.
+const TEMP_TEST_MODE_NO_LOGIN = true;
+
+let ME = { uid: null, email: '', role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true };
+let MY_PROFILE_UNSUB = null;
+
+function isAdmin() { return ME.role === 'admin'; }
+function canOpen(tabKey) {
+  if (isAdmin()) return true;
+  return ME.active !== false && ME.tabs.includes(tabKey);
+}
+
+function visibleTabs() { return TAB_REGISTRY.filter(t => canOpen(t.key)); }
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  const tabs = visibleTabs();
+  let html = '';
+  let lastGroup = null;
+  tabs.forEach(t => {
+    if (t.group !== lastGroup) { html += `<div class="nav-group">${t.group}</div>`; lastGroup = t.group; }
+    const lead = t.step ? `<span class="step">${t.step}</span>` : icon(t.icon);
+    const badge = t.step ? `<span class="nav-badge" id="nav-badge-${t.key}">0</span>` : '';
+    html += `<button type="button" class="nav-item${t.key === currentActiveTab ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
+      ${lead}<span class="label">${escapeHTML(t.label)}</span>${badge}</button>`;
+  });
+  nav.innerHTML = html || '<div class="nav-group">No access granted</div>';
+  updateNavBadges();
+}
+
+function renderTestModeBanner() {
+  document.getElementById('test-mode-banner').innerHTML = TEMP_TEST_MODE_NO_LOGIN
+    ? `<div class="banner">${icon('alert')}<div><strong>Test mode is on.</strong> Login is bypassed and everyone is treated as admin — anyone with the link can open this app. Set <code>TEMP_TEST_MODE_NO_LOGIN = false</code> before real use.</div></div>`
+    : '';
+}
+
+// Live profile: an admin changing your access updates your sidebar immediately.
+function watchMyProfile(user) {
+  if (MY_PROFILE_UNSUB) { MY_PROFILE_UNSUB(); MY_PROFILE_UNSUB = null; }
+  ME.uid = user.uid;
+  ME.email = user.email || '';
+
+  if (TEMP_TEST_MODE_NO_LOGIN) {
+    ME.role = 'admin'; ME.tabs = [...ALL_TAB_KEYS]; ME.active = true;
+    applyIdentity();
+    return;
+  }
+
+  const ref = db.collection('users').doc(user.uid);
+  MY_PROFILE_UNSUB = ref.onSnapshot(async snap => {
+    if (!snap.exists) {
+      // Self-register on first login; rules force role 'agent'.
+      try {
+        await ref.set({ email: ME.email, role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true,
+          created_at: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch (err) { showToast('Could not create your profile: ' + err.message, 'error'); }
+      return;
+    }
+    const d = snap.data();
+    ME.role = d.role || 'agent';
+    ME.tabs = Array.isArray(d.tabs) ? d.tabs : [...DEFAULT_AGENT_TABS];
+    ME.active = d.active !== false;
+    applyIdentity();
+  }, err => showToast('Profile load failed: ' + err.message, 'error'));
+}
+
+function applyIdentity() {
+  document.getElementById('who-email').textContent = ME.email || 'Guest (test mode)';
+  document.getElementById('who-role').textContent = ME.active === false ? 'disabled' : ME.role;
+  document.getElementById('who-initial').textContent = (ME.email || '?').charAt(0).toUpperCase();
+  renderNav();
+  if (!canOpen(currentActiveTab)) {
+    const first = visibleTabs()[0];
+    if (first) switchTab(first.key); else showNoAccess();
+  }
+}
+
+function showNoAccess() {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => { el.style.display = 'none'; });
+  document.getElementById('page-title').textContent = 'No access';
+  document.getElementById('page-sub').textContent = 'Your account has no sections assigned yet. Ask an admin to grant access.';
+}
 
 // ==================== Auth ====================
 function showLogin() {
@@ -421,16 +859,12 @@ function showLogin() {
 function showApp(user) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('who-email').textContent = user.email || 'Guest (test mode)';
+  renderTestModeBanner();
+  watchMyProfile(user);
   fillEncoderName();
   if (!DATA.length) loadVehicleData();
 }
 
-// TEMP TEST MODE (2026-07-23): login screen bypassed via silent anonymous
-// sign-in so anyone with the URL gets straight into the app — no access
-// control right now. Revert by removing the anonymous-sign-in branch below
-// and restoring `user ? showApp(user) : showLogin();`.
-const TEMP_TEST_MODE_NO_LOGIN = true;
 addVehicleRow();
 
 auth.onAuthStateChanged(user => {
@@ -445,7 +879,7 @@ async function doLogin() {
   const status = document.getElementById('login-status');
   status.style.display = 'block';
   status.className = 'status';
-  status.textContent = 'Signing in...';
+  status.innerHTML = '<span class="spinner"></span>Signing in...';
   try {
     await auth.signInWithEmailAndPassword(email, password);
     status.style.display = 'none';
@@ -455,25 +889,36 @@ async function doLogin() {
   }
 }
 
-function doLogout() { auth.signOut(); }
+function doLogout() { if (MY_PROFILE_UNSUB) MY_PROFILE_UNSUB(); auth.signOut(); }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 // ==================== Tabs ====================
 let currentActiveTab = 'search';
-const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7','stage8'];
 
 function switchTab(name) {
+  if (!canOpen(name)) { showToast('You do not have access to that section', 'error'); return; }
   currentActiveTab = name;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  document.getElementById('tab-search').style.display = name === 'search' ? 'block' : 'none';
-  document.getElementById('tab-deal').style.display = name === 'deal' ? 'block' : 'none';
-  STAGE_TAB_NAMES.forEach(s => { document.getElementById('tab-' + s).style.display = name === s ? 'block' : 'none'; });
-  document.getElementById('tab-requests').style.display = name === 'requests' ? 'block' : 'none';
-  document.getElementById('tab-status').style.display = name === 'status' ? 'block' : 'none';
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('[id^="tab-"]').forEach(el => { el.style.display = el.id === 'tab-' + name ? 'block' : 'none'; });
+
+  const meta = TAB_REGISTRY.find(t => t.key === name);
+  if (meta) {
+    document.getElementById('page-title').textContent = meta.label;
+    document.getElementById('page-sub').textContent = meta.sub || '';
+  }
+
   if (name === 'status') loadRenewals();
+  if (name === 'admin') loadUsers();
   if ((name === 'requests' || STAGE_TAB_NAMES.includes(name)) && !REQUESTS_CACHE.length) loadRequests();
   if (STAGE_TAB_NAMES.includes(name)) renderStageTab(parseInt(name.replace('stage', ''), 10));
+}
+
+function updateNavBadges() {
+  STAGE_TAB_NAMES.forEach((key, i) => {
+    const el = document.getElementById('nav-badge-' + key);
+    if (el) el.textContent = REQUESTS_CACHE.filter(r => (r.stage || 1) === i + 1).length;
+  });
 }
 
 // ==================== Toasts ====================
@@ -484,6 +929,181 @@ function showToast(message, type) {
   el.textContent = message;
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+// ==================== Users & Access (admin) ====================
+let USERS_CACHE = [];
+let usersUnsubscribe = null;
+
+function loadUsers() {
+  const body = document.getElementById('admin-body');
+  if (!isAdmin()) { body.innerHTML = '<div class="locked">Admins only.</div>'; return; }
+  if (usersUnsubscribe) return; // already listening
+  body.innerHTML = '<div class="status"><span class="spinner"></span>Loading users...</div>';
+  usersUnsubscribe = db.collection('users').onSnapshot(snap => {
+    USERS_CACHE = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    renderUsersTable();
+  }, err => { body.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`; });
+}
+
+function renderUsersTable() {
+  const rows = [...USERS_CACHE].sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+  const cols = TAB_REGISTRY.filter(t => !t.adminOnly);
+
+  document.getElementById('admin-body').innerHTML = `
+    <div class="card">
+      <div class="section-label" style="margin-bottom:12px">Add a user</div>
+      <div class="grid2">
+        <div>
+          <label class="input-label" for="nu-email">Email</label>
+          <input id="nu-email" type="email" placeholder="name@tracking.me" autocomplete="off" style="width:100%">
+        </div>
+        <div>
+          <label class="input-label" for="nu-pass">Temporary password</label>
+          <input id="nu-pass" type="password" placeholder="min 6 characters" autocomplete="new-password" style="width:100%">
+        </div>
+      </div>
+      <label class="input-label" for="nu-role" style="margin-top:12px">Role</label>
+      <select id="nu-role" onchange="document.getElementById('nu-perms').style.display = this.value === 'admin' ? 'none' : 'block'">
+        <option value="agent">Agent — only the sections you tick below</option>
+        <option value="admin">Admin — full access to everything</option>
+      </select>
+      <div id="nu-perms">
+        <label class="input-label" style="margin-top:12px">Sections this user can open</label>
+        <div class="perm-grid">
+          ${cols.map(c => `<label><input type="checkbox" class="nu-tab" value="${c.key}" ${c.key === 'search' ? 'checked' : ''}> ${escapeHTML(c.step ? c.step + '. ' + c.label : c.label)}</label>`).join('')}
+        </div>
+        <div style="margin-top:6px;display:flex;gap:6px">
+          <button class="ghost small" onclick="document.querySelectorAll('.nu-tab').forEach(c=>c.checked=true)">Select all</button>
+          <button class="ghost small" onclick="document.querySelectorAll('.nu-tab').forEach(c=>c.checked=false)">Clear</button>
+        </div>
+      </div>
+      <button id="nu-submit" style="margin-top:14px" onclick="createUser()">Create user</button>
+      <div id="nu-status" class="status" style="display:none;margin:12px 0 0"></div>
+    </div>
+    <div class="status">${rows.length} user(s). Access changes apply instantly — the user does not need to sign out.</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>User</th><th>Role</th><th>Status</th><th style="min-width:420px">Sections this user can open</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(u => {
+            const tabs = Array.isArray(u.tabs) ? u.tabs : [];
+            const isMe = u.uid === ME.uid;
+            return `<tr>
+              <td>
+                <div style="font-weight:600">${escapeHTML(u.email) || '(no email)'}</div>
+                <div style="font-size:11px;color:var(--c-fg-subtle);font-family:var(--font-mono)">${escapeHTML(u.uid.slice(0, 12))}${isMe ? ' · you' : ''}</div>
+              </td>
+              <td>
+                <select id="u-role-${u.uid}" ${isMe ? 'disabled title="You cannot change your own role"' : ''}>
+                  <option value="agent" ${u.role !== 'admin' ? 'selected' : ''}>Agent</option>
+                  <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                </select>
+                <div style="margin-top:4px"><span class="role-tag ${u.role === 'admin' ? 'admin' : 'agent'}">${u.role === 'admin' ? 'admin' : 'agent'}</span></div>
+              </td>
+              <td>
+                <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+                  <input type="checkbox" id="u-active-${u.uid}" ${u.active !== false ? 'checked' : ''} ${isMe ? 'disabled' : ''}> Enabled
+                </label>
+              </td>
+              <td>
+                ${u.role === 'admin'
+                  ? '<span style="font-size:12px;color:var(--c-fg-subtle)">Admins can open everything.</span>'
+                  : `<div class="perm-grid">
+                      ${cols.map(c => `<label><input type="checkbox" class="u-tab-${u.uid}" value="${c.key}" ${tabs.includes(c.key) ? 'checked' : ''}> ${escapeHTML(c.step ? c.step + '. ' + c.label : c.label)}</label>`).join('')}
+                    </div>
+                    <div style="margin-top:6px;display:flex;gap:6px">
+                      <button class="ghost small" onclick="toggleAllTabs('${u.uid}', true)">Select all</button>
+                      <button class="ghost small" onclick="toggleAllTabs('${u.uid}', false)">Clear</button>
+                    </div>`}
+              </td>
+              <td style="white-space:nowrap">
+                <button class="small" onclick="saveUserAccess('${u.uid}')">Save</button>
+                <div id="u-status-${u.uid}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:4px"></div>
+              </td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="5" class="no-results">No users yet. They appear here after their first sign-in.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    <div class="status" style="margin-top:12px">Users who sign in without being created here appear as Agents with no access until you grant it.</div>`;
+}
+
+// Creating an account with the main Firebase app would sign the admin out and
+// in as the new user. A secondary app instance keeps the admin's session.
+function userCreatorApp() {
+  const existing = firebase.apps.find(a => a.name === 'userCreator');
+  return existing || firebase.initializeApp(firebaseConfig, 'userCreator');
+}
+
+async function createUser() {
+  const statusEl = document.getElementById('nu-status');
+  const btn = document.getElementById('nu-submit');
+  const email = document.getElementById('nu-email').value.trim();
+  const password = document.getElementById('nu-pass').value;
+  const role = document.getElementById('nu-role').value;
+  const tabs = role === 'admin'
+    ? [...ALL_TAB_KEYS]
+    : [...document.querySelectorAll('.nu-tab')].filter(c => c.checked).map(c => c.value);
+
+  statusEl.style.display = 'block';
+  if (!email || password.length < 6) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Enter an email and a password of at least 6 characters.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Creating account...';
+  const secondary = userCreatorApp();
+  try {
+    const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
+    await db.collection('users').doc(cred.user.uid).set({
+      email, role, tabs, active: true,
+      created_by: ME.email,
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${email} created. Share the password and ask them to change it after first sign-in.`;
+    showToast('User created', 'success');
+    document.getElementById('nu-email').value = '';
+    document.getElementById('nu-pass').value = '';
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  } finally {
+    await secondary.auth().signOut().catch(() => {});
+    btn.disabled = false;
+  }
+}
+
+function toggleAllTabs(uid, checked) {
+  document.querySelectorAll('.u-tab-' + uid).forEach(cb => { cb.checked = checked; });
+}
+
+async function saveUserAccess(uid) {
+  const statusEl = document.getElementById('u-status-' + uid);
+  statusEl.textContent = 'Saving...';
+  const roleEl = document.getElementById('u-role-' + uid);
+  const activeEl = document.getElementById('u-active-' + uid);
+  const updates = {
+    role: roleEl.disabled ? undefined : roleEl.value,
+    active: activeEl.disabled ? undefined : activeEl.checked,
+    tabs: [...document.querySelectorAll('.u-tab-' + uid)].filter(cb => cb.checked).map(cb => cb.value),
+    updated_by: ME.email,
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
+  try {
+    await db.collection('users').doc(uid).update(updates);
+    statusEl.textContent = 'Saved';
+    showToast('Access updated', 'success');
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch (err) {
+    statusEl.textContent = err.message;
+    showToast(err.message, 'error');
+  }
 }
 
 // ==================== Renewal Request module ====================
@@ -501,9 +1121,9 @@ function addVehicleRow() {
   row.className = 'vehicle-row';
   row.innerHTML = `
     <div class="vr-top">
-      <input placeholder="Plate Number (e.g. 3294 ATB)" class="v-plate">
-      <input type="number" placeholder="Amount" class="v-amount" style="max-width:120px">
-      <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle">×</button>
+      <input placeholder="Plate Number (e.g. 3294 ATB)" class="v-plate" aria-label="Plate number">
+      <input type="number" placeholder="Amount" class="v-amount" style="max-width:110px" aria-label="Amount">
+      <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle" aria-label="Remove vehicle">${icon('x')}</button>
     </div>
     <div class="chip-row">
       <label class="chip"><input type="checkbox" class="v-type-renewal"> Renewal</label>
@@ -520,8 +1140,81 @@ function addVehicleRow() {
     plateTimer = setTimeout(() => {
       const mobile = document.getElementById('deal-mobile').value.trim();
       lookupOdoo(mobile, e.target.value.trim());
+      refreshPlateHistory();
     }, 400);
   });
+}
+
+// "Has this plate come through here before?" — searched across every request in
+// our own tracker, not just this customer's, because the same vehicle often
+// comes back under a different mobile number.
+const PLATE_HISTORY_CACHE = new Map();
+
+async function loadPlateHistory(plate) {
+  const key = plate.toUpperCase().replace(/\s+/g, '');
+  if (PLATE_HISTORY_CACHE.has(key)) return PLATE_HISTORY_CACHE.get(key);
+  // Plates are stored as typed, so match both "6554 VRB" and "6554VRB".
+  const digits = (key.match(/\d+/) || [''])[0];
+  const letters = (key.match(/[A-Z]+/) || [''])[0];
+  const variants = [...new Set([plate.trim(), key, digits && letters ? `${digits} ${letters}` : ''].filter(Boolean))];
+  const snaps = await Promise.all(variants.map(v => db.collection('requests').where('plate', '==', v).get()));
+  const seen = new Set();
+  const docs = [];
+  snaps.forEach(s => s.docs.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); docs.push({ id: d.id, ...d.data() }); } }));
+  docs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  PLATE_HISTORY_CACHE.set(key, docs);
+  return docs;
+}
+
+function dealPlates() {
+  return [...document.querySelectorAll('#deal-vehicles .v-plate')]
+    .map(i => i.value.trim()).filter(Boolean);
+}
+
+async function refreshPlateHistory() {
+  const pane = document.getElementById('deal-plate-history');
+  const plates = dealPlates();
+  if (!plates.length) { pane.innerHTML = ''; return; }
+
+  pane.innerHTML = '<div class="status"><span class="spinner"></span>Checking our own history for these plates...</div>';
+  try {
+    const results = await Promise.all(plates.map(async p => ({ plate: p, docs: await loadPlateHistory(p) })));
+    pane.innerHTML = results.map(({ plate, docs }) => {
+      if (!docs.length) {
+        return `<div class="status ready"><strong>${escapeHTML(plate)}</strong> — first time. No earlier request for this plate in our tracker.</div>`;
+      }
+      const mobiles = [...new Set(docs.map(d => d.mobile).filter(Boolean))];
+      const open = docs.filter(d => d.renewal_status !== 'Done' || d.wasl_status !== 'Done').length;
+      return `
+        <div class="card">
+          <div class="status error" style="margin-bottom:10px">
+            <strong>${escapeHTML(plate)} — done ${docs.length} time(s) before.</strong>
+            ${open ? ` ${open} still open.` : ''} ${mobiles.length > 1 ? ` Came under ${mobiles.length} different mobile numbers.` : ''}
+          </div>
+          <div class="table-wrap" style="box-shadow:none">
+            <table>
+              <thead><tr><th>Date</th><th>Renewal ID</th><th>Mobile</th><th>Encoder</th><th>Type</th><th>Sale Order</th><th>Amount</th><th>Stage</th><th>Renewal</th><th>WASL</th></tr></thead>
+              <tbody>
+                ${docs.map(d => `<tr class="req-row${d.renewal_status !== 'Done' || d.wasl_status !== 'Done' ? ' open' : ''}">
+                  <td>${escapeHTML(d.date)}</td>
+                  <td style="font-family:var(--font-mono)">${escapeHTML(d.renewal_id)}</td>
+                  <td>${escapeHTML(d.mobile)}</td>
+                  <td>${escapeHTML(d.encoder)}</td>
+                  <td>${escapeHTML(d.services)}</td>
+                  <td>${escapeHTML(d.sale_order)}</td>
+                  <td>${d.amount || ''}</td>
+                  <td>${d.stage ? d.stage + ' — ' + escapeHTML(d.stage_label) : ''}</td>
+                  <td>${pill(d.renewal_status === 'Done')}</td>
+                  <td>${pill(d.wasl_status === 'Done')}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    pane.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
+  }
 }
 
 function removeVehicleRow(btn) {
@@ -571,7 +1264,7 @@ function renderCustomerHistory() {
     </div>
     <div class="card">
       <div class="section-label" style="margin-bottom:10px">Previous Requests</div>
-      <div style="overflow-x:auto">
+      <div class="table-wrap" style="box-shadow:none">
         <table>
           <thead><tr><th>Renewal ID</th><th>Plate</th><th>Amount</th><th>Sale Order</th><th>Type</th><th>Stage</th><th>Renewal</th><th>WASL</th><th>Date</th></tr></thead>
           <tbody>
@@ -607,12 +1300,59 @@ function lookupCustomerHistory(mobile) {
     renderCustomerHistory();
     document.getElementById('deal-renewal-id-display').textContent = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
   }, err => {
-    document.getElementById('deal-history-pane').innerHTML = `<div class="status error">${err.message}</div>`;
+    document.getElementById('deal-history-pane').innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
   });
 }
 
 // ==================== Odoo lookup (Customers / Sale Orders / Tickets) ====================
-const ODOO_BRIDGE_URL = 'https://odoo-bridge-ni5z.onrender.com';
+// ?bridge=http://localhost:3011 points at a locally running bridge for testing.
+const ODOO_BRIDGE_URL = new URLSearchParams(location.search).get('bridge') || 'https://odoo-bridge-ni5z.onrender.com';
+
+// Deep links into the Odoo web client (Odoo 16 hash routing), built to match
+// the URL shape Odoo itself produces — action + menu_id + cids, e.g.
+// /web#id=93377&cids=1&menu_id=141&action=626&model=sale.order.wags&view_type=form
+const ODOO_WEB_URL = 'https://odoo.tracking.me';
+const ODOO_TARGETS = {
+  'sale.order.wags':      { action: 626, menu: 141 },   // Sale > All Sale Orders
+  'internal.ticket.wags': { action: 976, menu: 670 }    // Tickets > All Tickets
+};
+
+function odooHash(model, id) {
+  const t = ODOO_TARGETS[model];
+  return `${ODOO_WEB_URL}/web#${id ? 'id=' + id + '&' : ''}cids=1&menu_id=${t.menu}&action=${t.action}&model=${model}&view_type=form`;
+}
+function odooRecordUrl(model, id) { return odooHash(model, id); }
+function odooNewUrl(model) { return odooHash(model, null); }
+function odooLink(model, id, label) {
+  return `<a class="odoo-link" href="${odooRecordUrl(model, id)}" target="_blank" rel="noopener">${escapeHTML(label)}${icon('external')}</a>`;
+}
+
+const ODOO_STATES = {
+  draft: 'Quotation', sent: 'Quotation Sent', approved: 'Quotation Approved',
+  sale: 'Sale Order', create_jobs: 'Create Jobs', in_progress: 'In Progress',
+  done: 'Done', cancel: 'Cancelled'
+};
+const ODOO_OPEN_STATES = ['sale', 'create_jobs', 'in_progress', 'done'];
+
+function odooStatePill(state) {
+  const label = ODOO_STATES[state] || state || '—';
+  return `<span class="pill ${ODOO_OPEN_STATES.includes(state) ? 'yes' : 'no'}">${escapeHTML(label)}</span>`;
+}
+
+function odooOrderRows(orders, withCustomer) {
+  return orders.map(so => `
+    <tr>
+      <td style="font-family:var(--font-mono);font-weight:600">${escapeHTML(so.name)}</td>
+      <td style="font-family:var(--font-mono)">${escapeHTML(so.order_rfq)}</td>
+      <td><span class="tpl-tag">${escapeHTML(so.quotation_template_id ? so.quotation_template_id[1] : '—')}</span></td>
+      <td>${odooStatePill(so.state)}</td>
+      ${withCustomer ? `<td>${escapeHTML(so.partner_id ? so.partner_id[1] : '')}</td>` : ''}
+      <td>${so.amount_total || 0}</td>
+      <td>${escapeHTML(so.date)}</td>
+      <td>${so.no_of_vehicles || 0}</td>
+      <td class="actions-cell">${odooLink('sale.order.wags', so.id, 'Open')}</td>
+    </tr>`).join('');
+}
 
 function renderOdooPanel(data, error) {
   const el = document.getElementById('odoo-panel');
@@ -623,32 +1363,182 @@ function renderOdooPanel(data, error) {
     ? `${fld('Odoo Customer', data.customer.name)}${fld('Phone', data.customer.phone || data.customer.mobile)}${fld('Email', data.customer.email)}`
     : `<div class="field"><span class="field-value empty">No matching Odoo customer</span></div>`;
 
-  const soRows = (data.saleOrders || []).map(so => `
-    <tr><td>${escapeHTML(so.name)}</td><td>${escapeHTML(so.state)}</td><td>${so.amount_total || ''}</td>
-    <td>${escapeHTML(so.date)}</td><td>${so.no_of_vehicles || ''}</td></tr>`).join('');
-
   const ticketRows = (data.tickets || []).map(t => `
     <tr><td>${escapeHTML(t.name)}</td><td>${escapeHTML(t.subject_name)}</td><td>${escapeHTML(t.state)}</td>
     <td>${escapeHTML((t.create_date||'').slice(0,10))}</td></tr>`).join('');
 
+  const plateOrders = data.plateOrders || [];
+
   el.innerHTML = `
     <div class="card">
       <div class="section-label" style="margin-bottom:10px">Odoo — Live Check</div>
+
+      ${plateOrders.length ? `
+        <div class="status error" style="margin-bottom:10px"><strong>This plate already has ${plateOrders.length} Sale Order(s) in Odoo.</strong> Check before creating a new one.</div>
+        <div class="table-wrap" style="box-shadow:none;margin-bottom:12px"><table>
+          <thead><tr><th>Order #</th><th>Quotation No</th><th>Type</th><th>Status</th><th>Customer</th><th>Amount</th><th>Date</th><th># Veh</th><th></th></tr></thead>
+          <tbody>${odooOrderRows(plateOrders, true)}</tbody>
+        </table></div>` : ''}
+
       <div class="grid">${customerBlock}</div>
       ${data.saleOrders && data.saleOrders.length ? `
-        <div class="section-label" style="margin-top:12px">Existing Sale Orders in Odoo (${data.saleOrders.length})</div>
-        <div style="overflow-x:auto"><table>
-          <thead><tr><th>Order #</th><th>Status</th><th>Amount</th><th>Date</th><th># Vehicles</th></tr></thead>
-          <tbody>${soRows}</tbody>
-        </table></div>` : '<div class="status" style="margin-top:8px">No existing Sale Orders found in Odoo for this plate/customer.</div>'}
+        <div class="section-label" style="margin-top:12px">This customer's Sale Orders (${data.saleOrders.length})</div>
+        <div class="table-wrap" style="box-shadow:none"><table>
+          <thead><tr><th>Order #</th><th>Quotation No</th><th>Type</th><th>Status</th><th>Amount</th><th>Date</th><th># Veh</th><th></th></tr></thead>
+          <tbody>${odooOrderRows(data.saleOrders, false)}</tbody>
+        </table></div>`
+      : (plateOrders.length ? '' : '<div class="status" style="margin:8px 0 0">No existing Sale Orders found in Odoo for this plate/customer.</div>')}
       ${data.tickets && data.tickets.length ? `
         <div class="section-label" style="margin-top:12px">Tickets in Odoo (${data.tickets.length})</div>
-        <div style="overflow-x:auto"><table>
+        <div class="table-wrap" style="box-shadow:none"><table>
           <thead><tr><th>Ticket #</th><th>Subject</th><th>State</th><th>Created</th></tr></thead>
           <tbody>${ticketRows}</tbody>
         </table></div>` : ''}
     </div>`;
 }
+
+// ==================== Odoo tab — sale order search ====================
+async function odooFetch(path) {
+  const token = await auth.currentUser.getIdToken();
+  const res = await fetch(ODOO_BRIDGE_URL + path, { headers: { Authorization: 'Bearer ' + token } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Odoo request failed');
+  return data;
+}
+
+async function searchOdooOrders() {
+  const q = document.getElementById('odoo-q').value.trim();
+  const state = document.getElementById('odoo-state').value;
+  const statusEl = document.getElementById('odoo-orders-status');
+  const hintEl = document.getElementById('odoo-orders-hint');
+  const resultEl = document.getElementById('odoo-orders-result');
+
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Searching Odoo... (the bridge sleeps when idle, first call can take ~30s)';
+  hintEl.innerHTML = '';
+  resultEl.innerHTML = '';
+
+  // If the query is a known plate, show which vehicle it is — saves the user
+  // switching to the search tab to confirm they typed the right plate.
+  const vehicle = q ? findVehicleByPlateText(q) : null;
+  if (vehicle) {
+    hintEl.innerHTML = `<div class="status ready">Plate <strong>${escapeHTML(vehicle.vn || q)}</strong> — ${escapeHTML(vehicle.vnm || '')} · ${escapeHTML(vehicle.cn || 'no company')} · ${escapeHTML(vehicle.c1 || 'no contact')}</div>`;
+  }
+
+  try {
+    const params = new URLSearchParams({ limit: '100' });
+    if (q) params.set('q', q);
+    if (state) params.set('state', state);
+    const data = await odooFetch('/api/sale-orders?' + params);
+    const orders = data.orders || [];
+
+    statusEl.className = 'status ready';
+    const plateNote = data.plateMatches ? ` · ${data.plateMatches} matched by plate (shown first)` : '';
+    statusEl.textContent = `${orders.length} sale order(s)${q ? ` for "${q}"` : ' (newest first)'}${state ? ` · ${ODOO_STATES[state]}` : ''}${plateNote}`;
+
+    resultEl.innerHTML = orders.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Order #</th><th>Quotation No</th><th>Type</th><th>Status</th><th>Customer</th><th>Phone</th><th>Date</th>
+            <th># Veh</th><th>Amount</th><th>Expiry</th><th>Salesperson</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${orders.map(o => `<tr${o.matched_plate ? ' class="plate-match"' : ''}>
+              <td style="font-family:var(--font-mono);font-weight:600">${escapeHTML(o.name)}${o.matched_plate ? '<span class="match-tag">plate</span>' : ''}</td>
+              <td style="font-family:var(--font-mono)">${escapeHTML(o.order_rfq)}</td>
+              <td><span class="tpl-tag">${escapeHTML(o.quotation_template_id ? o.quotation_template_id[1] : '—')}</span></td>
+              <td>${odooStatePill(o.state)}</td>
+              <td>${escapeHTML(o.partner_id ? o.partner_id[1] : '')}</td>
+              <td>${escapeHTML(o.phone_number)}</td>
+              <td>${escapeHTML(o.date)}</td>
+              <td>${o.no_of_vehicles || 0}</td>
+              <td>${o.amount_total || 0}</td>
+              <td>${escapeHTML(o.expiration_date)}</td>
+              <td>${escapeHTML(o.sales_person ? o.sales_person[1] : '')}</td>
+              <td class="actions-cell">
+                ${odooLink('sale.order.wags', o.id, 'Open in Odoo')}
+                <button class="secondary small" onclick="odooSearchCustomer('${escapeHTML(o.partner_id ? o.partner_id[1] : '').replace(/'/g, "\\'")}')">All orders</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="no-results">No sale orders matched. Try the order number, customer name, phone or plate.</div>';
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+function odooSearchCustomer(name) {
+  if (!name) return;
+  document.getElementById('odoo-q').value = name;
+  document.getElementById('odoo-state').value = '';
+  searchOdooOrders();
+}
+
+document.getElementById('odoo-q').addEventListener('keydown', e => { if (e.key === 'Enter') searchOdooOrders(); });
+
+// ==================== Odoo tab — tickets ====================
+const TICKET_STATES = {
+  draft: 'Draft', approved: 'Approved', assigned: 'Assigned', complete: 'Complete',
+  closed: 'Closed', re_opened: 'Re-Opened', reject: 'Rejected'
+};
+const TICKET_DONE_STATES = ['complete', 'closed'];
+
+async function searchOdooTickets() {
+  const q = document.getElementById('ticket-q').value.trim();
+  const state = document.getElementById('ticket-state').value;
+  const statusEl = document.getElementById('tickets-status');
+  const resultEl = document.getElementById('tickets-result');
+
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Searching tickets...';
+  resultEl.innerHTML = '';
+
+  try {
+    const params = new URLSearchParams({ limit: '100' });
+    if (q) params.set('q', q);
+    if (state) params.set('state', state);
+    const data = await odooFetch('/api/tickets?' + params);
+    const tickets = data.tickets || [];
+
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${tickets.length} ticket(s)${q ? ` for "${q}"` : ' (newest first)'}${state ? ` · ${TICKET_STATES[state]}` : ''}`;
+
+    resultEl.innerHTML = tickets.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Ticket #</th><th>State</th><th>Subject</th><th>Customer</th><th>Phone</th>
+            <th>Type</th><th>Assigned To</th><th>Created</th><th>Closed</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${tickets.map(t => `<tr>
+              <td style="font-family:var(--font-mono);font-weight:600">${escapeHTML(t.name)}</td>
+              <td><span class="pill ${TICKET_DONE_STATES.includes(t.state) ? 'yes' : 'no'}">${escapeHTML(TICKET_STATES[t.state] || t.state)}</span></td>
+              <td style="max-width:280px">${escapeHTML(t.subject_name)}</td>
+              <td>${escapeHTML(t.partner_id ? t.partner_id[1] : '')}</td>
+              <td>${escapeHTML(t.phone)}</td>
+              <td>${escapeHTML(t.ticket_type_id ? t.ticket_type_id[1] : '')}</td>
+              <td>${escapeHTML(t.assign_to_id ? t.assign_to_id[1] : '')}</td>
+              <td>${escapeHTML((t.create_date || '').slice(0, 10))}</td>
+              <td>${escapeHTML(t.closure_date)}</td>
+              <td class="actions-cell">${odooLink('internal.ticket.wags', t.id, 'Open ticket')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="no-results">No tickets matched. Try the ticket number, subject, customer name or phone.</div>';
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+document.getElementById('ticket-q').addEventListener('keydown', e => { if (e.key === 'Enter') searchOdooTickets(); });
+document.getElementById('new-ticket-link').href = odooNewUrl('internal.ticket.wags');
+document.getElementById('deal-new-so-link').href = odooNewUrl('sale.order.wags');
+document.getElementById('deal-all-so-link').href = `${ODOO_WEB_URL}/web#cids=1&menu_id=141&action=626&model=sale.order.wags&view_type=list`;
 
 async function lookupOdoo(mobile, plate) {
   if (!mobile && !plate) { renderOdooPanel(null); return; }
@@ -673,14 +1563,27 @@ document.getElementById('deal-mobile').addEventListener('input', () => {
   dealMobileTimer = setTimeout(() => {
     const mobile = document.getElementById('deal-mobile').value.trim();
     lookupCustomerHistory(mobile);
-    lookupOdoo(mobile);
+    // Keep the plate in the Odoo check — vehicle is the stronger signal, and
+    // dropping it here used to wipe the plate's sale orders off the panel.
+    lookupOdoo(mobile, dealPlates()[0] || '');
   }, 400);
 });
 
-const STAGE_LABELS = {
-  1: 'Payment Received (Case Created)', 2: 'Sale Order Create', 3: 'Renewal Processing',
-  4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
-};
+// Clear every part of the New Request screen, not just the inputs — the mobile
+// number, the customer history listener and the Odoo panel all belonged to the
+// customer we just finished with.
+function resetDealForm() {
+  document.getElementById('deal-mobile').value = '';
+  document.getElementById('deal-remarks').value = '';
+  document.getElementById('deal-priority').value = '';
+  document.getElementById('deal-vehicles').innerHTML = '';
+  addVehicleRow();
+  lookupCustomerHistory('');   // detaches the listener, clears history + Renewal ID
+  renderOdooPanel(null);
+  PLATE_HISTORY_CACHE.clear(); // the request we just saved must show up next time
+  document.getElementById('deal-plate-history').innerHTML = '';
+  document.getElementById('deal-status').style.display = 'none';
+}
 
 async function saveRenewalRequest() {
   const statusEl = document.getElementById('deal-status');
@@ -749,10 +1652,7 @@ async function saveRenewalRequest() {
     }));
     statusEl.style.display = 'none';
     showToast(`Request created — Renewal ID ${renewalId} (${vehicles.length} vehicle${vehicles.length > 1 ? 's' : ''}). Now in Pipeline, Stage 1.`, 'success');
-    document.getElementById('deal-vehicles').innerHTML = '';
-    addVehicleRow();
-    document.getElementById('deal-remarks').value = '';
-    document.getElementById('deal-priority').value = '';
+    resetDealForm();
   } catch (err) {
     statusEl.className = 'status error';
     statusEl.textContent = err.message;
@@ -760,7 +1660,7 @@ async function saveRenewalRequest() {
   }
 }
 
-// ==================== Vehicle data (client-side, same as V3 vehicle_search.html) ====================
+// ==================== Vehicle data (client-side) ====================
 
 let DATA = [];
 let RESULTS = [];
@@ -812,9 +1712,9 @@ function calcFullLoadWeight(emptyWeight) {
 function identityBadge(idn) {
   if (!idn || idn === '') return '';
   const first = String(idn).trim().charAt(0);
-  if (first === '7') return '<div class="id-badge company">🏢 Company (Commercial Registration)</div>';
-  if (first === '1') return '<div class="id-badge individual">👤 Individual (National ID)</div>';
-  return '<div class="id-badge other">Other ID type (starts with ' + first + ')</div>';
+  if (first === '7') return `<div class="id-badge company">${icon('building')} Company (Commercial Registration)</div>`;
+  if (first === '1') return `<div class="id-badge individual">${icon('person')} Individual (National ID)</div>`;
+  return `<div class="id-badge other">Other ID type (starts with ${escapeHTML(first)})</div>`;
 }
 
 function renderCard(r) {
@@ -885,11 +1785,11 @@ function renderCard(r) {
         ${fld('License Expiry', r.le)}
       </div>
     </div>
-    <button class="small" onclick="toggleRenewForm('${r.vi}')">Renew this vehicle</button>
+    <button class="secondary small" onclick="toggleRenewForm('${r.vi}')">Renew this vehicle</button>
     <div class="renew-form" id="renew-form-${r.vi}">
       <div class="row">
-        <input id="rf-sale-${r.vi}" placeholder="New Sale Order #">
-        <input id="rf-exp-${r.vi}" type="date">
+        <input id="rf-sale-${r.vi}" placeholder="New Sale Order #" aria-label="New sale order number">
+        <input id="rf-exp-${r.vi}" type="date" aria-label="New expiry date">
       </div>
       <div class="row">
         <label><input type="checkbox" id="rf-renewal-${r.vi}"> Renewal Done</label>
@@ -916,7 +1816,7 @@ async function saveRenewal(vi) {
   const statusEl = document.getElementById('rf-status-' + vi);
   statusEl.style.display = 'block';
   statusEl.className = 'status';
-  statusEl.textContent = 'Saving...';
+  statusEl.innerHTML = '<span class="spinner"></span>Saving...';
   const vehicle = DATA.find(r => r.vi === vi) || {};
   const payload = {
     vehicle_id: vi,
@@ -935,6 +1835,7 @@ async function saveRenewal(vi) {
   };
   try {
     await db.collection('renewals').add(payload);
+    statusEl.className = 'status ready';
     statusEl.textContent = 'Saved.';
     setTimeout(() => { toggleRenewForm(vi); statusEl.style.display = 'none'; }, 1000);
   } catch (err) {
@@ -992,11 +1893,11 @@ function renderPage() {
   const pager = document.getElementById('pager');
   if (totalPages > 1) {
     pager.innerHTML = `
-      <button onclick="PAGE=0;renderPage()" ${PAGE===0?'disabled':''}>« First</button>
-      <button onclick="PAGE--;renderPage()" ${PAGE===0?'disabled':''}>‹ Prev</button>
-      <span style="padding:8px 14px;color:#8a96a3;font-size:13px">Page ${PAGE+1} / ${totalPages}</span>
-      <button onclick="PAGE++;renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Next ›</button>
-      <button onclick="PAGE=${totalPages-1};renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Last »</button>
+      <button class="secondary" onclick="PAGE=0;renderPage()" ${PAGE===0?'disabled':''}>First</button>
+      <button class="secondary" onclick="PAGE--;renderPage()" ${PAGE===0?'disabled':''}>Prev</button>
+      <span class="page-of">Page ${PAGE+1} / ${totalPages}</span>
+      <button class="secondary" onclick="PAGE++;renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Next</button>
+      <button class="secondary" onclick="PAGE=${totalPages-1};renderPage()" ${PAGE>=totalPages-1?'disabled':''}>Last</button>
     `;
   } else {
     pager.innerHTML = '';
@@ -1011,9 +1912,8 @@ document.getElementById('q').addEventListener('input', () => {
 document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(searchTimer); doSearch(); } });
 document.getElementById('field').addEventListener('change', doSearch);
 
-// ==================== Requests tab ====================
+// ==================== Requests (master) ====================
 let REQUESTS_CACHE = [];
-
 let requestsUnsubscribe = null;
 
 function isEmptyRequest(r) {
@@ -1023,7 +1923,7 @@ function isEmptyRequest(r) {
 function loadRequests() {
   const statusEl = document.getElementById('requests-status');
   statusEl.className = 'status';
-  statusEl.textContent = 'Loading...';
+  statusEl.innerHTML = '<span class="spinner"></span>Loading...';
   if (requestsUnsubscribe) requestsUnsubscribe();
   // Real-time listener: edits by any user (or a background sync) appear
   // automatically for everyone, no manual refresh needed.
@@ -1040,16 +1940,110 @@ function loadRequests() {
         renderRequestsTable();
       }
       if (STAGE_TAB_NAMES.includes(currentActiveTab)) renderStageTab(parseInt(currentActiveTab.replace('stage', ''), 10));
+      updateNavBadges();
     }, err => {
       statusEl.className = 'status error';
       statusEl.textContent = err.message;
     });
 }
 
+// ==================== Stage forms ====================
+// Fields captured at each stage. `required: true` blocks the "next stage"
+// button until it's filled — everything else can be saved and left partial.
+// Add, remove or reorder a field here and the card, the save and the
+// validation all follow; nothing else needs touching.
+const STAGE_FORMS = {
+  1: [
+    { key: 'sale_order', label: 'Sale Order #', type: 'text', required: true }
+  ],
+  3: [
+    { key: 'old_expiry', label: 'Old Expiry Date', type: 'date' },
+    { key: 'new_expiry', label: 'New Expiry Date', type: 'date', required: true },
+    { key: 'renewal_ref', label: 'Renewal Reference No', type: 'text' },
+    { key: 'missing_docs', label: 'Missing Documents', type: 'text' }
+  ],
+  4: [
+    { key: 'istimara_received', label: 'Istimara received', type: 'checkbox' },
+    { key: 'renewal_remarks', label: 'Renewal Remarks', type: 'text' }
+  ],
+  5: [
+    { key: 'wasl_ref', label: 'WASL Reference No', type: 'text', required: true },
+    { key: 'operating_card_no', label: 'Operating Card No', type: 'text' },
+    { key: 'wasl_submit_date', label: 'WASL Submit Date', type: 'date' },
+    { key: 'wasl_reject_reason', label: 'Rejection Reason (if any)', type: 'text' }
+  ],
+  6: [
+    { key: 'wasl_completed_date', label: 'WASL Completed Date', type: 'date', required: true },
+    { key: 'wasl_remarks', label: 'WASL Remarks', type: 'text' }
+  ]
+};
+
+function fieldId(docId, key) { return `sf-${docId}-${key}`; }
+
+function renderStageForm(r, stage) {
+  const fields = STAGE_FORMS[stage];
+  if (!fields) return '';
+  return `<div class="stage-form">
+    ${fields.map(f => {
+      const id = fieldId(r.id, f.key);
+      const val = r[f.key];
+      if (f.type === 'checkbox') {
+        return `<label class="chip stage-check"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}> ${escapeHTML(f.label)}</label>`;
+      }
+      return `<div class="stage-field">
+        <label class="input-label" for="${id}">${escapeHTML(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</label>
+        <input id="${id}" type="${f.type}" value="${escapeHTML(val)}" ${f.required ? 'aria-required="true"' : ''}>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function collectStageForm(docId, stage) {
+  const fields = STAGE_FORMS[stage] || [];
+  const values = {};
+  const missing = [];
+  fields.forEach(f => {
+    const el = document.getElementById(fieldId(docId, f.key));
+    if (!el) return;
+    const v = f.type === 'checkbox' ? el.checked : el.value.trim();
+    values[f.key] = v;
+    if (f.required && (v === '' || v === false)) missing.push({ field: f, el });
+  });
+  return { values, missing };
+}
+
+async function saveStageForm(docId, stage) {
+  const { values } = collectStageForm(docId, stage);
+  try {
+    await db.collection('requests').doc(docId).update({
+      ...values,
+      updated_by: auth.currentUser ? auth.currentUser.email : '',
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Saved', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Advance only once the stage's required fields are filled, and carry both the
+// form values and the stage's own status flags across in one write.
+function advanceWithForm(docId, stage, extraFields, newStage) {
+  const { values, missing } = collectStageForm(docId, stage);
+  if (missing.length) {
+    showToast(`${missing.map(m => m.field.label).join(', ')} required before moving on`, 'error');
+    missing[0].el.focus();
+    return;
+  }
+  advancePipelineCase(docId, { ...values, ...extraFields }, newStage);
+}
+
 // ==================== Pipeline tab (stage-by-stage, immediate save) ====================
 function renderStageTab(n) {
   const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === n);
-  document.getElementById(`stage${n}-status`).textContent = `${cases.length} case(s) — ${STAGE_LABELS[n]}`;
+  const statusEl = document.getElementById(`stage${n}-status`);
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} case(s) — ${STAGE_LABELS[n]}`;
   document.getElementById(`stage${n}-list`).innerHTML = cases.map(renderPipelineCard).join('')
     || '<div class="no-results">No cases at this stage</div>';
 }
@@ -1058,36 +2052,44 @@ function renderPipelineCard(r) {
   const head = `
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — ${escapeHTML(r.plate)}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
         <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · ${r.amount || 0}</div>
       </div>
     </div>`;
   let action = '';
   const stage = r.stage || 1;
+  const form = renderStageForm(r, stage);
+  const saveBtn = STAGE_FORMS[stage]
+    ? `<button class="ghost small" onclick="saveStageForm('${r.id}', ${stage})">Save without moving</button>` : '';
 
   if (stage === 1) {
     action = `<div class="pipeline-actions">
-      <input id="pl-so-${r.id}" placeholder="Sale Order #" style="max-width:160px">
-      <button class="small" onclick="advancePipelineCase('${r.id}', {sale_order: document.getElementById('pl-so-${r.id}').value.trim()}, 2)">Create Sale Order → Stage 2</button>
+      <button class="small" onclick="advanceWithForm('${r.id}', 1, {}, 2)">Create Sale Order → Stage 2</button>${saveBtn}
     </div>`;
   } else if (stage === 2) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 3)">Start Renewal Processing → Stage 3</button></div>`;
+    action = `<div class="pipeline-actions">
+      <a class="btn-link" href="${odooNewUrl('sale.order.wags')}" target="_blank" rel="noopener">
+        ${icon('plus')}Create Sale Order in Odoo
+      </a>
+      ${r.sale_order ? `<span class="so-ref">SO: <strong>${escapeHTML(r.sale_order)}</strong></span>` : ''}
+      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 3)">Start Renewal Processing → Stage 3</button>
+    </div>`;
   } else if (stage === 3) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {renewal_status: 'Done'}, 4)">Mark Renewal Done → Stage 4</button></div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → Stage 4</button>${saveBtn}</div>`;
   } else if (stage === 4) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 5)">Start WASL Processing → Stage 5</button></div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 4, {}, 5)">Start WASL Processing → Stage 5</button>${saveBtn}</div>`;
   } else if (stage === 5) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {wasl_status: 'Done'}, 6)">Mark WASL Completed → Stage 6</button></div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 5, {wasl_status: 'Done'}, 6)">Mark WASL Completed → Stage 6</button>${saveBtn}</div>`;
   } else if (stage === 6) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {}, 7)">Proceed to Device Check → Stage 7</button></div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 6, {}, 7)">Proceed to Device Check → Stage 7</button>${saveBtn}</div>`;
   } else if (stage === 7) {
     action = `<div class="pipeline-actions">
-      <select id="pl-device-${r.id}" onchange="renderPipelineDeviceSub('${r.id}')">
+      <select id="pl-device-${r.id}" onchange="renderPipelineDeviceSub('${r.id}')" aria-label="Device status">
         <option value="" ${!r.device_status ? 'selected' : ''}>Device status...</option>
         <option value="Reporting" ${r.device_status === 'Reporting' ? 'selected' : ''}>Reporting</option>
         <option value="Non Reporting" ${r.device_status === 'Non Reporting' ? 'selected' : ''}>Non Reporting</option>
       </select>
-      <span id="pl-device-sub-${r.id}"></span>
+      <span id="pl-device-sub-${r.id}" style="display:contents"></span>
     </div>`;
   } else if (stage === 8) {
     action = r.customer_closed
@@ -1095,18 +2097,17 @@ function renderPipelineCard(r) {
       : `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {customer_closed: true}, 8)">Close Case</button></div>`;
   }
 
-  const card = `<div class="pipeline-card" id="pl-card-${r.id}">${head}${action}</div>`;
-  return card;
+  return `<div class="pipeline-card" id="pl-card-${r.id}">${head}${form}${action}</div>`;
 }
 
 function renderPipelineDeviceSub(docId) {
   const val = document.getElementById('pl-device-' + docId).value;
   const el = document.getElementById('pl-device-sub-' + docId);
   if (val === 'Reporting') {
-    el.innerHTML = `<label class="chip" style="display:inline-flex"><input type="checkbox" id="pl-vat-${docId}"> Invoice (VAT) Sent</label>
+    el.innerHTML = `<label class="chip"><input type="checkbox" id="pl-vat-${docId}"> Invoice (VAT) Sent</label>
       <button class="small" onclick="advancePipelineCase('${docId}', {device_status:'Reporting', invoice_vat_sent: document.getElementById('pl-vat-${docId}').checked}, 8)">Close Case → Stage 8</button>`;
   } else if (val === 'Non Reporting') {
-    el.innerHTML = `<select id="pl-fix-${docId}">
+    el.innerHTML = `<select id="pl-fix-${docId}" aria-label="Fix status">
         <option value="Pending">Pending (Terminal)</option>
         <option value="Fixed">Fixed</option>
       </select>
@@ -1158,9 +2159,9 @@ function renderRequestsTable() {
       <td>${escapeHTML(r.mobile)}</td>
       <td>${r.amount ? escapeHTML(r.amount) : ''}</td>
       <td>${escapeHTML(r.services)}</td>
-      <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:110px;padding:6px 8px"></td>
+      <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:100px" aria-label="Sale order"></td>
       <td>
-        <select id="req-prio-${r.id}" style="padding:6px 8px">
+        <select id="req-prio-${r.id}" aria-label="Priority" style="min-width:100px">
           <option value="" ${!r.priority ? 'selected' : ''}>—</option>
           <option value="Low" ${r.priority === 'Low' ? 'selected' : ''}>Low</option>
           <option value="Medium" ${r.priority === 'Medium' ? 'selected' : ''}>Medium</option>
@@ -1169,25 +2170,25 @@ function renderRequestsTable() {
         </select>
       </td>
       <td>
-        <select id="req-stage-${r.id}" style="padding:6px 8px">
+        <select id="req-stage-${r.id}" aria-label="Stage">
           ${Object.entries(STAGE_LABELS).map(([n, label]) => `<option value="${n}" ${String(r.stage) === n ? 'selected' : ''}>${n} — ${label}</option>`).join('')}
         </select>
       </td>
       <td>
-        <select id="req-device-${r.id}" style="padding:6px 8px">
+        <select id="req-device-${r.id}" aria-label="Device status" style="min-width:120px">
           <option value="" ${!r.device_status ? 'selected' : ''}>—</option>
           <option value="Reporting" ${r.device_status === 'Reporting' ? 'selected' : ''}>Reporting</option>
           <option value="Non Reporting" ${r.device_status === 'Non Reporting' ? 'selected' : ''}>Non Reporting</option>
         </select>
       </td>
-      <td><label><input type="checkbox" id="req-ren-${r.id}" ${r.renewal_status === 'Done' ? 'checked' : ''}></label></td>
-      <td><label><input type="checkbox" id="req-wasl-${r.id}" ${r.wasl_status === 'Done' ? 'checked' : ''}></label></td>
-      <td><label><input type="checkbox" id="req-closed-${r.id}" ${r.customer_closed ? 'checked' : ''}></label></td>
-      <td><input id="req-rem-${r.id}" value="${escapeHTML(r.remarks)}" style="min-width:120px;padding:6px 8px"></td>
+      <td><input type="checkbox" id="req-ren-${r.id}" ${r.renewal_status === 'Done' ? 'checked' : ''} aria-label="Renewal done"></td>
+      <td><input type="checkbox" id="req-wasl-${r.id}" ${r.wasl_status === 'Done' ? 'checked' : ''} aria-label="Wasl done"></td>
+      <td><input type="checkbox" id="req-closed-${r.id}" ${r.customer_closed ? 'checked' : ''} aria-label="Customer closed"></td>
+      <td><input id="req-rem-${r.id}" value="${escapeHTML(r.remarks)}" style="min-width:110px" aria-label="Remarks"></td>
       <td style="white-space:nowrap">
-        <button class="small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
+        <button class="secondary small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
         <button class="small" onclick="updateRequest('${r.id}')">Update</button>
-        <span id="req-status-${r.id}" style="font-size:11px;color:#8a96a3"></span>
+        <div id="req-status-${r.id}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:3px"></div>
       </td>
     </tr>
   `).join('') || '<tr><td colspan="16" class="no-results">No requests found</td></tr>';
@@ -1195,6 +2196,7 @@ function renderRequestsTable() {
 
 async function updateRequest(docId) {
   const statusEl = document.getElementById('req-status-' + docId);
+  statusEl.style.color = 'var(--c-fg-subtle)';
   statusEl.textContent = 'Saving...';
   const stageVal = parseInt(document.getElementById('req-stage-' + docId).value, 10);
   const updates = {
@@ -1214,10 +2216,11 @@ async function updateRequest(docId) {
     await db.collection('requests').doc(docId).update(updates);
     const idx = REQUESTS_CACHE.findIndex(r => r.id === docId);
     if (idx !== -1) Object.assign(REQUESTS_CACHE[idx], updates);
-    statusEl.textContent = 'Saved ✓';
+    statusEl.style.color = 'var(--c-success)';
+    statusEl.textContent = 'Saved';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   } catch (err) {
-    statusEl.style.color = '#ef5350';
+    statusEl.style.color = 'var(--c-danger)';
     statusEl.textContent = err.message;
   }
 }
@@ -1269,10 +2272,12 @@ let RENEWALS_CACHE = [];
 
 async function loadRenewals() {
   const statusEl = document.getElementById('renewals-status');
-  statusEl.textContent = 'Loading...';
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Loading...';
   try {
     const snap = await db.collection('renewals').orderBy('created_at', 'desc').limit(200).get();
     RENEWALS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    statusEl.className = 'status ready';
     statusEl.textContent = `${RENEWALS_CACHE.length} renewal record(s)`;
     renderRenewalsTable();
   } catch (err) {
@@ -1333,6 +2338,8 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Renewals');
   XLSX.writeFile(wb, `renewals-export-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+
+renderNav();
 </script>
 </body>
 </html>

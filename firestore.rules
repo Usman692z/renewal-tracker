@@ -1,18 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
+    // Bootstrap: without this the very first admin could never be created,
+    // since promoting to admin already requires being an admin.
+    function isBootstrapAdmin() {
       return request.auth != null &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        request.auth.token.email in ['usmansiddique692@gmail.com'];
     }
 
-    // App users and their role (admin / agent). Users self-register as
-    // 'agent' on first login; only an admin can change anyone's role.
+    function isAdmin() {
+      return isBootstrapAdmin() || (request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // App users, their role (admin / agent) and the list of app sections they
+    // may open (`tabs`). Users self-register as 'agent' on first login; only
+    // an admin can change anyone's role or section access.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId
-        && request.resource.data.role == 'agent';
+      allow create: if isAdmin() || (request.auth != null && request.auth.uid == userId
+        && request.resource.data.role == 'agent');
       allow update: if isAdmin();
       allow delete: if false;
     }
