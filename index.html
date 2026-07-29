@@ -606,6 +606,23 @@ tr.plate-match:hover td { background: #FEF9C3; }
       <div id="odoo-orders-result"></div>
     </div>
 
+    <!-- ---------- Odoo customers ---------- -->
+    <div id="tab-customers" style="display:none">
+      <div class="row">
+        <input id="cust-q" placeholder="Name, CR no, VAT / tax no, Iqama, phone, email, or plate..." style="max-width:420px" aria-label="Customer search">
+        <button onclick="searchOdooCustomers()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search Customers
+        </button>
+        <a class="btn-link" id="new-customer-link" href="" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          New Customer in Odoo
+        </a>
+      </div>
+      <div id="customers-status" class="status">Search a customer by any of: name, CR number, VAT / tax number, Iqama, phone, email, or a plate.</div>
+      <div id="customers-result"></div>
+    </div>
+
     <!-- ---------- Odoo tickets ---------- -->
     <div id="tab-tickets" style="display:none">
       <div class="row">
@@ -772,6 +789,7 @@ const TAB_REGISTRY = [
     sub: `Stage ${i + 1} — ${STAGE_LABELS[i + 1]}`
   })),
   { key: 'odoo',     group: 'Odoo',    label: 'Sale Orders (Odoo)', icon: 'receipt', sub: 'Search live Odoo sale orders by order no, customer, phone or plate' },
+  { key: 'customers', group: 'Odoo',   label: 'Customers (Odoo)',   icon: 'users',   sub: 'Find a customer by name, CR, VAT, Iqama, phone, email or plate' },
   { key: 'tickets',  group: 'Odoo',    label: 'Tickets (Odoo)',     icon: 'ticket',  sub: 'Search live Odoo tickets, open them, or raise a new one' },
   { key: 'requests', group: 'Reports', label: 'Master (All Stages)', icon: 'table', sub: 'Every case in one editable table' },
   { key: 'status',   group: 'Reports', label: 'Renewals Status',     icon: 'list',  sub: 'Per-vehicle renewal records, exportable to Excel' },
@@ -1348,7 +1366,8 @@ const ODOO_BRIDGE_URL = new URLSearchParams(location.search).get('bridge') || 'h
 const ODOO_WEB_URL = 'https://odoo.tracking.me';
 const ODOO_TARGETS = {
   'sale.order.wags':      { action: 626, menu: 141 },   // Sale > All Sale Orders
-  'internal.ticket.wags': { action: 976, menu: 670 }    // Tickets > All Tickets
+  'internal.ticket.wags': { action: 976, menu: 670 },   // Tickets > All Tickets
+  'res.partner':          { action: 183, menu: 146 }    // Sale > Orders > Customers
 };
 
 function odooHash(model, id) {
@@ -1506,12 +1525,67 @@ async function searchOdooOrders() {
 
 function odooSearchCustomer(name) {
   if (!name) return;
+  switchTab('odoo');   // may be called from the Customers tab
   document.getElementById('odoo-q').value = name;
   document.getElementById('odoo-state').value = '';
   searchOdooOrders();
 }
 
 document.getElementById('odoo-q').addEventListener('keydown', e => { if (e.key === 'Enter') searchOdooOrders(); });
+
+// ==================== Odoo tab — customers ====================
+async function searchOdooCustomers() {
+  const q = document.getElementById('cust-q').value.trim();
+  const statusEl = document.getElementById('customers-status');
+  const resultEl = document.getElementById('customers-result');
+
+  if (!q) { statusEl.className = 'status error'; statusEl.textContent = 'Enter something to search for.'; return; }
+
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Searching Odoo customers...';
+  resultEl.innerHTML = '';
+
+  try {
+    const data = await odooFetch('/api/customers?limit=100&q=' + encodeURIComponent(q));
+    const customers = data.customers || [];
+
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${customers.length} customer(s) for "${q}"`
+      + (data.plateMatches ? ` · ${data.plateMatches} found through the plate's sale orders` : '');
+
+    resultEl.innerHTML = customers.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Customer</th><th>CR No</th><th>VAT / Tax No</th><th>Iqama / ID</th>
+            <th>Phone</th><th>Email</th><th>City</th><th>CR Expiry</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${customers.map(c => `<tr${c.matched_plate ? ' class="plate-match"' : ''}>
+              <td style="font-weight:600">${escapeHTML(c.name)}${c.matched_plate ? '<span class="match-tag">plate</span>' : ''}</td>
+              <td style="font-family:var(--font-mono)">${escapeHTML(c.cr_number)}</td>
+              <td style="font-family:var(--font-mono)">${escapeHTML(c.tax_number || c.vat)}</td>
+              <td style="font-family:var(--font-mono)">${escapeHTML(c.iqama_id)}</td>
+              <td>${escapeHTML(c.phone || c.mobile_no)}</td>
+              <td>${escapeHTML(c.email)}</td>
+              <td>${escapeHTML(c.city)}</td>
+              <td>${escapeHTML(c.cr_expiration_date)}</td>
+              <td class="actions-cell">
+                ${odooLink('res.partner', c.id, 'Open')}
+                <button class="secondary small" onclick="odooSearchCustomer('${escapeHTML(c.name).replace(/'/g, "\\'")}')">Sale orders</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="no-results">No customer matched. Try the CR number, VAT number, Iqama, phone, email, name or a plate.</div>';
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+document.getElementById('cust-q').addEventListener('keydown', e => { if (e.key === 'Enter') searchOdooCustomers(); });
+document.getElementById('new-customer-link').href = odooNewUrl('res.partner');
 
 // ==================== Odoo tab — tickets ====================
 const TICKET_STATES = {
