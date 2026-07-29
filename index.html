@@ -259,6 +259,16 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .stage-form .input-label { margin-bottom: 3px; }
 .stage-form .req { color: var(--c-danger); }
 .stage-check { align-self: center; background: var(--c-surface); }
+.info-toggle {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+  padding: 3px 0; min-height: 0; background: none; border: none; box-shadow: none;
+  color: var(--c-primary); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.info-toggle:hover { background: none; text-decoration: underline; }
+.info-toggle svg { width: 13px; height: 13px; transition: transform var(--dur) var(--ease); }
+.info-toggle.open svg { transform: rotate(180deg); }
+.pipeline-info { display: none; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--c-border); }
+.pipeline-info.open { display: block; }
 .stage-dates { font-size: 11.5px; color: var(--c-fg-subtle); text-align: right; white-space: nowrap; }
 .stage-dates strong { color: var(--c-fg-muted); font-weight: 600; }
 .stage-dates .trail { display: block; font-family: var(--font-mono); font-size: 10.5px; color: #94A3B8; margin-top: 2px; }
@@ -2100,15 +2110,56 @@ function renderStageTab(n) {
     || '<div class="no-results">No cases at this stage</div>';
 }
 
+// Old sale orders for a plate, fetched only when someone opens the dropdown —
+// pipeline tabs can hold dozens of cards and each lookup is a live Odoo call.
+const CARD_ODOO_CACHE = new Map();
+
+async function togglePipelineInfo(docId, plate) {
+  const box = document.getElementById('pl-info-' + docId);
+  const btn = document.getElementById('pl-info-btn-' + docId);
+  const open = box.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  if (!open) return;
+  if (box.dataset.loaded === '1') return;
+
+  if (!plate) { box.innerHTML = '<div class="status">No plate on this case.</div>'; box.dataset.loaded = '1'; return; }
+  box.innerHTML = '<div class="status"><span class="spinner"></span>Checking Odoo for earlier sale orders...</div>';
+  try {
+    const key = plate.toUpperCase().replace(/\s+/g, '');
+    if (!CARD_ODOO_CACHE.has(key)) {
+      CARD_ODOO_CACHE.set(key, await odooFetch('/api/lookup?plate=' + encodeURIComponent(plate)));
+    }
+    const orders = CARD_ODOO_CACHE.get(key).plateOrders || [];
+    box.innerHTML = orders.length ? `
+      <div class="section-label" style="margin-bottom:6px">Earlier Sale Orders in Odoo for ${escapeHTML(plate)} (${orders.length})</div>
+      <div class="table-wrap" style="box-shadow:none">
+        <table>
+          <thead><tr><th>Order #</th><th>Quotation No</th><th>Type</th><th>Status</th><th>Customer</th><th>Amount</th><th>Date</th><th># Veh</th><th></th></tr></thead>
+          <tbody>${odooOrderRows(orders, true)}</tbody>
+        </table>
+      </div>`
+      : `<div class="status">No earlier sale order in Odoo for ${escapeHTML(plate)}.</div>`;
+    box.dataset.loaded = '1';
+  } catch (err) {
+    box.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
+  }
+}
+
 function renderPipelineCard(r) {
   const head = `
     <div class="pipeline-card-head">
       <div>
         <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
         <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · ${r.amount || 0}</div>
+        <button type="button" class="info-toggle" id="pl-info-btn-${r.id}"
+          onclick="togglePipelineInfo('${r.id}', '${escapeHTML(r.plate).replace(/'/g, "\\'")}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          More info — old sale orders
+        </button>
       </div>
       ${stageDateLine(r)}
-    </div>`;
+    </div>
+    <div class="pipeline-info" id="pl-info-${r.id}"></div>`;
   let action = '';
   const stage = r.stage || 1;
   const form = renderStageForm(r, stage);
