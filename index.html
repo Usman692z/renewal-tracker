@@ -259,6 +259,10 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .stage-form .input-label { margin-bottom: 3px; }
 .stage-form .req { color: var(--c-danger); }
 .stage-check { align-self: center; background: var(--c-surface); }
+.stage-dates { font-size: 11.5px; color: var(--c-fg-subtle); text-align: right; white-space: nowrap; }
+.stage-dates strong { color: var(--c-fg-muted); font-weight: 600; }
+.stage-dates .trail { display: block; font-family: var(--font-mono); font-size: 10.5px; color: #94A3B8; margin-top: 2px; }
+@media (max-width: 640px) { .stage-dates { text-align: left; white-space: normal; } }
 .so-ref { font-size: 12px; color: var(--c-fg-subtle); }
 .so-ref strong { font-family: var(--font-mono); color: var(--c-fg); }
 
@@ -1637,6 +1641,7 @@ async function saveRenewalRequest() {
     customer_closed: false,
     stage: 1,
     stage_label: STAGE_LABELS[1],
+    stage_dates: { 1: new Date().toISOString() },
     device_status: '',
     invoice_vat_sent: false,
     fix_status: 'Pending',
@@ -1969,17 +1974,41 @@ const STAGE_FORMS = {
     { key: 'istimara_received', label: 'Istimara received', type: 'checkbox' },
     { key: 'renewal_remarks', label: 'Renewal Remarks', type: 'text' }
   ],
+  // Dates aren't asked for at stages 5 and 6 — every stage stamps its own date
+  // automatically (see stampStageDate), so typing one in was duplicate work.
   5: [
-    { key: 'wasl_ref', label: 'WASL Reference No', type: 'text', required: true },
-    { key: 'operating_card_no', label: 'Operating Card No', type: 'text' },
-    { key: 'wasl_submit_date', label: 'WASL Submit Date', type: 'date' },
+    { key: 'wasl_processing_remarks', label: 'Remarks', type: 'text' },
     { key: 'wasl_reject_reason', label: 'Rejection Reason (if any)', type: 'text' }
   ],
   6: [
-    { key: 'wasl_completed_date', label: 'WASL Completed Date', type: 'date', required: true },
-    { key: 'wasl_remarks', label: 'WASL Remarks', type: 'text' }
+    { key: 'wasl_completed_remarks', label: 'Remarks', type: 'text' }
   ]
 };
+
+// Every stage records when the case landed in it, keyed by stage number, so the
+// card can show the trail without anyone entering a date by hand.
+function stampStageDate(stage) {
+  return { [`stage_dates.${stage}`]: new Date().toISOString() };
+}
+
+function stageDateLine(r) {
+  const dates = r.stage_dates || {};
+  const stage = r.stage || 1;
+  const fmt = iso => {
+    const d = new Date(iso);
+    return isNaN(d) ? escapeHTML(iso) : d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  // Older cases predate the stamping, so fall back to what they do have.
+  const current = dates[stage] || (stage === 1 ? r.date : null);
+  const trail = Object.keys(dates)
+    .map(Number).filter(n => n !== stage).sort((a, b) => a - b)
+    .map(n => `${n}: ${new Date(dates[n]).toLocaleDateString()}`)
+    .join(' · ');
+  return `<div class="stage-dates">
+    <strong>Stage ${stage} since:</strong> ${current ? fmt(current) : '—'}
+    ${trail ? `<span class="trail">${escapeHTML(trail)}</span>` : ''}
+  </div>`;
+}
 
 function fieldId(docId, key) { return `sf-${docId}-${key}`; }
 
@@ -2058,6 +2087,7 @@ function renderPipelineCard(r) {
         <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
         <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · ${r.amount || 0}</div>
       </div>
+      ${stageDateLine(r)}
     </div>`;
   let action = '';
   const stage = r.stage || 1;
@@ -2129,6 +2159,7 @@ async function advancePipelineCase(docId, extraFields, newStage) {
   try {
     await db.collection('requests').doc(docId).update({
       ...extraFields,
+      ...stampStageDate(newStage),
       stage: newStage,
       stage_label: STAGE_LABELS[newStage],
       updated_by: auth.currentUser ? auth.currentUser.email : '',
