@@ -4,6 +4,17 @@
   },
   "hosting": {
     "public": ".",
-    "ignore": ["firebase.json", "firestore.rules", "scripts/**", "**/*.bat", "*.example", "**/.*", "node_modules/**"]
+    "ignore": ["firebase.json", "firestore.rules", "scripts/**", "**/*.bat", "*.example", "**/.*", "node_modules/**"],
+    "headers": [
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
   }
 }

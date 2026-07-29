@@ -885,7 +885,14 @@ function showApp(user) {
 addVehicleRow();
 
 auth.onAuthStateChanged(user => {
-  if (user) { showApp(user); return; }
+  if (user) {
+    // Anonymous sessions left over from test mode stay valid for as long as the
+    // browser keeps them, so reject them here instead of trusting that the
+    // Anonymous provider was switched off.
+    if (user.isAnonymous && !TEMP_TEST_MODE_NO_LOGIN) { auth.signOut(); return; }
+    showApp(user);
+    return;
+  }
   if (TEMP_TEST_MODE_NO_LOGIN) { auth.signInAnonymously().catch(err => showToast('Auto sign-in failed: ' + err.message, 'error')); return; }
   showLogin();
 });
