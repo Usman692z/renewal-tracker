@@ -770,11 +770,15 @@ const TAB_REGISTRY = [
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
 const DEFAULT_AGENT_TABS = ['search'];
 
-// TEMP TEST MODE (2026-07-23): login screen bypassed via silent anonymous
-// sign-in so anyone with the URL gets straight into the app. While this is on
-// everyone is treated as admin, otherwise nobody could test the stage tabs.
-// Turn it off (false) to enforce real logins and per-user access.
-const TEMP_TEST_MODE_NO_LOGIN = true;
+// Set to true only for local testing — it bypasses the login screen with an
+// anonymous sign-in and treats everyone as admin.
+const TEMP_TEST_MODE_NO_LOGIN = false;
+
+// Bootstrap admins, mirroring isAdmin() in firestore.rules. Without this the
+// first admin could never exist: a brand new profile is created as 'agent', so
+// the Users & Access tab would be hidden from the very person meant to grant it.
+const BOOTSTRAP_ADMINS = ['usmansiddique692@gmail.com'];
+const isBootstrapAdmin = email => BOOTSTRAP_ADMINS.includes((email || '').toLowerCase());
 
 let ME = { uid: null, email: '', role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true };
 let MY_PROFILE_UNSUB = null;
@@ -821,20 +825,27 @@ function watchMyProfile(user) {
     return;
   }
 
+  const bootstrap = isBootstrapAdmin(ME.email);
   const ref = db.collection('users').doc(user.uid);
   MY_PROFILE_UNSUB = ref.onSnapshot(async snap => {
     if (!snap.exists) {
-      // Self-register on first login; rules force role 'agent'.
+      // Self-register on first login. Rules force 'agent' for everyone except
+      // the bootstrap admins, who must land as admin or nobody can grant access.
       try {
-        await ref.set({ email: ME.email, role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true,
-          created_at: firebase.firestore.FieldValue.serverTimestamp() });
+        await ref.set({
+          email: ME.email,
+          role: bootstrap ? 'admin' : 'agent',
+          tabs: bootstrap ? [...ALL_TAB_KEYS] : [...DEFAULT_AGENT_TABS],
+          active: true,
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
+        });
       } catch (err) { showToast('Could not create your profile: ' + err.message, 'error'); }
       return;
     }
     const d = snap.data();
-    ME.role = d.role || 'agent';
+    ME.role = bootstrap ? 'admin' : (d.role || 'agent');
     ME.tabs = Array.isArray(d.tabs) ? d.tabs : [...DEFAULT_AGENT_TABS];
-    ME.active = d.active !== false;
+    ME.active = bootstrap || d.active !== false;
     applyIdentity();
   }, err => showToast('Profile load failed: ' + err.message, 'error'));
 }
