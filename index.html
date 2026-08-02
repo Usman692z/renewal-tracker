@@ -85,6 +85,8 @@ button svg { width: 15px; height: 15px; flex: none; }
 .row { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; align-items: center; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 680px) { .grid3 { grid-template-columns: 1fr; } }
 
 /* ---------- App shell ---------- */
 .shell { display: grid; grid-template-columns: 246px 1fr; min-height: 100vh; }
@@ -917,7 +919,7 @@ const TEMP_TEST_MODE_NO_LOGIN = false;
 const BOOTSTRAP_ADMINS = ['usmansiddique692@gmail.com'];
 const isBootstrapAdmin = email => BOOTSTRAP_ADMINS.includes((email || '').toLowerCase());
 
-let ME = { uid: null, email: '', role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true };
+let ME = { uid: null, email: '', encoderName: '', role: 'agent', tabs: [...DEFAULT_AGENT_TABS], active: true };
 let MY_PROFILE_UNSUB = null;
 
 function isAdmin() { return ME.role === 'admin'; }
@@ -983,6 +985,7 @@ function watchMyProfile(user) {
     ME.role = bootstrap ? 'admin' : (d.role || 'agent');
     ME.tabs = Array.isArray(d.tabs) ? d.tabs : [...DEFAULT_AGENT_TABS];
     ME.active = bootstrap || d.active !== false;
+    ME.encoderName = d.encoder_name || '';
     applyIdentity();
   }, err => showToast('Profile load failed: ' + err.message, 'error'));
 }
@@ -991,6 +994,7 @@ function applyIdentity() {
   document.getElementById('who-email').textContent = ME.email || 'Guest (test mode)';
   document.getElementById('who-role').textContent = ME.active === false ? 'disabled' : ME.role;
   document.getElementById('who-initial').textContent = (ME.email || '?').charAt(0).toUpperCase();
+  fillEncoderName(); // profile loads after showApp()'s first call, so refresh once it's in
   renderNav();
   if (!canOpen(currentActiveTab)) {
     const first = visibleTabs()[0];
@@ -1116,7 +1120,11 @@ function renderUsersTable() {
   document.getElementById('admin-body').innerHTML = `
     <div class="card">
       <div class="section-label" style="margin-bottom:12px">Add a user</div>
-      <div class="grid2">
+      <div class="grid3">
+        <div>
+          <label class="input-label" for="nu-encoder">Encoder Name</label>
+          <input id="nu-encoder" placeholder="e.g. Ali Raza" autocomplete="off" style="width:100%">
+        </div>
         <div>
           <label class="input-label" for="nu-email">Email</label>
           <input id="nu-email" type="email" placeholder="name@tracking.me" autocomplete="off" style="width:100%">
@@ -1147,7 +1155,7 @@ function renderUsersTable() {
     <div class="status">${rows.length} user(s). Access changes apply instantly — the user does not need to sign out.</div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>User</th><th>Role</th><th>Status</th><th style="min-width:420px">Sections this user can open</th><th></th></tr></thead>
+        <thead><tr><th>User</th><th>Encoder Name</th><th>Role</th><th>Status</th><th style="min-width:420px">Sections this user can open</th><th></th></tr></thead>
         <tbody>
           ${rows.map(u => {
             const tabs = Array.isArray(u.tabs) ? u.tabs : [];
@@ -1156,6 +1164,9 @@ function renderUsersTable() {
               <td>
                 <div style="font-weight:600">${escapeHTML(u.email) || '(no email)'}</div>
                 <div style="font-size:11px;color:var(--c-fg-subtle);font-family:var(--font-mono)">${escapeHTML(u.uid.slice(0, 12))}${isMe ? ' · you' : ''}</div>
+              </td>
+              <td>
+                <input id="u-encoder-${u.uid}" value="${escapeHTML(u.encoder_name)}" placeholder="—" style="min-width:130px">
               </td>
               <td>
                 <select id="u-role-${u.uid}" ${isMe ? 'disabled title="You cannot change your own role"' : ''}>
@@ -1185,7 +1196,7 @@ function renderUsersTable() {
                 <div id="u-status-${u.uid}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:4px"></div>
               </td>
             </tr>`;
-          }).join('') || '<tr><td colspan="5" class="no-results">No users yet. They appear here after their first sign-in.</td></tr>'}
+          }).join('') || '<tr><td colspan="6" class="no-results">No users yet. They appear here after their first sign-in.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -1202,6 +1213,7 @@ function userCreatorApp() {
 async function createUser() {
   const statusEl = document.getElementById('nu-status');
   const btn = document.getElementById('nu-submit');
+  const encoderName = document.getElementById('nu-encoder').value.trim();
   const email = document.getElementById('nu-email').value.trim();
   const password = document.getElementById('nu-pass').value;
   const role = document.getElementById('nu-role').value;
@@ -1222,14 +1234,20 @@ async function createUser() {
   const secondary = userCreatorApp();
   try {
     const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
+    // Sets the Auth displayName too, but that's a one-time convenience for this
+    // fresh signup — editing it later needs Admin SDK access this app doesn't
+    // have. encoder_name in Firestore is what stays editable, and what every
+    // other screen actually reads (see fillEncoderName).
+    if (encoderName) await cred.user.updateProfile({ displayName: encoderName }).catch(() => {});
     await db.collection('users').doc(cred.user.uid).set({
-      email, role, tabs, active: true,
+      email, encoder_name: encoderName, role, tabs, active: true,
       created_by: ME.email,
       created_at: firebase.firestore.FieldValue.serverTimestamp()
     });
     statusEl.className = 'status ready';
     statusEl.textContent = `${email} created. Share the password and ask them to change it after first sign-in.`;
     showToast('User created', 'success');
+    document.getElementById('nu-encoder').value = '';
     document.getElementById('nu-email').value = '';
     document.getElementById('nu-pass').value = '';
   } catch (err) {
@@ -1251,6 +1269,7 @@ async function saveUserAccess(uid) {
   const roleEl = document.getElementById('u-role-' + uid);
   const activeEl = document.getElementById('u-active-' + uid);
   const updates = {
+    encoder_name: document.getElementById('u-encoder-' + uid).value.trim(),
     role: roleEl.disabled ? undefined : roleEl.value,
     active: activeEl.disabled ? undefined : activeEl.checked,
     tabs: [...document.querySelectorAll('.u-tab-' + uid)].filter(cb => cb.checked).map(cb => cb.value),
@@ -1275,7 +1294,12 @@ let DEAL_HISTORY_DOCS = [];
 
 function fillEncoderName() {
   const el = document.getElementById('deal-encoder-display');
-  if (el) el.textContent = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—';
+  if (!el) return;
+  // The admin-set name (users/{uid}.encoder_name) is the source of truth —
+  // it's the only one an admin can still edit after the account exists, since
+  // updating someone else's Firebase Auth profile needs Admin SDK access this
+  // app doesn't have. displayName only ever gets set once, at creation time.
+  el.textContent = ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—');
 }
 
 function addVehicleRow() {
@@ -1979,7 +2003,7 @@ async function saveRenewalRequest() {
   const renewalId = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
   const basePayload = {
     date: new Date().toISOString().slice(0, 10),
-    encoder: auth.currentUser ? auth.currentUser.email : '',
+    encoder: ME.encoderName || (auth.currentUser ? auth.currentUser.email : ''),
     renewal_id: renewalId,
     mobile: mobile,
     sale_order: '',
