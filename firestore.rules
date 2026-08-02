@@ -34,6 +34,11 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
+    // Daily call log: task type, status, and complaint feedback.
+    match /daily_requests/{requestId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
     // Vehicle master data, split into <1MiB chunks (reassembled client-side).
     // Uploaded once via a direct authenticated-only REST upload (2026-07-15).
     match /vehicle_data_chunks/{chunkId} {

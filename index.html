@@ -319,6 +319,8 @@ tr.plate-match:hover td { background: #FEF9C3; }
 .cust-chevron svg { width: 15px; height: 15px; }
 .cust-chevron.open { transform: rotate(90deg); }
 .cust-group-meta { margin-left: 10px; font-size: 12px; color: var(--c-fg-subtle); font-weight: 500; }
+.req-row-duplicate td { opacity: .6; }
+.req-row-duplicate:hover td { opacity: 1; }
 
 .vehicle-row { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-2); margin-bottom: var(--sp-2); }
 .vehicle-row .vr-top { display: flex; gap: 6px; align-items: center; }
@@ -471,6 +473,58 @@ tr.plate-match:hover td { background: #FEF9C3; }
         <!-- Full width and last, so it wraps onto its own line under both
              columns instead of pushing the Odoo panel off to the side. -->
         <div id="deal-plate-history" style="flex-basis:100%"></div>
+      </div>
+    </div>
+
+    <!-- ---------- Daily Requests ---------- -->
+    <div id="tab-daily" style="display:none">
+      <div class="row" style="align-items:flex-start;flex-wrap:wrap;gap:20px">
+        <div class="card" style="max-width:420px;flex:1;min-width:330px">
+          <div class="section-label" style="margin-bottom:12px">Log a Daily Request</div>
+
+          <label class="input-label" for="daily-date">Date</label>
+          <input id="daily-date" type="date" style="width:100%">
+
+          <label class="input-label" for="daily-mobile" style="margin-top:12px">Mobile Number</label>
+          <input id="daily-mobile" placeholder="e.g. 0501234567" type="tel" autocomplete="tel" style="width:100%">
+
+          <label class="input-label" for="daily-task" style="margin-top:12px">Task</label>
+          <select id="daily-task" style="width:100%" onchange="toggleDailyComplaintType()">
+            <option value="">Select...</option>
+            <option value="Need Credentials">Need Credentials</option>
+            <option value="Complain">Complain</option>
+            <option value="Urdu">Urdu</option>
+            <option value="Renewal">Renewal</option>
+          </select>
+
+          <div id="daily-complaint-wrap" style="display:none">
+            <label class="input-label" for="daily-complaint-type" style="margin-top:12px">Feedback — Complaint Type</label>
+            <select id="daily-complaint-type" style="width:100%">
+              <option value="">Select category...</option>
+              <option value="Billing">Billing</option>
+              <option value="Service Quality">Service Quality</option>
+              <option value="Network / Connectivity">Network / Connectivity</option>
+              <option value="Device / Equipment">Device / Equipment</option>
+              <option value="Delayed Response">Delayed Response</option>
+              <option value="Staff Behavior">Staff Behavior</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <label class="input-label" for="daily-status" style="margin-top:12px">Status</label>
+          <select id="daily-status" style="width:100%">
+            <option value="Pending">Pending</option>
+            <option value="Done">Done</option>
+          </select>
+
+          <button style="margin-top:14px;width:100%" onclick="saveDailyRequest()">Log Request</button>
+          <div id="daily-status-msg" class="status" style="display:none;margin:12px 0 0"></div>
+        </div>
+
+        <div style="flex:1;min-width:330px">
+          <div id="daily-list-status" class="status"></div>
+          <div id="daily-list"></div>
+        </div>
       </div>
     </div>
 
@@ -818,6 +872,7 @@ const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','
 const TAB_REGISTRY = [
   { key: 'search',   group: 'Operations', label: 'Search & Renew',    icon: 'search', sub: 'Search a vehicle, record its renewal, track checkpoints' },
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
+  { key: 'daily',    group: 'Operations', label: 'Daily Requests',    icon: 'list',   sub: 'Log a daily call — task type, status, and complaint feedback' },
   ...STAGE_TAB_NAMES.map((k, i) => ({
     key: k, group: 'Pipeline', step: i + 1,
     label: ['Payment Received','Sale Order','Renewal Processing','WASL Processing','WASL Completed','Device Check','Customer Close'][i],
@@ -965,6 +1020,7 @@ function showApp(user) {
 }
 
 addVehicleRow();
+document.getElementById('daily-date').value = new Date().toISOString().slice(0, 10);
 
 auth.onAuthStateChanged(user => {
   if (user) {
@@ -1018,12 +1074,13 @@ function switchTab(name) {
   if (name === 'admin') loadUsers();
   if ((name === 'requests' || STAGE_TAB_NAMES.includes(name)) && !REQUESTS_CACHE.length) loadRequests();
   if (STAGE_TAB_NAMES.includes(name)) renderStageTab(parseInt(name.replace('stage', ''), 10));
+  if (name === 'daily' && !DAILY_UNSUB) loadDailyRequests();
 }
 
 function updateNavBadges() {
   STAGE_TAB_NAMES.forEach((key, i) => {
     const el = document.getElementById('nav-badge-' + key);
-    if (el) el.textContent = REQUESTS_CACHE.filter(r => (r.stage || 1) === i + 1).length;
+    if (el) el.textContent = REQUESTS_CACHE.filter(r => (r.stage || 1) === i + 1 && !r.duplicate).length;
   });
 }
 
@@ -1787,13 +1844,14 @@ function renderEditResults(matches, q) {
 
 function editCardHtml(r) {
   const stage = r.stage || 1;
+  const label = escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'");
   const deleteBtn = isAdmin()
-    ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'")}').then(ok => { if (ok) document.getElementById('edit-card-${r.id}').remove(); })">Delete</button>`
+    ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${label}').then(ok => { if (ok) document.getElementById('edit-card-${r.id}').remove(); })">Delete</button>`
     : '';
   return `<div class="pipeline-card" id="edit-card-${r.id}">
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</div>
         <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · Stage ${stage} — ${escapeHTML(STAGE_LABELS[stage] || '')}</div>
         <div class="paid-for">${serviceTags(r)}<span class="paid-amount">SAR ${r.amount || 0}</span></div>
       </div>
@@ -1829,6 +1887,7 @@ function editCardHtml(r) {
     <div class="pipeline-actions">
       <button class="small" onclick="saveEditedRequest('${r.id}')">Save Changes</button>
       <button class="secondary small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">View in Search &amp; Renew</button>
+      <button class="secondary small" onclick="toggleDuplicate('${r.id}', ${!!r.duplicate}, '${label}').then(ok => { if (ok) searchRequestsToEdit(); })">${r.duplicate ? 'Unmark Duplicate' : 'Mark Duplicate'}</button>
       ${deleteBtn}
       <span id="edit-status-${r.id}" style="font-size:12px;color:var(--c-fg-subtle)"></span>
     </div>
@@ -1953,6 +2012,102 @@ async function saveRenewalRequest() {
     statusEl.textContent = err.message;
     showToast(err.message, 'error');
   }
+}
+
+// ==================== Daily Requests ====================
+let DAILY_UNSUB = null;
+let DAILY_CACHE = [];
+
+function toggleDailyComplaintType() {
+  const isComplaint = document.getElementById('daily-task').value === 'Complain';
+  document.getElementById('daily-complaint-wrap').style.display = isComplaint ? 'block' : 'none';
+}
+
+async function saveDailyRequest() {
+  const statusEl = document.getElementById('daily-status-msg');
+  const date = document.getElementById('daily-date').value || new Date().toISOString().slice(0, 10);
+  const mobile = document.getElementById('daily-mobile').value.trim();
+  const task = document.getElementById('daily-task').value;
+  const complaintType = document.getElementById('daily-complaint-type').value;
+  const status = document.getElementById('daily-status').value;
+
+  if (!mobile || !task) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Mobile Number and Task are required';
+    return;
+  }
+  if (task === 'Complain' && !complaintType) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Select a complaint type under Feedback';
+    return;
+  }
+
+  statusEl.style.display = 'block';
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Saving...';
+
+  try {
+    await db.collection('daily_requests').add({
+      date, mobile, task,
+      complaint_type: task === 'Complain' ? complaintType : '',
+      status,
+      created_by: auth.currentUser ? auth.currentUser.email : '',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.style.display = 'none';
+    showToast('Daily request logged', 'success');
+    document.getElementById('daily-mobile').value = '';
+    document.getElementById('daily-task').value = '';
+    document.getElementById('daily-complaint-type').value = '';
+    document.getElementById('daily-status').value = 'Pending';
+    toggleDailyComplaintType();
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+    showToast(err.message, 'error');
+  }
+}
+
+function loadDailyRequests() {
+  const statusEl = document.getElementById('daily-list-status');
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Loading...';
+  DAILY_UNSUB = db.collection('daily_requests').orderBy('date', 'desc').limit(200)
+    .onSnapshot(snap => {
+      DAILY_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      statusEl.className = 'status ready';
+      statusEl.textContent = `${DAILY_CACHE.length} request(s) — live`;
+      renderDailyRequestsTable();
+    }, err => {
+      statusEl.className = 'status error';
+      statusEl.textContent = err.message;
+    });
+}
+
+async function toggleDailyStatus(docId, currentStatus) {
+  try {
+    await db.collection('daily_requests').doc(docId).update({ status: currentStatus === 'Done' ? 'Pending' : 'Done' });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function renderDailyRequestsTable() {
+  const el = document.getElementById('daily-list');
+  if (!DAILY_CACHE.length) { el.innerHTML = '<div class="hint">No daily requests logged yet</div>'; return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Mobile</th><th>Task</th><th>Feedback</th><th>Status</th></tr></thead>
+    <tbody>${DAILY_CACHE.map(r => `
+      <tr>
+        <td>${escapeHTML(r.date)}</td>
+        <td>${escapeHTML(r.mobile)}</td>
+        <td>${escapeHTML(r.task)}</td>
+        <td>${escapeHTML(r.complaint_type) || '—'}</td>
+        <td><button class="secondary small" onclick="toggleDailyStatus('${r.id}','${r.status}')">${escapeHTML(r.status)}</button></td>
+      </tr>`).join('')}</tbody>
+  </table></div>`;
 }
 
 // ==================== Vehicle data (client-side) ====================
@@ -2285,6 +2440,27 @@ async function deleteRequest(docId, label) {
   }
 }
 
+// Duplicate is not a delete — the record stays and stays visible in the
+// Master table (with a badge) for audit, it's just pulled out of the active
+// pipeline (stage tabs, sidebar counts) since it isn't real work to do.
+// Anyone who can edit the row can toggle it, same as Update.
+async function toggleDuplicate(docId, currentlyDuplicate, label) {
+  const verb = currentlyDuplicate ? 'Unmark' : 'Mark';
+  if (!confirm(`${verb} ${label || docId} as duplicate?`)) return false;
+  try {
+    await db.collection('requests').doc(docId).update({
+      duplicate: !currentlyDuplicate,
+      duplicate_by: ME.email,
+      duplicate_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(currentlyDuplicate ? 'Unmarked as duplicate' : 'Marked as duplicate', 'success');
+    return true;
+  } catch (err) {
+    showToast(err.message, 'error');
+    return false;
+  }
+}
+
 // ==================== Stage forms ====================
 // Fields captured at each stage. `required: true` blocks the "next stage"
 // button until it's filled — everything else can be saved and left partial.
@@ -2407,7 +2583,7 @@ function advanceWithForm(docId, stage, extraFields, newStage) {
 
 // ==================== Pipeline tab (stage-by-stage, immediate save) ====================
 function renderStageTab(n) {
-  const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === n);
+  const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === n && !r.duplicate);
   const statusEl = document.getElementById(`stage${n}-status`);
   statusEl.className = 'status' + (cases.length ? '' : ' ready');
   statusEl.textContent = `${cases.length} case(s) — ${STAGE_LABELS[n]}`;
@@ -2584,8 +2760,8 @@ function toggleCustomerGroup(key) {
 
 function requestRowHtml(r) {
   return `
-    <tr>
-      <td>${escapeHTML(r.renewal_id)}</td>
+    <tr${r.duplicate ? ' class="req-row-duplicate"' : ''}>
+      <td>${escapeHTML(r.renewal_id)}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</td>
       <td>${escapeHTML(r.date)}</td>
       <td>${escapeHTML(r.encoder)}</td>
       <td><input id="req-plate-${r.id}" value="${escapeHTML(r.plate)}" style="min-width:100px;font-family:var(--font-mono)" aria-label="Plate"></td>
@@ -2621,6 +2797,7 @@ function requestRowHtml(r) {
       <td style="white-space:nowrap">
         <button class="secondary small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
         <button class="small" onclick="updateRequest('${r.id}')">Update</button>
+        <button class="secondary small" onclick="toggleDuplicate('${r.id}', ${!!r.duplicate}, '${escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'")}')">${r.duplicate ? 'Unmark Duplicate' : 'Mark Duplicate'}</button>
         ${isAdmin() ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'")}')">Delete</button>` : ''}
         <div id="req-status-${r.id}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:3px"></div>
       </td>
@@ -2650,8 +2827,12 @@ function renderRequestsTable() {
 
   document.getElementById('requests-tbody').innerHTML = [...groups.entries()].map(([key, items]) => {
     const collapsed = COLLAPSED_CUSTOMERS.has(key);
-    const total = items.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const open = items.filter(r => r.renewal_status !== 'Done' || r.wasl_status !== 'Done').length;
+    // Duplicates are still listed (collapse to review, don't hide from audit)
+    // but don't count toward the customer's real total or open-case tally.
+    const active = items.filter(r => !r.duplicate);
+    const total = active.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const open = active.filter(r => r.renewal_status !== 'Done' || r.wasl_status !== 'Done').length;
+    const dupCount = items.length - active.length;
     const keyEsc = key.replace(/'/g, "\\'");
     const header = `
       <tr class="cust-group-row" onclick="toggleCustomerGroup('${keyEsc}')">
@@ -2660,7 +2841,7 @@ function renderRequestsTable() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
           </span>
           <strong>${escapeHTML(items[0].mobile) || escapeHTML(items[0].encoder) || 'No mobile on file'}</strong>
-          <span class="cust-group-meta">${items.length} request${items.length > 1 ? 's' : ''} · SAR ${total}${open ? ` · ${open} open` : ''}</span>
+          <span class="cust-group-meta">${items.length} request${items.length > 1 ? 's' : ''} · SAR ${total}${open ? ` · ${open} open` : ''}${dupCount ? ` · ${dupCount} duplicate${dupCount > 1 ? 's' : ''}` : ''}</span>
         </td>
       </tr>`;
     return collapsed ? header : header + items.map(requestRowHtml).join('');
