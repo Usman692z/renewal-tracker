@@ -312,6 +312,13 @@ tr.plate-match td { background: #FEFCE8; }
 tr.plate-match:hover td { background: #FEF9C3; }
 .match-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-full); font-family: var(--font-sans); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--c-warn-bg); color: var(--c-warn); border: 1px solid #FDE68A; }
 .req-row.open td { box-shadow: inset 3px 0 0 var(--c-accent); }
+.cust-group-row { cursor: pointer; background: var(--c-surface-2); }
+.cust-group-row:hover { background: var(--c-primary-soft); }
+.cust-group-row td { padding: 8px 10px; font-size: 13px; }
+.cust-chevron { display: inline-flex; margin-right: 6px; vertical-align: -3px; transition: transform var(--dur) var(--ease); color: var(--c-fg-subtle); }
+.cust-chevron svg { width: 15px; height: 15px; }
+.cust-chevron.open { transform: rotate(90deg); }
+.cust-group-meta { margin-left: 10px; font-size: 12px; color: var(--c-fg-subtle); font-weight: 500; }
 
 .vehicle-row { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-2); margin-bottom: var(--sp-2); }
 .vehicle-row .vr-top { display: flex; gap: 6px; align-items: center; }
@@ -396,6 +403,18 @@ tr.plate-match:hover td { background: #FEF9C3; }
 
     <!-- ---------- New Request ---------- -->
     <div id="tab-deal" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-label" style="margin-bottom:10px">Edit an existing request</div>
+        <div class="row" style="margin:0">
+          <input id="edit-q" placeholder="Plate, Renewal ID or mobile — e.g. 1651 NUA, RN-1662, 0501234567" style="max-width:420px" aria-label="Find a request to edit">
+          <button class="secondary" onclick="searchRequestsToEdit()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            Find
+          </button>
+        </div>
+        <div id="edit-results"></div>
+      </div>
+
       <div class="row" style="align-items:flex-start;flex-wrap:wrap;gap:20px">
         <div class="card" style="max-width:480px;flex:1;min-width:330px">
           <div class="section-label" style="margin-bottom:12px">New Request — Stage 1: Payment Received</div>
@@ -463,7 +482,6 @@ tr.plate-match:hover td { background: #FEF9C3; }
     <div id="tab-stage5" style="display:none"><div id="stage5-status" class="status"></div><div id="stage5-list"></div></div>
     <div id="tab-stage6" style="display:none"><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
     <div id="tab-stage7" style="display:none"><div id="stage7-status" class="status"></div><div id="stage7-list"></div></div>
-    <div id="tab-stage8" style="display:none"><div id="stage8-status" class="status"></div><div id="stage8-list"></div></div>
 
     <!-- ---------- Search & Renew ---------- -->
     <div id="tab-search">
@@ -784,11 +802,16 @@ document.getElementById('exp-old').addEventListener('keydown', e => { if (e.key 
 document.getElementById('exp-months').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
 
 // ==================== Navigation registry & access control ====================
+// Stage 4 ("Renewal Done") was a pure holding stage — nothing happened there
+// that Renewal Processing (3) couldn't capture on its own way out — so it's
+// gone. Renewal Processing now hands off straight to WASL Processing. See
+// LEGACY_STAGE_LABELS below for how documents created under the old 8-stage
+// numbering get moved onto this one automatically.
 const STAGE_LABELS = {
   1: 'Payment Received (Case Created)', 2: 'Sale Order Create', 3: 'Renewal Processing',
-  4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
+  4: 'WASL Processing', 5: 'WASL Completed', 6: 'Device Check', 7: 'Customer Close'
 };
-const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7','stage8'];
+const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
 
 // One registry drives the sidebar, the page header, and the admin permission
 // checkboxes — add a tab here and it shows up in all three.
@@ -797,7 +820,7 @@ const TAB_REGISTRY = [
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
   ...STAGE_TAB_NAMES.map((k, i) => ({
     key: k, group: 'Pipeline', step: i + 1,
-    label: ['Payment Received','Sale Order','Renewal Processing','Renewal Done','WASL Processing','WASL Completed','Device Check','Customer Close'][i],
+    label: ['Payment Received','Sale Order','Renewal Processing','WASL Processing','WASL Completed','Device Check','Customer Close'][i],
     sub: `Stage ${i + 1} — ${STAGE_LABELS[i + 1]}`
   })),
   { key: 'odoo',     group: 'Odoo',    label: 'Sale Orders (Odoo)', icon: 'receipt', sub: 'Search live Odoo sale orders by order no, customer, phone or plate' },
@@ -809,6 +832,25 @@ const TAB_REGISTRY = [
 ];
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
 const DEFAULT_AGENT_TABS = ['search'];
+
+// Self-healing migration for documents written under the old 8-stage
+// numbering (before "Renewal Done" was folded into Renewal Processing).
+// A doc is unambiguously old-scheme only if its stage_label still matches
+// exactly what that stage number used to mean — once touched, it carries the
+// new label and is left alone. Runs automatically the next time any signed-in
+// user's session loads it; no manual data migration needed.
+const LEGACY_STAGE_LABELS = {
+  4: 'Renewal Done', 5: 'WASL Processing', 6: 'WASL Completed', 7: 'Device Check', 8: 'Customer Close'
+};
+function remapLegacyStage(oldStage) {
+  if (oldStage <= 3) return oldStage;
+  if (oldStage <= 5) return 4;       // old 4 (Renewal Done) and old 5 (WASL Processing) both land here
+  return oldStage - 1;               // old 6/7/8 shift down one slot
+}
+function isLegacyStageDoc(r) {
+  const stage = r.stage || 1;
+  return stage >= 4 && r.stage_label === LEGACY_STAGE_LABELS[stage];
+}
 
 // Set to true only for local testing — it bypasses the login screen with an
 // anonymous sign-in and treats everyone as admin.
@@ -1224,7 +1266,12 @@ async function loadPlateHistory(plate) {
   const snaps = await Promise.all(variants.map(v => db.collection('requests').where('plate', '==', v).get()));
   const seen = new Set();
   const docs = [];
-  snaps.forEach(s => s.docs.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); docs.push({ id: d.id, ...d.data() }); } }));
+  snaps.forEach(s => s.docs.forEach(d => {
+    if (seen.has(d.id)) return;
+    seen.add(d.id);
+    const r = { id: d.id, ...d.data() };
+    if (r.deleted !== true) docs.push(r);
+  }));
   docs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   PLATE_HISTORY_CACHE.set(key, docs);
   return docs;
@@ -1360,7 +1407,7 @@ function lookupCustomerHistory(mobile) {
   document.getElementById('deal-history-pane').innerHTML = '<div class="status"><span class="spinner"></span>Searching customer history...</div>';
   document.getElementById('deal-renewal-id-display').textContent = 'Calculating...';
   DEAL_HISTORY_UNSUB = db.collection('requests').where('mobile', '==', mobile).onSnapshot(snap => {
-    DEAL_HISTORY_DOCS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    DEAL_HISTORY_DOCS = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.deleted !== true);
     renderCustomerHistory();
     document.getElementById('deal-renewal-id-display').textContent = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
   }, err => {
@@ -1688,6 +1735,133 @@ document.getElementById('deal-mobile').addEventListener('input', () => {
     lookupOdoo(mobile, dealPlates()[0] || '');
   }, 400);
 });
+
+// ==================== Edit an existing request ====================
+// Finds requests by plate, Renewal ID or mobile without needing the Master
+// tab's live listener loaded first — a few targeted exact-match queries, with
+// a substring scan over REQUESTS_CACHE as a fallback if that's already warm.
+async function searchRequestsToEdit() {
+  const q = document.getElementById('edit-q').value.trim();
+  const resultEl = document.getElementById('edit-results');
+  if (!q) { resultEl.innerHTML = '<div class="status error" style="margin-top:12px">Enter a plate, Renewal ID or mobile number.</div>'; return; }
+
+  resultEl.innerHTML = '<div class="status" style="margin-top:12px"><span class="spinner"></span>Searching...</div>';
+  try {
+    const upper = q.toUpperCase();
+    const digits = (upper.match(/\d+/) || [''])[0];
+    const letters = (upper.match(/[A-Z]+/) || [''])[0];
+    const plateVariants = [...new Set([q.trim(), upper.replace(/\s+/g, ''), digits && letters ? `${digits} ${letters}` : ''].filter(Boolean))];
+
+    const snaps = await Promise.all([
+      db.collection('requests').where('renewal_id', '==', q.trim()).get(),
+      db.collection('requests').where('mobile', '==', q.trim()).get(),
+      ...plateVariants.map(v => db.collection('requests').where('plate', '==', v).get())
+    ]);
+    const found = new Map();
+    snaps.forEach(s => s.docs.forEach(d => { if (!found.has(d.id)) found.set(d.id, { id: d.id, ...d.data() }); }));
+    let matches = [...found.values()].filter(r => r.deleted !== true);
+
+    // Exact matches only cover so much — if the plate was typed with different
+    // spacing than any variant above, fall back to whatever's already cached.
+    if (!matches.length && REQUESTS_CACHE.length) {
+      const ql = q.toLowerCase();
+      matches = REQUESTS_CACHE.filter(r =>
+        ['plate', 'renewal_id', 'mobile'].some(k => r[k] && String(r[k]).toLowerCase().includes(ql)));
+    }
+    matches.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    renderEditResults(matches, q);
+  } catch (err) {
+    resultEl.innerHTML = `<div class="status error" style="margin-top:12px">${escapeHTML(err.message)}</div>`;
+  }
+}
+
+function renderEditResults(matches, q) {
+  const el = document.getElementById('edit-results');
+  if (!matches.length) {
+    el.innerHTML = `<div class="status" style="margin-top:12px">No request found for "${escapeHTML(q)}".</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="status ready" style="margin-top:12px">${matches.length} match(es) for "${escapeHTML(q)}"</div>`
+    + matches.map(editCardHtml).join('');
+}
+
+function editCardHtml(r) {
+  const stage = r.stage || 1;
+  const deleteBtn = isAdmin()
+    ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'")}').then(ok => { if (ok) document.getElementById('edit-card-${r.id}').remove(); })">Delete</button>`
+    : '';
+  return `<div class="pipeline-card" id="edit-card-${r.id}">
+    <div class="pipeline-card-head">
+      <div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · Stage ${stage} — ${escapeHTML(STAGE_LABELS[stage] || '')}</div>
+        <div class="paid-for">${serviceTags(r)}<span class="paid-amount">SAR ${r.amount || 0}</span></div>
+      </div>
+    </div>
+    <div class="stage-form">
+      <div class="stage-field">
+        <label class="input-label" for="edit-plate-${r.id}">Plate Number</label>
+        <input id="edit-plate-${r.id}" value="${escapeHTML(r.plate)}">
+      </div>
+      <div class="stage-field">
+        <label class="input-label" for="edit-amt-${r.id}">Amount</label>
+        <input id="edit-amt-${r.id}" type="number" step="any" value="${r.amount || ''}">
+      </div>
+      <div class="stage-field">
+        <label class="input-label" for="edit-so-${r.id}">Sale Order #</label>
+        <input id="edit-so-${r.id}" value="${escapeHTML(r.sale_order)}">
+      </div>
+      <div class="stage-field">
+        <label class="input-label" for="edit-prio-${r.id}">Priority</label>
+        <select id="edit-prio-${r.id}">
+          <option value="" ${!r.priority ? 'selected' : ''}>—</option>
+          <option value="Low" ${r.priority === 'Low' ? 'selected' : ''}>Low</option>
+          <option value="Medium" ${r.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+          <option value="High" ${r.priority === 'High' ? 'selected' : ''}>High</option>
+          <option value="Urgent" ${r.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
+        </select>
+      </div>
+      <div class="stage-field" style="flex-basis:100%">
+        <label class="input-label" for="edit-rem-${r.id}">Remarks</label>
+        <input id="edit-rem-${r.id}" value="${escapeHTML(r.remarks)}">
+      </div>
+    </div>
+    <div class="pipeline-actions">
+      <button class="small" onclick="saveEditedRequest('${r.id}')">Save Changes</button>
+      <button class="secondary small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">View in Search &amp; Renew</button>
+      ${deleteBtn}
+      <span id="edit-status-${r.id}" style="font-size:12px;color:var(--c-fg-subtle)"></span>
+    </div>
+  </div>`;
+}
+
+async function saveEditedRequest(docId) {
+  const statusEl = document.getElementById('edit-status-' + docId);
+  statusEl.style.color = 'var(--c-fg-subtle)';
+  statusEl.textContent = 'Saving...';
+  const updates = {
+    plate: document.getElementById('edit-plate-' + docId).value.trim(),
+    amount: parseFloat(document.getElementById('edit-amt-' + docId).value) || 0,
+    sale_order: document.getElementById('edit-so-' + docId).value.trim(),
+    priority: document.getElementById('edit-prio-' + docId).value,
+    remarks: document.getElementById('edit-rem-' + docId).value.trim(),
+    updated_by: auth.currentUser ? auth.currentUser.email : '',
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    await db.collection('requests').doc(docId).update(updates);
+    PLATE_HISTORY_CACHE.clear(); // the plate or amount just changed
+    statusEl.style.color = 'var(--c-success)';
+    statusEl.textContent = 'Saved';
+    showToast('Request updated', 'success');
+  } catch (err) {
+    statusEl.style.color = 'var(--c-danger)';
+    statusEl.textContent = err.message;
+    showToast(err.message, 'error');
+  }
+}
+
+document.getElementById('edit-q').addEventListener('keydown', e => { if (e.key === 'Enter') searchRequestsToEdit(); });
 
 // Clear every part of the New Request screen, not just the inputs — the mobile
 // number, the customer history listener and the Odoo panel all belonged to the
@@ -2041,6 +2215,27 @@ function isEmptyRequest(r) {
   return !(r.plate || r.encoder || r.mobile || r.sale_order || r.amount);
 }
 
+// Soft-deleted requests are never deleted from Firestore — they're just
+// filtered out everywhere so a mis-click never destroys real data.
+function isVisibleRequest(r) {
+  return !isEmptyRequest(r) && r.deleted !== true;
+}
+
+// Fire-and-forget: bring any old-8-stage document onto the current numbering.
+// Runs under whichever real user is signed in, using the update permission
+// they already have — no admin credentials needed to migrate old data.
+function healLegacyStage(r) {
+  if (!isLegacyStageDoc(r)) return;
+  const newStage = remapLegacyStage(r.stage || 1);
+  db.collection('requests').doc(r.id).update({
+    ...stampStageDate(newStage),
+    stage: newStage,
+    stage_label: STAGE_LABELS[newStage]
+  }).catch(() => {}); // another tab may win the race; harmless either way
+  r.stage = newStage;
+  r.stage_label = STAGE_LABELS[newStage];
+}
+
 function loadRequests() {
   const statusEl = document.getElementById('requests-status');
   statusEl.className = 'status';
@@ -2050,7 +2245,8 @@ function loadRequests() {
   // automatically for everyone, no manual refresh needed.
   requestsUnsubscribe = db.collection('requests').orderBy('date', 'desc').limit(2000)
     .onSnapshot(snap => {
-      REQUESTS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => !isEmptyRequest(r));
+      REQUESTS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(isVisibleRequest);
+      REQUESTS_CACHE.forEach(healLegacyStage);
       const latest = REQUESTS_CACHE.find(r => r.synced_at && r.synced_at.toDate);
       const synced = latest ? ' (last sync: ' + latest.synced_at.toDate().toLocaleString() + ')' : '';
       statusEl.className = 'status ready';
@@ -2068,6 +2264,27 @@ function loadRequests() {
     });
 }
 
+// Soft-delete: mark and hide, never destroy. Admin-only from the UI. Returns
+// whether it actually happened, so callers that hold their own snapshot of
+// the request (the edit-search cards, which aren't backed by the live
+// listener) know when to remove it from view themselves.
+async function deleteRequest(docId, label) {
+  if (!isAdmin()) { showToast('Only admins can delete a request', 'error'); return false; }
+  if (!confirm(`Delete request ${label || docId}? It will be hidden everywhere but kept in the database.`)) return false;
+  try {
+    await db.collection('requests').doc(docId).update({
+      deleted: true,
+      deleted_by: ME.email,
+      deleted_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Request deleted', 'success');
+    return true;
+  } catch (err) {
+    showToast(err.message, 'error');
+    return false;
+  }
+}
+
 // ==================== Stage forms ====================
 // Fields captured at each stage. `required: true` blocks the "next stage"
 // button until it's filled — everything else can be saved and left partial.
@@ -2080,23 +2297,25 @@ const STAGE_FORMS = {
     { key: 'sale_order', label: 'Sale Order #', type: 'text', required: true },
     { key: 'quotation_no', label: 'Quotation No', type: 'text' }
   ],
+  // Renewal Processing now hands off straight to WASL Processing (the old
+  // standalone "Renewal Done" holding stage is gone), so what used to be
+  // captured there — istimara received, renewal remarks — is captured here
+  // instead, on the same action that advances the case.
   3: [
     { key: 'old_expiry', label: 'Old Expiry Date', type: 'date' },
     { key: 'new_expiry', label: 'New Expiry Date', type: 'date', required: true },
     { key: 'renewal_ref', label: 'Renewal Reference No', type: 'text' },
-    { key: 'missing_docs', label: 'Missing Documents', type: 'text' }
-  ],
-  4: [
+    { key: 'missing_docs', label: 'Missing Documents', type: 'text' },
     { key: 'istimara_received', label: 'Istimara received', type: 'checkbox' },
     { key: 'renewal_remarks', label: 'Renewal Remarks', type: 'text' }
   ],
-  // Dates aren't asked for at stages 5 and 6 — every stage stamps its own date
+  // Dates aren't asked for at stages 4 and 5 — every stage stamps its own date
   // automatically (see stampStageDate), so typing one in was duplicate work.
-  5: [
+  4: [
     { key: 'wasl_processing_remarks', label: 'Remarks', type: 'text' },
     { key: 'wasl_reject_reason', label: 'Rejection Reason (if any)', type: 'text' }
   ],
-  6: [
+  5: [
     { key: 'wasl_completed_remarks', label: 'Remarks', type: 'text' }
   ]
 };
@@ -2291,14 +2510,12 @@ function renderPipelineCard(r) {
       <button class="small" onclick="advanceWithForm('${r.id}', 2, {}, 3)">Start Renewal Processing → Stage 3</button>${saveBtn}
     </div>`;
   } else if (stage === 3) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → Stage 4</button>${saveBtn}</div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → WASL Processing (Stage 4)</button>${saveBtn}</div>`;
   } else if (stage === 4) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 4, {}, 5)">Start WASL Processing → Stage 5</button>${saveBtn}</div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 4, {wasl_status: 'Done'}, 5)">Mark WASL Completed → Stage 5</button>${saveBtn}</div>`;
   } else if (stage === 5) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 5, {wasl_status: 'Done'}, 6)">Mark WASL Completed → Stage 6</button>${saveBtn}</div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 5, {}, 6)">Proceed to Device Check → Stage 6</button>${saveBtn}</div>`;
   } else if (stage === 6) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 6, {}, 7)">Proceed to Device Check → Stage 7</button>${saveBtn}</div>`;
-  } else if (stage === 7) {
     action = `<div class="pipeline-actions">
       <select id="pl-device-${r.id}" onchange="renderPipelineDeviceSub('${r.id}')" aria-label="Device status">
         <option value="" ${!r.device_status ? 'selected' : ''}>Device status...</option>
@@ -2307,10 +2524,10 @@ function renderPipelineCard(r) {
       </select>
       <span id="pl-device-sub-${r.id}" style="display:contents"></span>
     </div>`;
-  } else if (stage === 8) {
+  } else if (stage === 7) {
     action = r.customer_closed
       ? `<div class="pipeline-actions"><span class="pill yes">Closed</span></div>`
-      : `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {customer_closed: true}, 8)">Close Case</button></div>`;
+      : `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {customer_closed: true}, 7)">Close Case</button></div>`;
   }
 
   return `<div class="pipeline-card" id="pl-card-${r.id}">${head}${form}${action}</div>`;
@@ -2321,7 +2538,7 @@ function renderPipelineDeviceSub(docId) {
   const el = document.getElementById('pl-device-sub-' + docId);
   if (val === 'Reporting') {
     el.innerHTML = `<label class="chip"><input type="checkbox" id="pl-vat-${docId}"> Invoice (VAT) Sent</label>
-      <button class="small" onclick="advancePipelineCase('${docId}', {device_status:'Reporting', invoice_vat_sent: document.getElementById('pl-vat-${docId}').checked}, 8)">Close Case → Stage 8</button>`;
+      <button class="small" onclick="advancePipelineCase('${docId}', {device_status:'Reporting', invoice_vat_sent: document.getElementById('pl-vat-${docId}').checked}, 7)">Close Case → Stage 7</button>`;
   } else if (val === 'Non Reporting') {
     el.innerHTML = `<select id="pl-fix-${docId}" aria-label="Fix status">
         <option value="Pending">Pending (Terminal)</option>
@@ -2336,7 +2553,7 @@ function renderPipelineDeviceSub(docId) {
 function advancePipelineNonReporting(docId) {
   const fixStatus = document.getElementById('pl-fix-' + docId).value;
   if (fixStatus !== 'Fixed') { showToast('Must be Fixed before closing the case', 'error'); return; }
-  advancePipelineCase(docId, { device_status: 'Non Reporting', fix_status: fixStatus }, 8);
+  advancePipelineCase(docId, { device_status: 'Non Reporting', fix_status: fixStatus }, 7);
 }
 
 async function advancePipelineCase(docId, extraFields, newStage) {
@@ -2355,26 +2572,25 @@ async function advancePipelineCase(docId, extraFields, newStage) {
   }
 }
 
-function renderRequestsTable() {
-  const onlyRenewalPending = document.getElementById('req-flt-renewal').checked;
-  const onlyWaslPending = document.getElementById('req-flt-wasl').checked;
-  const q = document.getElementById('req-q').value.trim().toLowerCase();
+// Which customer groups are collapsed, keyed by mobile (or a per-request
+// fallback key when a request has no mobile). Kept across re-renders so the
+// live listener firing doesn't snap every group back open.
+let COLLAPSED_CUSTOMERS = new Set();
 
-  const rows = REQUESTS_CACHE.filter(r => {
-    if (onlyRenewalPending && r.renewal_status === 'Done') return false;
-    if (onlyWaslPending && r.wasl_status === 'Done') return false;
-    if (q && !['plate','encoder','sale_order','mobile','remarks','renewal_id'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
-    return true;
-  });
+function toggleCustomerGroup(key) {
+  if (COLLAPSED_CUSTOMERS.has(key)) COLLAPSED_CUSTOMERS.delete(key); else COLLAPSED_CUSTOMERS.add(key);
+  renderRequestsTable();
+}
 
-  document.getElementById('requests-tbody').innerHTML = rows.map(r => `
+function requestRowHtml(r) {
+  return `
     <tr>
       <td>${escapeHTML(r.renewal_id)}</td>
       <td>${escapeHTML(r.date)}</td>
       <td>${escapeHTML(r.encoder)}</td>
-      <td>${escapeHTML(r.plate)}</td>
+      <td><input id="req-plate-${r.id}" value="${escapeHTML(r.plate)}" style="min-width:100px;font-family:var(--font-mono)" aria-label="Plate"></td>
       <td>${escapeHTML(r.mobile)}</td>
-      <td>${r.amount ? escapeHTML(r.amount) : ''}</td>
+      <td><input id="req-amt-${r.id}" type="number" step="any" value="${r.amount || ''}" style="min-width:80px" aria-label="Amount"></td>
       <td>${escapeHTML(r.services)}</td>
       <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:100px" aria-label="Sale order"></td>
       <td>
@@ -2405,10 +2621,50 @@ function renderRequestsTable() {
       <td style="white-space:nowrap">
         <button class="secondary small" onclick="searchFromRequest('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Find vehicle</button>
         <button class="small" onclick="updateRequest('${r.id}')">Update</button>
+        ${isAdmin() ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'")}')">Delete</button>` : ''}
         <div id="req-status-${r.id}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:3px"></div>
       </td>
-    </tr>
-  `).join('') || '<tr><td colspan="16" class="no-results">No requests found</td></tr>';
+    </tr>`;
+}
+
+function renderRequestsTable() {
+  const onlyRenewalPending = document.getElementById('req-flt-renewal').checked;
+  const onlyWaslPending = document.getElementById('req-flt-wasl').checked;
+  const q = document.getElementById('req-q').value.trim().toLowerCase();
+
+  const rows = REQUESTS_CACHE.filter(r => {
+    if (onlyRenewalPending && r.renewal_status === 'Done') return false;
+    if (onlyWaslPending && r.wasl_status === 'Done') return false;
+    if (q && !['plate','encoder','sale_order','mobile','remarks','renewal_id'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  // A customer can have several vehicles under one Renewal ID, or several
+  // Renewal IDs over time — group by mobile so the whole account reads as one
+  // unit instead of scattered rows the encoder has to piece together by eye.
+  const groups = new Map();
+  rows.forEach(r => {
+    const key = r.mobile || `__no-mobile-${r.renewal_id || r.id}`;
+    (groups.get(key) || groups.set(key, []).get(key)).push(r);
+  });
+
+  document.getElementById('requests-tbody').innerHTML = [...groups.entries()].map(([key, items]) => {
+    const collapsed = COLLAPSED_CUSTOMERS.has(key);
+    const total = items.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const open = items.filter(r => r.renewal_status !== 'Done' || r.wasl_status !== 'Done').length;
+    const keyEsc = key.replace(/'/g, "\\'");
+    const header = `
+      <tr class="cust-group-row" onclick="toggleCustomerGroup('${keyEsc}')">
+        <td colspan="16">
+          <span class="cust-chevron${collapsed ? '' : ' open'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+          </span>
+          <strong>${escapeHTML(items[0].mobile) || escapeHTML(items[0].encoder) || 'No mobile on file'}</strong>
+          <span class="cust-group-meta">${items.length} request${items.length > 1 ? 's' : ''} · SAR ${total}${open ? ` · ${open} open` : ''}</span>
+        </td>
+      </tr>`;
+    return collapsed ? header : header + items.map(requestRowHtml).join('');
+  }).join('') || '<tr><td colspan="16" class="no-results">No requests found</td></tr>';
 }
 
 async function updateRequest(docId) {
@@ -2417,6 +2673,8 @@ async function updateRequest(docId) {
   statusEl.textContent = 'Saving...';
   const stageVal = parseInt(document.getElementById('req-stage-' + docId).value, 10);
   const updates = {
+    plate: document.getElementById('req-plate-' + docId).value.trim(),
+    amount: parseFloat(document.getElementById('req-amt-' + docId).value) || 0,
     sale_order: document.getElementById('req-so-' + docId).value.trim(),
     priority: document.getElementById('req-prio-' + docId).value,
     stage: stageVal,
