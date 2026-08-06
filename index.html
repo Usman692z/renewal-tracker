@@ -1295,7 +1295,12 @@ function watchMyProfile(user) {
     }
     const d = snap.data();
     ME.role = bootstrap ? 'admin' : (d.role || 'agent');
-    ME.tabs = Array.isArray(d.tabs) ? d.tabs : [...DEFAULT_AGENT_TABS];
+    // Bootstrap admin's tabs were previously left as whatever Firestore had at
+    // account-creation time, so any tab added to TAB_REGISTRY afterward (like
+    // this Sales Report one) silently never showed up for the owner account —
+    // only `role`/`active` were force-corrected, not `tabs`. Bootstrap admin
+    // now always gets every tab, live, same as role.
+    ME.tabs = bootstrap ? [...ALL_TAB_KEYS] : (Array.isArray(d.tabs) ? d.tabs : [...DEFAULT_AGENT_TABS]);
     ME.active = bootstrap || d.active !== false;
     ME.encoderName = d.encoder_name || '';
     applyIdentity();
