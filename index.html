@@ -3438,7 +3438,7 @@ function renderGroupedCaseList(cases, listElId, emptyText) {
   });
 
   document.getElementById(listElId).innerHTML = [...groups.entries()].map(([key, items]) => {
-    if (items.length === 1) return renderPipelineCard(items[0]);
+    if (items.length === 1) return renderCompactCaseCard(items[0]);
     // Multi-vehicle job: a compact summary card, not N duplicate full cards —
     // each vehicle now moves independently (see jobMemberIds), so "last
     // stage" is whichever member has advanced furthest; "Open" is the way
@@ -3641,6 +3641,39 @@ async function togglePipelineInfo(docId, plate) {
   } catch (err) {
     box.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
   }
+}
+
+// List views show this instead of the full card: the identifying strip only
+// (id/plate, who/phone/date, the pill row) plus one View button. Everything
+// operational — the stage form, advance buttons, Edit/Duplicate/On Hold/Send
+// to Stage/Assign — lives in Case View, which already renders the complete
+// renderPipelineCard. Keeps a 40-case stage tab scannable instead of it being
+// forty tall forms stacked on top of each other.
+function renderCompactCaseCard(r) {
+  const stage = r.stage || 1;
+  return `<div class="pipeline-card${r.on_hold ? ' on-hold' : ''}" id="pl-card-${r.id}">
+    <div class="pipeline-card-head">
+      <div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="paid-for">
+          ${priorityTag(r)}
+          ${assignedTag(r)}
+          ${waslOutcomeTag(r)}
+          ${serviceTags(r)}
+          ${r.sale_order ? `<span class="paid-so">SO ${escapeHTML(r.sale_order)}</span>` : ''}
+          <span class="paid-amount">SAR ${r.amount || 0}</span>
+        </div>
+      </div>
+      <div class="stage-dates">
+        <strong>${r.customer_closed ? 'Closed' : `Stage ${stage}`}</strong>
+        ${r.customer_closed ? '' : `<span class="trail">${escapeHTML(STAGE_LABELS[stage] || '')}</span>`}
+      </div>
+    </div>
+    <div class="pipeline-actions">
+      <button class="small" onclick="openCaseView('${r.id}')">View</button>
+    </div>
+  </div>`;
 }
 
 function renderPipelineCard(r) {
