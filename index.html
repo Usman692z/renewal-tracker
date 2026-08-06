@@ -2028,50 +2028,39 @@ async function loadSalesReport() {
   }
 }
 
-// Main tab stays a quick-glance summary only (totals + timeline) — the full
-// per-dimension breakdown lives behind one "View Full Breakdown" button in a
-// modal, same compact-card-then-Open pattern the pipeline case list already
-// uses, so this tab doesn't turn into six stacked tables at once.
+// Main tab is ONE compact card — same visual language as a pipeline case
+// card (rounded, left accent border, a pill row for the key numbers) — plus
+// a single "View Full Breakdown" button. Everything else (daily/monthly
+// chart, booker/region/template/team/type/status tables) lives behind that
+// button in the modal, so this tab never turns into a wall of tiles/tables.
 function renderSalesReport(rep) {
   const t = rep.totals;
-  const maxTl = Math.max(1, ...rep.timeline.map(p => p.total));
 
   document.getElementById('sr-result').innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-tile"><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Orders</div></div>
-      <div class="stat-tile"><div class="num">${sarFmt(t.total)}</div><div class="lbl">Total (with VAT)</div></div>
-      <div class="stat-tile"><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Without VAT</div></div>
-      <div class="stat-tile"><div class="num">${sarFmt(t.tax)}</div><div class="lbl">VAT</div></div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">${rep.range.interval === 'day' ? 'Daily' : 'Monthly'} Sales</div>
-        <span class="card-id">${escapeHTML(rep.range.date_field)}</span>
+    <div class="pipeline-card" style="border-left-color:var(--c-brand)">
+      <div class="pipeline-card-head">
+        <div>
+          <div class="pipeline-card-title">Sales Report — <span class="plate">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span></div>
+          <div class="pipeline-card-sub">${escapeHTML(rep.range.date_field === 'confirm_date' ? 'Confirm date' : 'Order date')} · ${t.orders.toLocaleString()} order(s)</div>
+        </div>
       </div>
-      ${rep.timeline.length ? `<div class="dash-trend">
-        ${rep.timeline.map(p => `
-          <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${sarFmt(p.total)} (${p.orders} orders)">
-            <div class="dash-trend-bar" data-h="${(p.total / maxTl * 100).toFixed(1)}"></div>
-            <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
-          </div>`).join('')}
-      </div>` : '<div class="no-results">No orders in this range</div>'}
-    </div>
-    <div class="row" style="justify-content:center;margin-top:var(--sp-2)">
-      <button onclick="openSalesReportDetail()">
-        ${icon('table')}
-        View Full Breakdown — Booker, Region, Template &amp; More
-      </button>
+      <div class="chip-row" style="margin-top:10px">
+        <span class="pill" style="background:var(--c-primary-soft);color:var(--c-primary);border-color:#BFDBFE">Orders: ${t.orders.toLocaleString()}</span>
+        <span class="pill yes">With VAT: ${sarFmt(t.total)}</span>
+        <span class="pill" style="background:var(--c-primary-soft);color:var(--c-primary);border-color:#BFDBFE">Without VAT: ${sarFmt(t.untaxed)}</span>
+        <span class="pill" style="background:var(--c-accent-soft);color:var(--c-accent-strong);border-color:#FDE68A">VAT: ${sarFmt(t.tax)}</span>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:var(--sp-3);margin-bottom:0">
+        <button onclick="openSalesReportDetail()">
+          ${icon('table')}
+          View Full Breakdown — Daily, Booker, Region, Template &amp; More
+        </button>
+      </div>
     </div>`;
-
-  // setTimeout, not rAF — rAF never fires in this project's preview harness.
-  setTimeout(() => {
-    document.querySelectorAll('#sr-result .dash-trend-bar').forEach(el => {
-      el.style.height = Math.max(2, Number(el.dataset.h)) + '%';
-    });
-  }, 20);
 }
 
-let SR_DETAIL_DIM = 'booker';
+let SR_DETAIL_DIM = 'timeline';
+const SR_VIEWS = [['timeline', 'Timeline'], ...SR_DIMENSIONS];
 
 function openSalesReportDetail() {
   if (!SALES_REPORT) return;
@@ -2093,26 +2082,35 @@ document.addEventListener('keydown', e => {
 });
 
 // One dimension's full table at a time, switched by pill buttons — same idea
-// as the case-type quick-switch strip, so only one table is on screen ever.
+// as the case-type quick-switch strip, so only one table (or the timeline
+// chart) is on screen at a time.
 function renderSalesReportDetail() {
   const box = document.getElementById('sr-modal-box');
   if (!SALES_REPORT) { box.innerHTML = ''; return; }
   const rep = SALES_REPORT;
-  const rows = rep.breakdown[SR_DETAIL_DIM] || [];
-  const [, activeLabel] = SR_DIMENSIONS.find(([k]) => k === SR_DETAIL_DIM) || SR_DIMENSIONS[0];
-  const max = Math.max(1, ...rows.map(r => r.total));
+  const isTimeline = SR_DETAIL_DIM === 'timeline';
 
-  box.innerHTML = `
-    <button type="button" class="modal-close" onclick="closeSalesReportDetail()" aria-label="Close">${icon('x')}</button>
-    <div class="card-header">
-      <div class="card-title">Full Breakdown</div>
-      <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
-    </div>
+  const switcher = `
     <div class="case-type-nav" style="margin-bottom:var(--sp-3)">
-      ${SR_DIMENSIONS.map(([key, label]) => `
+      ${SR_VIEWS.map(([key, label]) => `
         <button type="button" class="${key === SR_DETAIL_DIM ? 'active' : ''}" onclick="setSalesReportDim('${key}')">${escapeHTML(label)}</button>`).join('')}
-    </div>
-    ${rows.length ? `<div class="table-wrap"><table>
+    </div>`;
+
+  let body;
+  if (isTimeline) {
+    const maxTl = Math.max(1, ...rep.timeline.map(p => p.total));
+    body = rep.timeline.length ? `<div class="dash-trend">
+        ${rep.timeline.map(p => `
+          <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${sarFmt(p.total)} (${p.orders} orders)">
+            <div class="dash-trend-bar" data-h="${(p.total / maxTl * 100).toFixed(1)}"></div>
+            <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+          </div>`).join('')}
+      </div>` : '<div class="no-results">No orders in this range</div>';
+  } else {
+    const rows = rep.breakdown[SR_DETAIL_DIM] || [];
+    const [, activeLabel] = SR_DIMENSIONS.find(([k]) => k === SR_DETAIL_DIM) || SR_DIMENSIONS[0];
+    const max = Math.max(1, ...rows.map(r => r.total));
+    body = rows.length ? `<div class="table-wrap"><table>
       <thead><tr><th>${escapeHTML(activeLabel)}</th><th>Orders</th><th>Without VAT</th><th>VAT</th><th>With VAT</th><th>Share</th></tr></thead>
       <tbody>${rows.map(r => `
         <tr>
@@ -2126,7 +2124,22 @@ function renderSalesReportDetail() {
             <span class="dash-trend-day">${rep.totals.total ? (r.total / rep.totals.total * 100).toFixed(1) : '0.0'}%</span>
           </td>
         </tr>`).join('')}</tbody>
-    </table></div>` : '<div class="no-results">No data for this dimension</div>'}`;
+    </table></div>` : '<div class="no-results">No data for this dimension</div>';
+  }
+
+  box.innerHTML = `
+    <button type="button" class="modal-close" onclick="closeSalesReportDetail()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header">
+      <div class="card-title">Full Breakdown</div>
+      <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
+    </div>
+    ${switcher}
+    ${body}`;
+
+  // setTimeout, not rAF — rAF never fires in this project's preview harness.
+  if (isTimeline) setTimeout(() => {
+    box.querySelectorAll('.dash-trend-bar').forEach(el => { el.style.height = Math.max(2, Number(el.dataset.h)) + '%'; });
+  }, 20);
 }
 
 function exportSalesReport() {
