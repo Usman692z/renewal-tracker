@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vehicle Renewal Tracker</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -15,8 +15,13 @@
    Design tokens — Soft UI Evolution, light, dense (ops console)
    ============================================================ */
 :root {
-  --c-primary: #1E40AF;      --c-primary-hover: #1D4ED8;   --c-on-primary: #FFFFFF;
-  --c-primary-soft: #EFF4FF; --c-secondary: #3B82F6;       --c-accent: #D97706;
+  /* Brand: matches the tracking.me platform — navy brand bar, white surfaces,
+     blue primary, orange accent. --c-brand / --c-accent are the exact logo colours
+     (fills only, too light for text); --c-primary / --c-accent-strong are AA on white. */
+  --c-brand: #16BED4;        --c-accent: #F89F50;          --c-navy: #123B6E;
+  --c-primary: #0E7C8B;      --c-primary-hover: #0C6C78;   --c-on-primary: #FFFFFF;
+  --c-primary-soft: #E8FAFD; --c-secondary: #16BED4;
+  --c-accent-strong: #BA5C07;                              --c-accent-soft: #FEF2E6;
   --c-bg: #F1F5F9;           --c-surface: #FFFFFF;         --c-surface-2: #F8FAFC;
   --c-fg: #0F172A;           --c-fg-muted: #475569;        --c-fg-subtle: #64748B;
   --c-border: #E2E8F0;       --c-border-strong: #CBD5E1;
@@ -31,20 +36,26 @@
   --sh-2: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
   --sh-3: 0 6px 20px rgba(15,23,42,.10);
 
-  --font-sans: "Fira Sans", -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Plus Jakarta Sans", -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Fira Code", ui-monospace, Consolas, monospace;
-  --dur: 180ms; --ease: cubic-bezier(.4, 0, .2, 1);
+  --dur: 180ms; --dur-slow: 320ms; --ease: cubic-bezier(.4, 0, .2, 1); --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 body {
   font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
   background: var(--c-bg); color: var(--c-fg); min-height: 100vh;
   font-variant-numeric: tabular-nums;
 }
-:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; border-radius: var(--r-sm); }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; border-radius: var(--r-sm); transition: outline-offset var(--dur) var(--ease); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* ---------- Motion primitives ---------- */
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+[id^="tab-"] { animation: fade-up var(--dur-slow) var(--ease); }
 
 /* ---------- Form controls ---------- */
 select, input, textarea {
@@ -56,7 +67,7 @@ select, input, textarea {
 select { min-width: 170px; cursor: pointer; }
 input:not([type="checkbox"]), textarea { flex: 1; min-width: 180px; }
 input[type="checkbox"] { width: 16px; height: 16px; min-width: 0; flex: none; padding: 0; accent-color: var(--c-primary); cursor: pointer; vertical-align: middle; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(30,64,175,.12); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(14,124,139,.16); }
 input::placeholder, textarea::placeholder { color: #94A3B8; }
 input:disabled, select:disabled { background: var(--c-surface-2); color: var(--c-fg-subtle); cursor: not-allowed; }
 textarea { min-height: 62px; resize: vertical; }
@@ -67,11 +78,11 @@ button {
   padding: 9px 16px; min-height: 38px; font-size: 14px; font-weight: 600; font-family: inherit;
   border: 1px solid transparent; border-radius: var(--r-md);
   background: var(--c-primary); color: var(--c-on-primary); cursor: pointer;
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), transform 120ms var(--ease);
   box-shadow: var(--sh-1);
 }
 button:hover { background: var(--c-primary-hover); }
-button:active { box-shadow: none; }
+button:active:not(:disabled) { box-shadow: none; transform: scale(.97); }
 button.secondary { background: var(--c-surface); color: var(--c-fg-muted); border-color: var(--c-border-strong); }
 button.secondary:hover { background: var(--c-surface-2); border-color: var(--c-fg-subtle); color: var(--c-fg); }
 button.ghost { background: transparent; color: var(--c-fg-muted); border-color: transparent; box-shadow: none; }
@@ -94,14 +105,20 @@ button svg { width: 15px; height: 15px; flex: none; }
   background: var(--c-surface); border-right: 1px solid var(--c-border);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-.brand { padding: var(--sp-4); border-bottom: 1px solid var(--c-border); display: flex; gap: 10px; align-items: center; }
+.brand { padding: var(--sp-4); background: var(--c-navy); color: #fff; display: flex; gap: 10px; align-items: center; }
 .brand-mark {
-  width: 32px; height: 32px; border-radius: var(--r-md); flex: none;
-  background: var(--c-primary); color: #fff; display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: var(--r-md); flex: none; position: relative;
+  background: rgba(255,255,255,.14); color: var(--c-brand); display: grid; place-items: center;
+}
+/* orange dot — mirrors the company logo mark */
+.brand-mark::after {
+  content: ""; position: absolute; top: -2px; right: -2px;
+  width: 9px; height: 9px; border-radius: var(--r-full);
+  background: var(--c-accent); border: 2px solid var(--c-navy);
 }
 .brand-mark svg { width: 18px; height: 18px; }
 .brand-name { font-size: 14px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
-.brand-sub { font-size: 11px; color: var(--c-fg-subtle); }
+.brand-sub { font-size: 11px; color: rgba(255,255,255,.62); }
 .nav { padding: var(--sp-3) var(--sp-2); flex: 1; }
 .nav-group { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #94A3B8; padding: var(--sp-3) 10px 6px; }
 .nav-item {
@@ -110,10 +127,11 @@ button svg { width: 15px; height: 15px; flex: none; }
   border: none; border-radius: var(--r-md); background: transparent;
   color: var(--c-fg-muted); font-size: 13px; font-weight: 500; text-align: left;
   cursor: pointer; box-shadow: none; justify-content: flex-start;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), transform 120ms var(--ease);
 }
 .nav-item:hover { background: var(--c-surface-2); color: var(--c-fg); }
-.nav-item.active { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
+.nav-item:active { transform: scale(.98); }
+.nav-item.active { background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; box-shadow: inset 3px 0 0 var(--c-brand); }
 .nav-item svg { width: 16px; height: 16px; flex: none; opacity: .85; }
 .nav-item .step {
   width: 20px; height: 20px; flex: none; border-radius: var(--r-full);
@@ -142,9 +160,17 @@ button svg { width: 15px; height: 15px; flex: none; }
 .nav-foot button { width: 100%; }
 
 .main { min-width: 0; padding: var(--sp-5) var(--sp-5) var(--sp-6); }
-.page-head { margin-bottom: var(--sp-4); }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: var(--sp-4); }
 .page-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
 .sub { font-size: 13px; color: var(--c-fg-subtle); margin-top: 2px; }
+.case-type-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.case-type-nav button {
+  background: var(--c-surface); border: 1px solid var(--c-border-strong); color: var(--c-fg-muted);
+  font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: var(--r-md);
+  cursor: pointer; box-shadow: none;
+}
+.case-type-nav button:hover { background: var(--c-surface-2); }
+.case-type-nav button.active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
@@ -159,7 +185,7 @@ button svg { width: 15px; height: 15px; flex: none; }
 }
 
 /* ---------- Surfaces ---------- */
-.card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-4); margin-bottom: var(--sp-3); box-shadow: var(--sh-2); }
+.card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-4); margin-bottom: var(--sp-3); box-shadow: var(--sh-2); transition: box-shadow var(--dur) var(--ease); }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--c-border); }
 .card-title { font-size: 15px; font-weight: 700; }
 .card-id { font-family: var(--font-mono); font-size: 11px; color: var(--c-fg-subtle); background: var(--c-surface-2); border: 1px solid var(--c-border); padding: 3px 9px; border-radius: var(--r-sm); }
@@ -192,10 +218,17 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .pill { display: inline-block; padding: 2px 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 600; border: 1px solid transparent; }
 .pill.yes { background: var(--c-success-bg); color: var(--c-success); border-color: #A7F3D0; }
 .pill.no { background: var(--c-danger-bg); color: var(--c-danger); border-color: #FECACA; }
+.pill.prio-urgent { background: var(--c-danger-bg); color: var(--c-danger); border-color: #FECACA; }
+.pill.prio-high { background: var(--c-warn-bg); color: var(--c-warn); border-color: #FDE68A; }
+.pill.prio-medium { background: var(--c-primary-soft); color: var(--c-primary); border-color: #BFDBFE; }
+.pill.prio-low { background: var(--c-surface-2); color: var(--c-fg-subtle); border-color: var(--c-border-strong); }
 
 /* ---------- Login ---------- */
 #login-screen { max-width: 380px; margin: 10vh auto; padding: 0 var(--sp-4); }
-#login-screen .brand { border: none; justify-content: center; padding-bottom: var(--sp-2); }
+#login-screen .brand { background: transparent; color: var(--c-fg); border-radius: var(--r-lg); justify-content: center; padding-bottom: var(--sp-2); }
+#login-screen .brand-mark { background: var(--c-navy); }
+#login-screen .brand-mark::after { border-color: var(--c-bg); }
+#login-screen .brand-sub { color: var(--c-fg-subtle); }
 #login-screen .page-title, #login-screen .sub { text-align: center; }
 #login-screen .card { padding: var(--sp-5); }
 #app { display: none; }
@@ -213,12 +246,19 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 
 /* ---------- Utility tool cards ---------- */
 .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
-.tool-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); box-shadow: var(--sh-2); }
+.tool-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); box-shadow: var(--sh-2); transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.tool-card:hover { box-shadow: var(--sh-3); transform: translateY(-1px); }
 .tool-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--c-fg); margin-bottom: var(--sp-3); }
 .tool-title svg { width: 16px; height: 16px; color: var(--c-primary); }
 .tool-row { display: flex; gap: var(--sp-2); align-items: center; }
 .tool-row input, .tool-row select { flex: 1; min-width: 0; }
 .tool-row .op { color: var(--c-fg-subtle); font-size: 16px; font-weight: 700; }
+.op-toggle {
+  flex: none; width: 34px; min-height: 34px; padding: 0; font-size: 16px; font-weight: 700;
+  background: var(--c-surface-2); color: var(--c-fg-muted); border: 1px solid var(--c-border-strong);
+  box-shadow: none; cursor: pointer;
+}
+.op-toggle:hover { background: var(--c-primary-soft); color: var(--c-primary); border-color: var(--c-primary); }
 .tool-out { margin-top: var(--sp-3); padding: 9px 12px; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); font-size: 14px; min-height: 40px; color: var(--c-fg); direction: rtl; text-align: right; }
 .tool-out.ltr { direction: ltr; text-align: left; }
 .tool-out:empty { display: none; }
@@ -228,14 +268,33 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .tool-out .warn { color: var(--c-danger); font-weight: 600; }
 
 /* ---------- Toasts ---------- */
-.toast-wrap { position: fixed; top: 14px; right: 14px; z-index: 1000; display: flex; flex-direction: column; gap: var(--sp-2); max-width: min(360px, calc(100vw - 28px)); }
+.toast-wrap { position: fixed; top: 14px; right: 14px; z-index: 2500; display: flex; flex-direction: column; gap: var(--sp-2); max-width: min(360px, calc(100vw - 28px)); }
 .toast { background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-primary); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; color: var(--c-fg); box-shadow: var(--sh-3); animation: toast-in .2s var(--ease); }
 .toast.success { border-left-color: var(--c-success); }
 .toast.error { border-left-color: var(--c-danger); }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.toast.leaving { animation: toast-out .18s var(--ease) forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateX(12px); } }
+
+/* ---------- Dashboard ---------- */
+.dash-bar-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 10px; font-size: 12.5px; }
+.dash-bar-row:last-child { margin-bottom: 0; }
+.dash-bar-label { flex: 0 0 180px; color: var(--c-fg-muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-bar-track { flex: 1; height: 10px; background: var(--c-surface-2); border-radius: var(--r-full); overflow: hidden; }
+.dash-bar-fill { display: block; height: 100%; width: 0; border-radius: var(--r-full); background: var(--c-primary); transition: width 700ms var(--ease-spring); }
+.dash-bar-fill.accent { background: var(--c-accent); }
+.dash-bar-value { flex: 0 0 30px; text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--c-fg); }
+.dash-trend { display: flex; align-items: flex-end; gap: 6px; height: 140px; padding-top: var(--sp-2); }
+.dash-trend-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; min-width: 0; }
+.dash-trend-bar { width: 100%; max-width: 24px; height: 0; border-radius: 4px 4px 0 0; background: var(--c-secondary); transition: height 700ms var(--ease-spring); }
+.dash-trend-bar.revenue { background: var(--c-accent); }
+.dash-trend-day { font-size: 10px; color: var(--c-fg-subtle); font-family: var(--font-mono); }
+@media (max-width: 640px) { .dash-bar-label { flex-basis: 110px; font-size: 11.5px; } .dash-trend-day { display: none; } }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
-.stat-tile { background: var(--c-surface-2); border: 1px solid var(--c-border); padding: 9px 12px; border-radius: var(--r-md); }
+.stat-tile { background: var(--c-surface); border: 1px solid var(--c-border); border-top: 2px solid var(--c-primary); padding: 9px 12px; border-radius: var(--r-md); }
+.stat-tile:nth-child(even) { border-top-color: var(--c-accent); }
+.stat-tile:nth-child(even) .num { color: var(--c-accent-strong); }
 .stat-tile .num { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--c-primary); line-height: 1.2; }
 .stat-tile .lbl { font-size: 10px; color: var(--c-fg-subtle); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; margin-top: 2px; }
 
@@ -248,8 +307,9 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .chip:has(input:checked) { border-color: var(--c-primary); background: var(--c-primary-soft); color: var(--c-primary); font-weight: 600; }
 
 /* ---------- Pipeline ---------- */
-.pipeline-card { background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-secondary); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-2); box-shadow: var(--sh-1); transition: box-shadow var(--dur) var(--ease); }
-.pipeline-card:hover { box-shadow: var(--sh-2); }
+.pipeline-card { background: var(--c-surface); border: 1px solid var(--c-border); border-left: 3px solid var(--c-secondary); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-2); box-shadow: var(--sh-1); transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.pipeline-card:hover { box-shadow: var(--sh-2); transform: translateY(-1px); }
+.pipeline-card.on-hold { background: #FEF9C3; border-left-color: #CA8A04; }
 .pipeline-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); flex-wrap: wrap; }
 .pipeline-card-title { font-weight: 700; font-size: 14px; }
 .pipeline-card-title .plate { font-family: var(--font-mono); color: var(--c-primary); }
@@ -272,6 +332,59 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
   font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
   background: var(--c-success-bg); color: var(--c-success); border: 1px solid #A7F3D0;
 }
+.paid-so {
+  display: inline-block; padding: 3px 10px; border-radius: var(--r-full);
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
+  background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;
+}
+.pipeline-group-header {
+  cursor: pointer; display: flex; align-items: center; flex-wrap: wrap;
+  background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md);
+  padding: 10px 14px; margin: 14px 0 8px; font-size: 13px;
+}
+.pipeline-group-header:hover { background: var(--c-primary-soft); }
+.job-vehicle-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 14px; margin-bottom: 8px; font-size: 12.5px;
+  background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md);
+}
+.job-vehicle-row .plate { font-family: var(--font-mono); font-weight: 700; color: var(--c-primary); }
+.job-row-amount { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-weight: 700; color: var(--c-success); white-space: nowrap; }
+.job-row-amount input { width: 70px; padding: 3px 6px; font-family: var(--font-mono); font-weight: 700; color: var(--c-success); }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, .55); z-index: 2000;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px; overflow-y: auto;
+  animation: fade-in var(--dur) var(--ease);
+}
+.modal-box {
+  position: relative; background: var(--c-surface); border-radius: var(--r-lg);
+  max-width: 820px; width: 100%; padding: var(--sp-4);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.modal-close {
+  position: absolute; top: var(--sp-3); right: var(--sp-3);
+  background: none; border: none; cursor: pointer; color: var(--c-fg-subtle);
+  width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-full);
+}
+.modal-close:hover { background: var(--c-surface-2); }
+.modal-close svg { width: 16px; height: 16px; }
+.case-stepper { display: flex; flex-wrap: wrap; gap: 4px; margin: 30px 0 14px; }
+.case-step {
+  flex: 1 1 auto; min-width: 84px; text-align: center; padding: 6px 4px;
+  border-radius: var(--r-md); font-size: 10.5px; font-weight: 600; color: var(--c-fg-subtle);
+  background: var(--c-surface-2); border: 1px solid var(--c-border);
+}
+.case-step .case-step-num {
+  display: block; width: 22px; height: 22px; margin: 0 auto 4px; border-radius: var(--r-full);
+  background: var(--c-surface); border: 1px solid var(--c-border-strong);
+  font-family: var(--font-mono); font-size: 11px; display: grid; place-items: center; color: var(--c-fg-subtle);
+}
+.case-step.done { color: var(--c-success); }
+.case-step.done .case-step-num { background: var(--c-success-bg); border-color: #A7F3D0; color: var(--c-success); }
+.case-step.current { color: var(--c-primary); background: var(--c-primary-soft); border-color: #BFDBFE; }
+.case-step.current .case-step-num { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 .paid-none { font-size: 12px; font-style: italic; color: var(--c-fg-subtle); }
 .info-toggle {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
@@ -283,6 +396,10 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .info-toggle.open svg { transform: rotate(180deg); }
 .pipeline-info { display: none; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--c-border); }
 .pipeline-info.open { display: block; }
+.prev-stage-notes { margin-top: 8px; padding: 7px 10px; background: var(--c-warn-bg); border: 1px solid #FDE68A; border-radius: var(--r-md); font-size: 12.5px; color: var(--c-warn); }
+.prev-stage-notes > div { margin-bottom: 3px; }
+.prev-stage-notes > div:last-child { margin-bottom: 0; }
+.prev-stage-notes strong { color: inherit; }
 .stage-dates { font-size: 11.5px; color: var(--c-fg-subtle); text-align: right; white-space: nowrap; }
 .stage-dates strong { color: var(--c-fg-muted); font-weight: 600; }
 .stage-dates .trail { display: block; font-family: var(--font-mono); font-size: 10.5px; color: #94A3B8; margin-top: 2px; }
@@ -401,8 +518,16 @@ tr.plate-match:hover td { background: #FEF9C3; }
   <main class="main">
     <div id="test-mode-banner"></div>
     <div class="page-head">
-      <h1 class="page-title" id="page-title">Search &amp; Renew</h1>
-      <div class="sub" id="page-sub">Search a vehicle, record its renewal, track checkpoints</div>
+      <div>
+        <h1 class="page-title" id="page-title">Search &amp; Renew</h1>
+        <div class="sub" id="page-sub">Search a vehicle, record its renewal, track checkpoints</div>
+      </div>
+      <div class="case-type-nav" id="case-type-nav"></div>
+    </div>
+
+    <!-- ---------- Dashboard ---------- -->
+    <div id="tab-dashboard" style="display:none">
+      <div id="dashboard-body"></div>
     </div>
 
     <!-- ---------- New Request ---------- -->
@@ -465,6 +590,7 @@ tr.plate-match:hover td { background: #FEF9C3; }
             </a>
           </div>
           <button style="margin-top:10px;width:100%" onclick="saveRenewalRequest()">Create Request (Stage 1)</button>
+          <button class="secondary" style="margin-top:8px;width:100%" onclick="saveRenewalRequest(4)">Create WASL Request → Stage 4 (skip 1–3)</button>
           <div id="deal-status" class="status" style="display:none;margin:12px 0 0"></div>
         </div>
         <div style="flex:1;min-width:330px">
@@ -485,10 +611,13 @@ tr.plate-match:hover td { background: #FEF9C3; }
           <div class="section-label" style="margin-bottom:12px">Log a Daily Request</div>
 
           <label class="input-label" for="daily-date">Date</label>
-          <input id="daily-date" type="date" style="width:100%">
+          <input id="daily-date" type="text" placeholder="dd-mm-yyyy" style="width:100%">
 
           <label class="input-label" for="daily-mobile" style="margin-top:12px">Mobile Number</label>
           <input id="daily-mobile" placeholder="e.g. 0501234567" type="tel" autocomplete="tel" style="width:100%">
+
+          <label class="input-label" style="margin-top:12px">Encoder Name</label>
+          <div class="field"><span class="field-value" id="daily-encoder-display">—</span></div>
 
           <label class="input-label" for="daily-task" style="margin-top:12px">Task</label>
           <select id="daily-task" style="width:100%" onchange="toggleDailyComplaintType()">
@@ -513,20 +642,30 @@ tr.plate-match:hover td { background: #FEF9C3; }
             </select>
           </div>
 
-          <label class="input-label" for="daily-status" style="margin-top:12px">Status</label>
-          <select id="daily-status" style="width:100%">
-            <option value="Pending">Pending</option>
-            <option value="Done">Done</option>
-          </select>
+          <label class="input-label" for="daily-feedback" style="margin-top:12px">Feedback / Notes (optional)</label>
+          <textarea id="daily-feedback" placeholder="Any notes about this call..." style="width:100%"></textarea>
 
           <button style="margin-top:14px;width:100%" onclick="saveDailyRequest()">Log Request</button>
           <div id="daily-status-msg" class="status" style="display:none;margin:12px 0 0"></div>
         </div>
 
-        <div style="flex:1;min-width:330px">
-          <div id="daily-list-status" class="status"></div>
-          <div id="daily-list"></div>
+        <div style="flex:1;min-width:280px">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Today's Status</div></div>
+            <div class="stat-grid" id="daily-dashboard"></div>
+          </div>
         </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="row" style="align-items:center;justify-content:space-between">
+          <div id="daily-list-status" class="status" style="flex:1;margin:0"></div>
+          <button class="secondary small" onclick="loadDailyRequests()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div id="daily-list"></div>
       </div>
     </div>
 
@@ -536,8 +675,9 @@ tr.plate-match:hover td { background: #FEF9C3; }
     <div id="tab-stage3" style="display:none"><div id="stage3-status" class="status"></div><div id="stage3-list"></div></div>
     <div id="tab-stage4" style="display:none"><div id="stage4-status" class="status"></div><div id="stage4-list"></div></div>
     <div id="tab-stage5" style="display:none"><div id="stage5-status" class="status"></div><div id="stage5-list"></div></div>
-    <div id="tab-stage6" style="display:none"><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
+    <div id="tab-stage6" style="display:none"><button class="secondary small" onclick="exportStage6Excel()">Export to Excel</button><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
     <div id="tab-stage7" style="display:none"><div id="stage7-status" class="status"></div><div id="stage7-list"></div></div>
+    <div id="tab-closed" style="display:none"><div id="closed-status" class="status"></div><div id="closed-list"></div></div>
 
     <!-- ---------- Search & Renew ---------- -->
     <div id="tab-search">
@@ -557,11 +697,11 @@ tr.plate-match:hover td { background: #FEF9C3; }
         <div class="tool-card">
           <div class="tool-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>
-            Weight × Voltage Calculator
+            Weight × ÷ Voltage Calculator
           </div>
           <div class="tool-row">
             <input id="calc-w" placeholder="Weight (e.g. 2415)" type="number" step="any" aria-label="Weight">
-            <span class="op" aria-hidden="true">×</span>
+            <button type="button" class="op-toggle" id="calc-op-toggle" onclick="toggleCalcOp()" aria-label="Toggle multiply/divide">×</button>
             <input id="calc-v" placeholder="Voltage (e.g. 0.55)" type="number" step="any" aria-label="Voltage">
             <button onclick="calcMultiply()" aria-label="Calculate">=</button>
           </div>
@@ -574,7 +714,7 @@ tr.plate-match:hover td { background: #FEF9C3; }
             Expiry Date Extender
           </div>
           <div class="tool-row">
-            <input id="exp-old" type="date" aria-label="Old expiry date">
+            <input id="exp-old" type="text" placeholder="dd-mm-yyyy" aria-label="Old expiry date">
             <select id="exp-mode" aria-label="Extension mode">
               <option value="today-1y">+1 Year from Today</option>
               <option value="today-months">+Months from Today</option>
@@ -587,6 +727,29 @@ tr.plate-match:hover td { background: #FEF9C3; }
             <button onclick="calcExpiry()">Calculate</button>
           </div>
           <div id="exp-out" class="tool-out ltr"></div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+            Check Request Stage
+          </div>
+          <div class="tool-row">
+            <input id="stage-chk-q" placeholder="Mobile number or plate..." aria-label="Mobile or plate">
+            <button onclick="checkRequestStage()">Check</button>
+          </div>
+          <div id="stage-chk-out" class="tool-out"></div>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            WASL Delete
+          </div>
+          <a class="btn-link" href="https://login.tracking.me/app/waslVehDelete.php" target="_blank" rel="noopener" style="width:100%">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+            Open WASL Delete
+          </a>
         </div>
       </div>
 
@@ -625,6 +788,11 @@ tr.plate-match:hover td { background: #FEF9C3; }
         <label class="chip"><input type="checkbox" id="req-flt-wasl"> Wasl pending</label>
         <input id="req-q" placeholder="Filter by plate / encoder / sale order..." style="max-width:300px">
         <button class="secondary small" onclick="loadRequests()">Refresh</button>
+        <button class="secondary small" id="backup-toggle-btn" onclick="toggleLiveBackup()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Enable Live Local Backup
+        </button>
+        <span id="backup-status" class="hint" style="margin:0"></span>
       </div>
       <div id="requests-status" class="status"></div>
       <div class="table-wrap">
@@ -638,6 +806,29 @@ tr.plate-match:hover td { background: #FEF9C3; }
           <tbody id="requests-tbody"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ---------- Duplicates ---------- -->
+    <div id="tab-duplicates" style="display:none">
+      <div id="duplicates-status" class="status"></div>
+      <div id="duplicates-list"></div>
+    </div>
+
+    <!-- ---------- Rectification ---------- -->
+    <div id="tab-rectification" style="display:none">
+      <div id="rectification-status" class="status"></div>
+      <div id="rectification-list"></div>
+    </div>
+
+    <!-- ---------- Transfer / Plate Change ---------- -->
+    <div id="tab-transferplate" style="display:none">
+      <div id="transferplate-status" class="status"></div>
+      <div id="transferplate-list"></div>
+    </div>
+
+    <div id="tab-allcases" style="display:none">
+      <div id="allcases-status" class="status"></div>
+      <div id="allcases-list"></div>
     </div>
 
     <!-- ---------- Renewals status ---------- -->
@@ -690,6 +881,37 @@ tr.plate-match:hover td { background: #FEF9C3; }
       <div id="odoo-orders-status" class="status">Search, or hit "Latest orders" for the newest sale orders in Odoo.</div>
       <div id="odoo-orders-hint"></div>
       <div id="odoo-orders-result"></div>
+    </div>
+
+    <!-- ---------- Odoo sales report ---------- -->
+    <div id="tab-salesreport" style="display:none">
+      <div class="card">
+        <div class="row">
+          <div><label class="input-label" for="sr-from">From</label><input type="date" id="sr-from" style="min-width:150px"></div>
+          <div><label class="input-label" for="sr-to">To</label><input type="date" id="sr-to" style="min-width:150px"></div>
+          <div><label class="input-label" for="sr-interval">Group by</label>
+            <select id="sr-interval"><option value="month">Monthly</option><option value="day">Daily</option></select>
+          </div>
+          <div><label class="input-label" for="sr-datefield">Date basis</label>
+            <select id="sr-datefield"><option value="date">Order date</option><option value="confirm_date">Confirm date</option></select>
+          </div>
+          <div style="align-self:flex-end;display:flex;gap:8px">
+            <button onclick="loadSalesReport()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              Run Report
+            </button>
+            <button class="secondary" onclick="exportSalesReport()">Export Excel</button>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:0">
+          <button class="ghost small" onclick="setSalesRange('this-month')">This month</button>
+          <button class="ghost small" onclick="setSalesRange('last-month')">Last month</button>
+          <button class="ghost small" onclick="setSalesRange('90d')">Last 90 days</button>
+          <button class="ghost small" onclick="setSalesRange('ytd')">Year to date</button>
+        </div>
+      </div>
+      <div id="sr-status" class="status">Pick a date range and hit "Run Report". The bridge sleeps when idle, so the first call can take ~30s.</div>
+      <div id="sr-result"></div>
     </div>
 
     <!-- ---------- Odoo customers ---------- -->
@@ -746,6 +968,14 @@ tr.plate-match:hover td { background: #FEF9C3; }
 </div>
 </div>
 
+<div id="case-view-modal" class="modal-overlay" style="display:none" onclick="if (event.target === this) closeCaseView()">
+  <div class="modal-box" id="case-view-box"></div>
+</div>
+
+<div id="sr-modal" class="modal-overlay" style="display:none" onclick="if (event.target === this) closeSalesReportDetail()">
+  <div class="modal-box" id="sr-modal-box" style="max-width:960px"></div>
+</div>
+
 <script>
 // ---- Firebase project config (public client key, protected by Firestore rules) ----
 const firebaseConfig = {
@@ -767,6 +997,23 @@ function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Dates are stored as ISO (yyyy-mm-dd) everywhere so sorting/filtering keeps
+// working, but every date field the user actually types or pastes into shows
+// and accepts dd-mm-yyyy — plain text inputs (not <input type="date">) so a
+// pasted date lands correctly instead of fighting the native picker's
+// locale-dependent segments.
+function formatDateDMY(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : (iso || '');
+}
+function parseDMYToISO(str) {
+  const s = (str || '').trim();
+  const m = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(s);
+  if (!m) return s; // not dd-mm-yyyy — leave as typed (could be empty, or already ISO)
+  const [, d, mo, y] = m;
+  return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
 // ==================== Icons (inline SVG, single stroke family) ====================
 const ICONS = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
@@ -780,7 +1027,8 @@ const ICONS = {
   receipt: '<path d="M4 2v20l2.5-1.5L9 22l3-1.5L15 22l2.5-1.5L20 22V2l-2.5 1.5L15 2l-3 1.5L9 2 6.5 3.5Z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
   ticket: '<path d="M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v14"/>',
   external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
-  x: '<path d="M18 6 6 18M6 6l12 12"/>'
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'
 };
 function icon(name) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -810,9 +1058,38 @@ function convertPlate() {
   }
 
   const arabicLetters = [...letters].reverse().map(c => ARABIC_MAP[c]).join(' ');
+  // Number first, then the Arabic letters — matches the known-good Excel
+  // formula order. The old number-last order looked the same on screen
+  // (this box is RTL, so the visual position doesn't match the underlying
+  // character order) but WASL rejected it as "wrong plate" on paste,
+  // because the actual copied text had letters before the number.
+  const englishOut = [number, letters].filter(Boolean).join(' ');
+  const arabicOut = [number, arabicLetters].filter(Boolean).join(' ');
 
-  out.innerHTML = `<span class="arabic-plate">${arabicLetters}${number ? ' ' + number : ''}</span>` +
-    `<div class="hint">English: ${letters}${number ? ' ' + number : ''} &nbsp;→&nbsp; Arabic: ${arabicLetters}${number ? ' ' + number : ''}</div>`;
+  out.innerHTML = `<span class="arabic-plate">${arabicOut}</span>` +
+    `<div class="hint">English: ${englishOut} &nbsp;→&nbsp; Arabic: ${arabicOut}</div>` +
+    `<button type="button" class="ghost small" style="margin-top:8px" onclick="copyPlateResult(this)" data-copy="${escapeHTML(arabicOut)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy
+    </button>`;
+}
+
+async function copyPlateResult(btn) {
+  try {
+    await navigator.clipboard.writeText(btn.dataset.copy);
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Copied!';
+    setTimeout(() => { btn.innerHTML = original; }, 1200);
+  } catch (err) {
+    showToast('Copy failed: ' + err.message, 'error');
+  }
+}
+
+let CALC_OP = '×';
+function toggleCalcOp() {
+  CALC_OP = CALC_OP === '×' ? '÷' : '×';
+  document.getElementById('calc-op-toggle').textContent = CALC_OP;
+  calcMultiply();
 }
 
 function calcMultiply() {
@@ -821,8 +1098,9 @@ function calcMultiply() {
   const out = document.getElementById('calc-out');
   out.className = 'tool-out ltr';
   if (isNaN(w) || isNaN(v)) { out.innerHTML = '<span class="hint" style="margin:0">Enter both values</span>'; return; }
-  const result = w * v;
-  out.innerHTML = `<span class="ok">${w} × ${v} = ${result.toFixed(2)}</span>` +
+  if (CALC_OP === '÷' && v === 0) { out.innerHTML = '<span class="warn">Cannot divide by zero</span>'; return; }
+  const result = CALC_OP === '×' ? w * v : w / v;
+  out.innerHTML = `<span class="ok">${w} ${CALC_OP} ${v} = ${result.toFixed(2)}</span>` +
     `<div class="hint">Rounded: <strong>${Math.round(result)}</strong></div>`;
 }
 
@@ -830,13 +1108,14 @@ function calcExpiry() {
   const out = document.getElementById('exp-out');
   out.className = 'tool-out ltr';
   const mode = document.getElementById('exp-mode').value;
-  const oldVal = document.getElementById('exp-old').value;
+  const oldVal = parseDMYToISO(document.getElementById('exp-old').value);
   const months = parseInt(document.getElementById('exp-months').value, 10);
 
   const needsOld = mode === 'exp-1y' || mode === 'exp-months';
   const needsMonths = mode === 'today-months' || mode === 'exp-months';
 
-  if (needsOld && !oldVal) { out.innerHTML = '<span class="hint" style="margin:0">Enter the old expiry date</span>'; return; }
+  if (needsOld && !oldVal) { out.innerHTML = '<span class="hint" style="margin:0">Enter the old expiry date (dd-mm-yyyy)</span>'; return; }
+  if (needsOld && isNaN(new Date(oldVal + 'T00:00:00'))) { out.innerHTML = '<span class="hint" style="margin:0">That date doesn\'t look right — use dd-mm-yyyy</span>'; return; }
   if (needsMonths && (isNaN(months) || months < 1 || months > 12)) {
     out.innerHTML = '<span class="hint" style="margin:0">Enter months (1-12)</span>'; return;
   }
@@ -846,7 +1125,8 @@ function calcExpiry() {
   if (mode === 'today-1y' || mode === 'exp-1y') result.setFullYear(result.getFullYear() + 1);
   else result.setMonth(result.getMonth() + months);
 
-  const fmt = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
   out.innerHTML = `<span class="ok">New Expiry: ${fmt(result)}</span>` +
     (needsOld ? `<div class="hint">Old Expiry: ${fmt(base)}</div>` : `<div class="hint">From today: ${fmt(base)}</div>`);
 }
@@ -856,6 +1136,32 @@ document.getElementById('calc-w').addEventListener('keydown', e => { if (e.key =
 document.getElementById('calc-v').addEventListener('keydown', e => { if (e.key === 'Enter') calcMultiply(); });
 document.getElementById('exp-old').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
 document.getElementById('exp-months').addEventListener('keydown', e => { if (e.key === 'Enter') calcExpiry(); });
+
+// Looks up which pipeline stage a vehicle/customer is at, from the Search tab,
+// without leaving it to open the Master or a stage tab. Reuses REQUESTS_CACHE
+// (the same live cache the Master table and stage tabs run on); if it hasn't
+// loaded yet this kicks off loadRequests() and retries once it's warm.
+function checkRequestStage() {
+  const q = document.getElementById('stage-chk-q').value.trim();
+  const out = document.getElementById('stage-chk-out');
+  if (!q) { out.innerHTML = '<span class="hint" style="margin:0">Enter a mobile number or plate</span>'; return; }
+  if (!REQUESTS_CACHE.length) {
+    out.innerHTML = '<span class="hint" style="margin:0"><span class="spinner"></span> Loading requests...</span>';
+    loadRequests();
+    setTimeout(checkRequestStage, 800);
+    return;
+  }
+  const matches = REQUESTS_CACHE.filter(r => !r.deleted && caseMatchesSearch(r, q));
+  if (!matches.length) { out.innerHTML = `<span class="hint" style="margin:0">No request found for "${escapeHTML(q)}"</span>`; return; }
+  out.innerHTML = matches.map(r => {
+    const stage = r.stage || 1;
+    return `<div class="ok" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span><strong>${escapeHTML(r.plate)}</strong> (${escapeHTML(r.renewal_id) || 'no ID'}) — Stage ${stage}: ${escapeHTML(STAGE_LABELS[stage] || '')}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</span>
+      <button type="button" class="ghost small" onclick="openCaseView('${r.id}')">Open</button>
+    </div>`;
+  }).join('');
+}
+document.getElementById('stage-chk-q').addEventListener('keydown', e => { if (e.key === 'Enter') checkRequestStage(); });
 
 // ==================== Navigation registry & access control ====================
 // Stage 4 ("Renewal Done") was a pure holding stage — nothing happened there
@@ -872,19 +1178,25 @@ const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','
 // One registry drives the sidebar, the page header, and the admin permission
 // checkboxes — add a tab here and it shows up in all three.
 const TAB_REGISTRY = [
+  { key: 'dashboard', group: 'Overview', label: 'Dashboard', icon: 'chart', sub: 'Live pipeline stats, request trends, revenue, and team performance' },
   { key: 'search',   group: 'Operations', label: 'Search & Renew',    icon: 'search', sub: 'Search a vehicle, record its renewal, track checkpoints' },
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
   { key: 'daily',    group: 'Operations', label: 'Daily Requests',    icon: 'list',   sub: 'Log a daily call — task type, status, and complaint feedback' },
+  { key: 'allcases', group: 'Pipeline', label: 'All Requests', icon: 'table', sub: 'Every active case — every type, every stage — as cards, same as the other pipeline views' },
   ...STAGE_TAB_NAMES.map((k, i) => ({
     key: k, group: 'Pipeline', step: i + 1,
     label: ['Payment Received','Sale Order','Renewal Processing','WASL Processing','WASL Completed','Device Check','Customer Close'][i],
     sub: `Stage ${i + 1} — ${STAGE_LABELS[i + 1]}`
   })),
+  { key: 'closed', group: 'Pipeline', label: 'Closed Sales', icon: 'table', sub: 'Final destination — every case the customer has fully closed' },
   { key: 'odoo',     group: 'Odoo',    label: 'Sale Orders (Odoo)', icon: 'receipt', sub: 'Search live Odoo sale orders by order no, customer, phone or plate' },
   { key: 'customers', group: 'Odoo',   label: 'Customers (Odoo)',   icon: 'users',   sub: 'Find a customer by name, CR, VAT, Iqama, phone, email or plate' },
   { key: 'tickets',  group: 'Odoo',    label: 'Tickets (Odoo)',     icon: 'ticket',  sub: 'Search live Odoo tickets, open them, or raise a new one' },
+  { key: 'salesreport', group: 'Odoo', label: 'Sales Report (Odoo)', icon: 'chart',  sub: 'Live Odoo sales — order booker, region, template, team, with and without VAT' },
   { key: 'requests', group: 'Reports', label: 'Master (All Stages)', icon: 'table', sub: 'Every case in one editable table' },
-  { key: 'status',   group: 'Reports', label: 'Renewals Status',     icon: 'list',  sub: 'Per-vehicle renewal records, exportable to Excel' },
+  { key: 'duplicates', group: 'Reports', label: 'Duplicates', icon: 'x', sub: 'Requests marked as duplicate — kept for audit, out of the active pipeline' },
+  { key: 'rectification', group: 'Reports', label: 'Rectification', icon: 'alert', sub: 'Rectification cases — tracked separately from the Renewal pipeline' },
+  { key: 'transferplate', group: 'Reports', label: 'Transfer / Plate Change', icon: 'building', sub: 'Transfer and Plate Change cases — tracked separately from the Renewal pipeline' },
   { key: 'admin',    group: 'Administration', label: 'Users & Access', icon: 'users', sub: 'Decide what each user can open', adminOnly: true }
 ];
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
@@ -1021,10 +1333,12 @@ function showApp(user) {
   watchMyProfile(user);
   fillEncoderName();
   if (!DATA.length) loadVehicleData();
+  loadUsers();
 }
 
 addVehicleRow();
-document.getElementById('daily-date').value = new Date().toISOString().slice(0, 10);
+document.getElementById('daily-date').value = formatDateDMY(new Date().toISOString().slice(0, 10));
+initCaseSearchBoxes();
 
 auth.onAuthStateChanged(user => {
   if (user) {
@@ -1062,6 +1376,26 @@ document.getElementById('login-pass').addEventListener('keydown', e => { if (e.k
 // ==================== Tabs ====================
 let currentActiveTab = 'search';
 
+// Quick-switch strip between the three case-type views, shown on New
+// Request, every pipeline stage, and the Transfer/Plate Change and
+// Rectification tabs — so you can jump between them without going back to
+// the sidebar's Reports group.
+const CASE_TYPE_NAV_TABS = ['deal', 'allcases', ...STAGE_TAB_NAMES, 'transferplate', 'rectification'];
+
+function renderCaseTypeNav(name) {
+  const el = document.getElementById('case-type-nav');
+  if (!CASE_TYPE_NAV_TABS.includes(name)) { el.innerHTML = ''; return; }
+  const items = [
+    { key: 'allcases', label: 'All', active: name === 'allcases' },
+    { key: 'stage1', label: 'Renewal Pipeline', active: STAGE_TAB_NAMES.includes(name) },
+    { key: 'transferplate', label: 'Transfer / Plate Change', active: name === 'transferplate' },
+    { key: 'rectification', label: 'Rectification', active: name === 'rectification' }
+  ];
+  el.innerHTML = items.map(i =>
+    `<button type="button" class="${i.active ? 'active' : ''}" onclick="switchTab('${i.key}')">${escapeHTML(i.label)}</button>`
+  ).join('');
+}
+
 function switchTab(name) {
   if (!canOpen(name)) { showToast('You do not have access to that section', 'error'); return; }
   currentActiveTab = name;
@@ -1073,19 +1407,29 @@ function switchTab(name) {
     document.getElementById('page-title').textContent = meta.label;
     document.getElementById('page-sub').textContent = meta.sub || '';
   }
+  renderCaseTypeNav(name);
 
   if (name === 'status') loadRenewals();
   if (name === 'admin') loadUsers();
-  if ((name === 'requests' || STAGE_TAB_NAMES.includes(name)) && !REQUESTS_CACHE.length) loadRequests();
+  if ((name === 'requests' || name === 'duplicates' || name === 'rectification' || name === 'transferplate' || name === 'dashboard' || name === 'allcases' || name === 'closed' || STAGE_TAB_NAMES.includes(name)) && !REQUESTS_CACHE.length) loadRequests();
   if (STAGE_TAB_NAMES.includes(name)) renderStageTab(parseInt(name.replace('stage', ''), 10));
+  if (name === 'duplicates') renderDuplicatesTab();
+  if (name === 'rectification') renderRectificationTab();
+  if (name === 'transferplate') renderTransferPlateTab();
+  if (name === 'allcases') renderAllCasesTab();
+  if (name === 'closed') renderClosedTab();
   if (name === 'daily' && !DAILY_UNSUB) loadDailyRequests();
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
 }
 
 function updateNavBadges() {
   STAGE_TAB_NAMES.forEach((key, i) => {
     const el = document.getElementById('nav-badge-' + key);
-    if (el) el.textContent = REQUESTS_CACHE.filter(r => (r.stage || 1) === i + 1 && !r.duplicate).length;
+    if (el) el.textContent = REQUESTS_CACHE.filter(r => (r.stage || 1) === i + 1 && !r.duplicate && !r.rectification && !isTransferOnlyPending(r) && !(i + 1 === 7 && r.customer_closed)).length;
   });
+  const closedEl = document.getElementById('nav-badge-closed');
+  if (closedEl) closedEl.textContent = REQUESTS_CACHE.filter(r => r.customer_closed && !r.duplicate).length;
 }
 
 // ==================== Toasts ====================
@@ -1095,22 +1439,25 @@ function showToast(message, type) {
   el.className = 'toast' + (type ? ' ' + type : '');
   el.textContent = message;
   wrap.appendChild(el);
-  setTimeout(() => el.remove(), 4000);
+  setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 180); }, 3800);
 }
 
 // ==================== Users & Access (admin) ====================
 let USERS_CACHE = [];
 let usersUnsubscribe = null;
 
+// Loads for every signed-in user (not just admins) — the assign-to-agent
+// dropdown on pipeline cards needs the full user list too, not just the
+// Admin tab. Admins additionally get the Users & Access table rendered.
 function loadUsers() {
   const body = document.getElementById('admin-body');
-  if (!isAdmin()) { body.innerHTML = '<div class="locked">Admins only.</div>'; return; }
-  if (usersUnsubscribe) return; // already listening
-  body.innerHTML = '<div class="status"><span class="spinner"></span>Loading users...</div>';
+  if (body && isAdmin()) body.innerHTML = '<div class="status"><span class="spinner"></span>Loading users...</div>';
+  if (usersUnsubscribe) { if (isAdmin()) renderUsersTable(); return; }
   usersUnsubscribe = db.collection('users').onSnapshot(snap => {
     USERS_CACHE = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-    renderUsersTable();
-  }, err => { body.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`; });
+    if (isAdmin()) renderUsersTable();
+    refreshCurrentCaseList();
+  }, err => { if (body && isAdmin()) body.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`; });
 }
 
 function renderUsersTable() {
@@ -1193,6 +1540,7 @@ function renderUsersTable() {
               </td>
               <td style="white-space:nowrap">
                 <button class="small" onclick="saveUserAccess('${u.uid}')">Save</button>
+                ${isMe ? '' : `<button class="danger small" onclick="deleteUserAccount('${u.uid}', '${escapeHTML(u.email || u.uid).replace(/'/g, "\\'")}')">Delete</button>`}
                 <div id="u-status-${u.uid}" style="font-size:11px;color:var(--c-fg-subtle);margin-top:4px"></div>
               </td>
             </tr>`;
@@ -1259,6 +1607,21 @@ async function createUser() {
   }
 }
 
+// Removes the user's access profile only — Firebase Auth account deletion needs
+// the Admin SDK (Cloud Functions require the paid Blaze plan, deliberately not
+// used on this project). If they sign in again they self-register as a fresh
+// Agent with default access, same as any brand-new user.
+async function deleteUserAccount(uid, email) {
+  if (!isAdmin()) { showToast('Only admins can delete a user', 'error'); return; }
+  if (!confirm(`Delete ${email}? This removes their access profile immediately. Their login still works, but if they sign in again they start over as a new Agent with no access until you grant it.`)) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    showToast('User deleted', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 function toggleAllTabs(uid, checked) {
   document.querySelectorAll('.u-tab-' + uid).forEach(cb => { cb.checked = checked; });
 }
@@ -1293,13 +1656,15 @@ let DEAL_HISTORY_UNSUB = null;
 let DEAL_HISTORY_DOCS = [];
 
 function fillEncoderName() {
-  const el = document.getElementById('deal-encoder-display');
-  if (!el) return;
+  const name = ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—');
   // The admin-set name (users/{uid}.encoder_name) is the source of truth —
   // it's the only one an admin can still edit after the account exists, since
   // updating someone else's Firebase Auth profile needs Admin SDK access this
   // app doesn't have. displayName only ever gets set once, at creation time.
-  el.textContent = ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email || 'Guest (test mode)') : '—');
+  ['deal-encoder-display', 'daily-encoder-display'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = name;
+  });
 }
 
 function addVehicleRow() {
@@ -1317,6 +1682,8 @@ function addVehicleRow() {
       <label class="chip"><input type="checkbox" class="v-type-transfer"> Transfer</label>
       <label class="chip"><input type="checkbox" class="v-type-platechange"> Plate Change</label>
       <label class="chip"><input type="checkbox" class="v-type-newinstall"> New Installation</label>
+      <label class="chip"><input type="checkbox" class="v-type-rectification"> Rectification</label>
+      <label class="chip"><input type="checkbox" class="v-type-wasl"> WASL Request</label>
       <label class="chip"><input type="checkbox" class="v-type-services"> Services</label>
     </div>
   `;
@@ -1590,6 +1957,200 @@ function renderOdooPanel(data, error) {
     </div>`;
 }
 
+// ==================== Odoo tab — sales report ====================
+// Every figure here is aggregated by Odoo itself (read_group on the bridge),
+// so the browser only ever receives a few dozen summary rows, never the 66k
+// underlying orders.
+let SALES_REPORT = null;
+
+const SR_DIMENSIONS = [
+  ['booker', 'Order Booker'],
+  ['region', 'Region'],
+  ['template', 'Quotation Template'],
+  ['team', 'Sales Team'],
+  ['type', 'Order Type'],
+  ['state', 'Status']
+];
+
+const sarFmt = n => 'SAR ' + Math.round(Number(n) || 0).toLocaleString();
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function setSalesRange(preset) {
+  const now = new Date();
+  let from, to = now;
+  if (preset === 'this-month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (preset === 'last-month') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (preset === '90d') { from = new Date(now); from.setDate(from.getDate() - 89); }
+  else { from = new Date(now.getFullYear(), 0, 1); }
+
+  document.getElementById('sr-from').value = isoDay(from);
+  document.getElementById('sr-to').value = isoDay(to);
+  // Day buckets over a long range are unreadable; month is the sane default there.
+  document.getElementById('sr-interval').value = preset === 'this-month' ? 'day' : 'month';
+  loadSalesReport();
+}
+
+async function loadSalesReport() {
+  const from = document.getElementById('sr-from').value;
+  const to = document.getElementById('sr-to').value;
+  const statusEl = document.getElementById('sr-status');
+  const resultEl = document.getElementById('sr-result');
+
+  if (!from || !to) { statusEl.className = 'status error'; statusEl.textContent = 'Pick both a From and a To date.'; return; }
+  if (from > to) { statusEl.className = 'status error'; statusEl.textContent = 'From date must not be after To date.'; return; }
+
+  const params = new URLSearchParams({
+    from, to,
+    interval: document.getElementById('sr-interval').value,
+    date_field: document.getElementById('sr-datefield').value
+  });
+
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Aggregating in Odoo... (the bridge sleeps when idle, first call can take ~30s)';
+  resultEl.innerHTML = '';
+
+  try {
+    SALES_REPORT = await odooFetch('/api/sales-report?' + params);
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${SALES_REPORT.totals.orders.toLocaleString()} order(s) · ${from} to ${to} · excludes cancelled only`;
+    renderSalesReport(SALES_REPORT);
+  } catch (err) {
+    SALES_REPORT = null;
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Report failed: ' + err.message;
+  }
+}
+
+// Main tab stays a quick-glance summary only (totals + timeline) — the full
+// per-dimension breakdown lives behind one "View Full Breakdown" button in a
+// modal, same compact-card-then-Open pattern the pipeline case list already
+// uses, so this tab doesn't turn into six stacked tables at once.
+function renderSalesReport(rep) {
+  const t = rep.totals;
+  const maxTl = Math.max(1, ...rep.timeline.map(p => p.total));
+
+  document.getElementById('sr-result').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Orders</div></div>
+      <div class="stat-tile"><div class="num">${sarFmt(t.total)}</div><div class="lbl">Total (with VAT)</div></div>
+      <div class="stat-tile"><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Without VAT</div></div>
+      <div class="stat-tile"><div class="num">${sarFmt(t.tax)}</div><div class="lbl">VAT</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">${rep.range.interval === 'day' ? 'Daily' : 'Monthly'} Sales</div>
+        <span class="card-id">${escapeHTML(rep.range.date_field)}</span>
+      </div>
+      ${rep.timeline.length ? `<div class="dash-trend">
+        ${rep.timeline.map(p => `
+          <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${sarFmt(p.total)} (${p.orders} orders)">
+            <div class="dash-trend-bar" data-h="${(p.total / maxTl * 100).toFixed(1)}"></div>
+            <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+          </div>`).join('')}
+      </div>` : '<div class="no-results">No orders in this range</div>'}
+    </div>
+    <div class="row" style="justify-content:center;margin-top:var(--sp-2)">
+      <button onclick="openSalesReportDetail()">
+        ${icon('table')}
+        View Full Breakdown — Booker, Region, Template &amp; More
+      </button>
+    </div>`;
+
+  // setTimeout, not rAF — rAF never fires in this project's preview harness.
+  setTimeout(() => {
+    document.querySelectorAll('#sr-result .dash-trend-bar').forEach(el => {
+      el.style.height = Math.max(2, Number(el.dataset.h)) + '%';
+    });
+  }, 20);
+}
+
+let SR_DETAIL_DIM = 'booker';
+
+function openSalesReportDetail() {
+  if (!SALES_REPORT) return;
+  document.getElementById('sr-modal').style.display = 'flex';
+  renderSalesReportDetail();
+}
+
+function closeSalesReportDetail() {
+  document.getElementById('sr-modal').style.display = 'none';
+}
+
+function setSalesReportDim(key) {
+  SR_DETAIL_DIM = key;
+  renderSalesReportDetail();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('sr-modal').style.display === 'flex') closeSalesReportDetail();
+});
+
+// One dimension's full table at a time, switched by pill buttons — same idea
+// as the case-type quick-switch strip, so only one table is on screen ever.
+function renderSalesReportDetail() {
+  const box = document.getElementById('sr-modal-box');
+  if (!SALES_REPORT) { box.innerHTML = ''; return; }
+  const rep = SALES_REPORT;
+  const rows = rep.breakdown[SR_DETAIL_DIM] || [];
+  const [, activeLabel] = SR_DIMENSIONS.find(([k]) => k === SR_DETAIL_DIM) || SR_DIMENSIONS[0];
+  const max = Math.max(1, ...rows.map(r => r.total));
+
+  box.innerHTML = `
+    <button type="button" class="modal-close" onclick="closeSalesReportDetail()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header">
+      <div class="card-title">Full Breakdown</div>
+      <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
+    </div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">
+      ${SR_DIMENSIONS.map(([key, label]) => `
+        <button type="button" class="${key === SR_DETAIL_DIM ? 'active' : ''}" onclick="setSalesReportDim('${key}')">${escapeHTML(label)}</button>`).join('')}
+    </div>
+    ${rows.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>${escapeHTML(activeLabel)}</th><th>Orders</th><th>Without VAT</th><th>VAT</th><th>With VAT</th><th>Share</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr>
+          <td>${escapeHTML(r.label)}</td>
+          <td>${r.orders.toLocaleString()}</td>
+          <td>${sarFmt(r.untaxed)}</td>
+          <td>${sarFmt(r.tax)}</td>
+          <td><strong>${sarFmt(r.total)}</strong></td>
+          <td style="min-width:120px">
+            <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${(r.total / max * 100).toFixed(1)}%"></div></div>
+            <span class="dash-trend-day">${rep.totals.total ? (r.total / rep.totals.total * 100).toFixed(1) : '0.0'}%</span>
+          </td>
+        </tr>`).join('')}</tbody>
+    </table></div>` : '<div class="no-results">No data for this dimension</div>'}`;
+}
+
+function exportSalesReport() {
+  if (!SALES_REPORT) { showToast('Run the report first', 'error'); return; }
+  const rep = SALES_REPORT;
+  const wb = XLSX.utils.book_new();
+  const money = r => ({ Orders: r.orders, 'Without VAT': r.untaxed, VAT: r.tax, 'With VAT': r.total });
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    From: rep.range.from, To: rep.range.to, 'Date basis': rep.range.date_field,
+    States: rep.range.states.join(', '), ...money(rep.totals)
+  }]), 'Summary');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    rep.timeline.map(p => ({ Period: p.label, ...money(p) }))
+  ), rep.range.interval === 'day' ? 'Daily' : 'Monthly');
+
+  SR_DIMENSIONS.forEach(([key, label]) => {
+    const rows = rep.breakdown[key] || [];
+    if (!rows.length) return;
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+      rows.map(r => ({ [label]: r.label, ...money(r) }))
+    ), label.slice(0, 31)); // Excel caps sheet names at 31 chars
+  });
+
+  XLSX.writeFile(wb, `odoo-sales-${rep.range.from}_to_${rep.range.to}.xlsx`);
+  showToast('Excel exported', 'success');
+}
+
 // ==================== Odoo tab — sale order search ====================
 async function odooFetch(path) {
   const token = await auth.currentUser.getIdToken();
@@ -1846,8 +2407,10 @@ async function searchRequestsToEdit() {
     // spacing than any variant above, fall back to whatever's already cached.
     if (!matches.length && REQUESTS_CACHE.length) {
       const ql = q.toLowerCase();
+      const qPhone = normalizePhone(q);
       matches = REQUESTS_CACHE.filter(r =>
-        ['plate', 'renewal_id', 'mobile'].some(k => r[k] && String(r[k]).toLowerCase().includes(ql)));
+        ['plate', 'renewal_id', 'mobile'].some(k => r[k] && String(r[k]).toLowerCase().includes(ql)) ||
+        (qPhone && r.mobile && normalizePhone(r.mobile).includes(qPhone)));
     }
     matches.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     renderEditResults(matches, q);
@@ -1907,6 +2470,15 @@ function editCardHtml(r) {
         <label class="input-label" for="edit-rem-${r.id}">Remarks</label>
         <input id="edit-rem-${r.id}" value="${escapeHTML(r.remarks)}">
       </div>
+      <div class="stage-field" style="flex-basis:100%">
+        <label class="input-label">Service Type</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          ${SERVICE_FLAGS.map(([key, svcLabel]) => `
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+              <input type="checkbox" id="edit-svc-${key}-${r.id}" ${r[key] ? 'checked' : ''}>${escapeHTML(svcLabel)}
+            </label>`).join('')}
+        </div>
+      </div>
     </div>
     <div class="pipeline-actions">
       <button class="small" onclick="saveEditedRequest('${r.id}')">Save Changes</button>
@@ -1922,20 +2494,37 @@ async function saveEditedRequest(docId) {
   const statusEl = document.getElementById('edit-status-' + docId);
   statusEl.style.color = 'var(--c-fg-subtle)';
   statusEl.textContent = 'Saving...';
-  const updates = {
+  // Plate and Amount are per-vehicle — stay on this doc only. Sale Order,
+  // Priority and Remarks belong to the whole job (see jobMemberIds), so they
+  // fan out to every vehicle sharing this Renewal ID, same as the pipeline
+  // card's Save/Advance buttons — editing them here was silently leaving the
+  // job's other vehicles with stale values.
+  const perVehicle = {
     plate: document.getElementById('edit-plate-' + docId).value.trim(),
-    amount: parseFloat(document.getElementById('edit-amt-' + docId).value) || 0,
+    amount: parseFloat(document.getElementById('edit-amt-' + docId).value) || 0
+  };
+  SERVICE_FLAGS.forEach(([key]) => {
+    perVehicle[key] = document.getElementById(`edit-svc-${key}-${docId}`).checked;
+  });
+  const jobLevel = {
     sale_order: document.getElementById('edit-so-' + docId).value.trim(),
     priority: document.getElementById('edit-prio-' + docId).value,
-    remarks: document.getElementById('edit-rem-' + docId).value.trim(),
+    remarks: document.getElementById('edit-rem-' + docId).value.trim()
+  };
+  const common = {
     updated_by: auth.currentUser ? auth.currentUser.email : '',
     updated_at: firebase.firestore.FieldValue.serverTimestamp()
   };
   try {
-    await db.collection('requests').doc(docId).update(updates);
+    const jobIds = jobMemberIds(docId);
+    const others = jobIds.filter(id => id !== docId);
+    await Promise.all([
+      db.collection('requests').doc(docId).update({ ...perVehicle, ...jobLevel, ...common }),
+      ...others.map(id => db.collection('requests').doc(id).update({ ...jobLevel, ...common }))
+    ]);
     PLATE_HISTORY_CACHE.clear(); // the plate or amount just changed
     statusEl.style.color = 'var(--c-success)';
-    statusEl.textContent = 'Saved';
+    statusEl.textContent = jobIds.length > 1 ? `Saved for the whole job (${jobIds.length} vehicles)` : 'Saved';
     showToast('Request updated', 'success');
   } catch (err) {
     statusEl.style.color = 'var(--c-danger)';
@@ -1962,7 +2551,8 @@ function resetDealForm() {
   document.getElementById('deal-status').style.display = 'none';
 }
 
-async function saveRenewalRequest() {
+async function saveRenewalRequest(startStage) {
+  startStage = startStage || 1;
   const statusEl = document.getElementById('deal-status');
   const mobile = document.getElementById('deal-mobile').value.trim();
   const vehicles = [...document.querySelectorAll('#deal-vehicles .vehicle-row')]
@@ -1971,7 +2561,9 @@ async function saveRenewalRequest() {
         renewal: row.querySelector('.v-type-renewal').checked,
         transfer: row.querySelector('.v-type-transfer').checked,
         plate_change: row.querySelector('.v-type-platechange').checked,
-        new_install: row.querySelector('.v-type-newinstall').checked
+        new_install: row.querySelector('.v-type-newinstall').checked,
+        rectification: row.querySelector('.v-type-rectification').checked,
+        wasl_request: row.querySelector('.v-type-wasl').checked
       };
       const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
       if (row.querySelector('.v-type-services').checked) requestType.push('services');
@@ -2012,9 +2604,9 @@ async function saveRenewalRequest() {
     renewal_status: 'Pending',
     wasl_status: 'Pending',
     customer_closed: false,
-    stage: 1,
-    stage_label: STAGE_LABELS[1],
-    stage_dates: { 1: new Date().toISOString() },
+    stage: startStage,
+    stage_label: STAGE_LABELS[startStage],
+    stage_dates: { [startStage]: new Date().toISOString() },
     device_status: '',
     invoice_vat_sent: false,
     fix_status: 'Pending',
@@ -2029,7 +2621,7 @@ async function saveRenewalRequest() {
       return db.collection('requests').doc(docId).set({ ...basePayload, ...v });
     }));
     statusEl.style.display = 'none';
-    showToast(`Request created — Renewal ID ${renewalId} (${vehicles.length} vehicle${vehicles.length > 1 ? 's' : ''}). Now in Pipeline, Stage 1.`, 'success');
+    showToast(`Request created — Renewal ID ${renewalId} (${vehicles.length} vehicle${vehicles.length > 1 ? 's' : ''}). Now in Pipeline, Stage ${startStage} — ${STAGE_LABELS[startStage]}.`, 'success');
     resetDealForm();
   } catch (err) {
     statusEl.className = 'status error';
@@ -2049,11 +2641,10 @@ function toggleDailyComplaintType() {
 
 async function saveDailyRequest() {
   const statusEl = document.getElementById('daily-status-msg');
-  const date = document.getElementById('daily-date').value || new Date().toISOString().slice(0, 10);
+  const date = parseDMYToISO(document.getElementById('daily-date').value) || new Date().toISOString().slice(0, 10);
   const mobile = document.getElementById('daily-mobile').value.trim();
   const task = document.getElementById('daily-task').value;
   const complaintType = document.getElementById('daily-complaint-type').value;
-  const status = document.getElementById('daily-status').value;
 
   if (!mobile || !task) {
     statusEl.style.display = 'block';
@@ -2072,11 +2663,14 @@ async function saveDailyRequest() {
   statusEl.className = 'status';
   statusEl.innerHTML = '<span class="spinner"></span>Saving...';
 
+  const feedback = document.getElementById('daily-feedback').value.trim();
+
   try {
     await db.collection('daily_requests').add({
-      date, mobile, task,
+      date, mobile, task, feedback,
       complaint_type: task === 'Complain' ? complaintType : '',
-      status,
+      status: 'Pending', // Always starts Pending — marking Done is a manager action from the list, not part of logging.
+      encoder: ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : ''),
       created_by: auth.currentUser ? auth.currentUser.email : '',
       created_at: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -2085,7 +2679,7 @@ async function saveDailyRequest() {
     document.getElementById('daily-mobile').value = '';
     document.getElementById('daily-task').value = '';
     document.getElementById('daily-complaint-type').value = '';
-    document.getElementById('daily-status').value = 'Pending';
+    document.getElementById('daily-feedback').value = '';
     toggleDailyComplaintType();
   } catch (err) {
     statusEl.className = 'status error';
@@ -2098,21 +2692,43 @@ function loadDailyRequests() {
   const statusEl = document.getElementById('daily-list-status');
   statusEl.className = 'status';
   statusEl.innerHTML = '<span class="spinner"></span>Loading...';
+  if (DAILY_UNSUB) { DAILY_UNSUB(); DAILY_UNSUB = null; }
   DAILY_UNSUB = db.collection('daily_requests').orderBy('date', 'desc').limit(200)
     .onSnapshot(snap => {
       DAILY_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       statusEl.className = 'status ready';
       statusEl.textContent = `${DAILY_CACHE.length} request(s) — live`;
       renderDailyRequestsTable();
+      renderDailyDashboard();
+      writeLiveBackup();
     }, err => {
       statusEl.className = 'status error';
       statusEl.textContent = err.message;
     });
 }
 
+function renderDailyDashboard() {
+  const el = document.getElementById('daily-dashboard');
+  if (!el) return;
+  const done = DAILY_CACHE.filter(r => r.status === 'Done').length;
+  const pending = DAILY_CACHE.length - done;
+  el.innerHTML = `
+    <div class="stat-tile"><div class="num">${pending}</div><div class="lbl">Pending</div></div>
+    <div class="stat-tile"><div class="num">${done}</div><div class="lbl">Done</div></div>`;
+}
+
+// Any signed-in user can mark a daily request Done — whoever's name gets
+// stamped on the record (done_by) so it's clear who closed it out.
 async function toggleDailyStatus(docId, currentStatus) {
+  const goingDone = currentStatus !== 'Done';
   try {
-    await db.collection('daily_requests').doc(docId).update({ status: currentStatus === 'Done' ? 'Pending' : 'Done' });
+    await db.collection('daily_requests').doc(docId).update(goingDone ? {
+      status: 'Done',
+      done_by: ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : ''),
+      done_at: firebase.firestore.FieldValue.serverTimestamp()
+    } : {
+      status: 'Pending', done_by: '', done_at: null
+    });
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -2122,14 +2738,16 @@ function renderDailyRequestsTable() {
   const el = document.getElementById('daily-list');
   if (!DAILY_CACHE.length) { el.innerHTML = '<div class="hint">No daily requests logged yet</div>'; return; }
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Mobile</th><th>Task</th><th>Feedback</th><th>Status</th></tr></thead>
+    <thead><tr><th>Date</th><th>Mobile</th><th>Encoder</th><th>Task</th><th>Feedback</th><th>Status</th><th>Done By</th></tr></thead>
     <tbody>${DAILY_CACHE.map(r => `
       <tr>
-        <td>${escapeHTML(r.date)}</td>
+        <td>${escapeHTML(formatDateDMY(r.date))}</td>
         <td>${escapeHTML(r.mobile)}</td>
+        <td>${escapeHTML(r.encoder)}</td>
         <td>${escapeHTML(r.task)}</td>
-        <td>${escapeHTML(r.complaint_type) || '—'}</td>
+        <td>${escapeHTML([r.complaint_type, r.feedback].filter(Boolean).join(' — ')) || '—'}</td>
         <td><button class="secondary small" onclick="toggleDailyStatus('${r.id}','${r.status}')">${escapeHTML(r.status)}</button></td>
+        <td>${escapeHTML(r.done_by) || '—'}</td>
       </tr>`).join('')}</tbody>
   </table></div>`;
 }
@@ -2263,7 +2881,7 @@ function renderCard(r) {
     <div class="renew-form" id="renew-form-${r.vi}">
       <div class="row">
         <input id="rf-sale-${r.vi}" placeholder="New Sale Order #" aria-label="New sale order number">
-        <input id="rf-exp-${r.vi}" type="date" aria-label="New expiry date">
+        <input id="rf-exp-${r.vi}" type="text" placeholder="dd-mm-yyyy" aria-label="New expiry date">
       </div>
       <div class="row">
         <label><input type="checkbox" id="rf-renewal-${r.vi}"> Renewal Done</label>
@@ -2299,7 +2917,7 @@ async function saveRenewal(vi) {
     plate_no: vehicle.pn || '',
     company_name: vehicle.cn || '',
     new_sale_order: document.getElementById('rf-sale-' + vi).value.trim(),
-    new_exp_date: document.getElementById('rf-exp-' + vi).value,
+    new_exp_date: parseDMYToISO(document.getElementById('rf-exp-' + vi).value),
     renewal_done: document.getElementById('rf-renewal-' + vi).checked,
     vehicle_reporting: document.getElementById('rf-reporting-' + vi).checked,
     wasl_done: document.getElementById('rf-wasl-' + vi).checked,
@@ -2386,6 +3004,76 @@ document.getElementById('q').addEventListener('input', () => {
 document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(searchTimer); doSearch(); } });
 document.getElementById('field').addEventListener('change', doSearch);
 
+// ==================== Live local Excel backup ====================
+// A safety net for the "why is Firestore showing 0" scare — a local .xlsx
+// file that re-writes itself on every live update, entirely client-side via
+// the File System Access API (Chrome/Edge only). No server, no credentials,
+// no scheduled task — just a file handle kept in memory for as long as this
+// tab stays open. Re-run toggleLiveBackup() each session; the handle itself
+// isn't persisted across reloads.
+let BACKUP_FILE_HANDLE = null;
+let BACKUP_WRITE_PENDING = false;
+
+async function toggleLiveBackup() {
+  const btn = document.getElementById('backup-toggle-btn');
+  const statusEl = document.getElementById('backup-status');
+  if (BACKUP_FILE_HANDLE) {
+    BACKUP_FILE_HANDLE = null;
+    btn.textContent = 'Enable Live Local Backup';
+    statusEl.textContent = '';
+    return;
+  }
+  if (!window.showSaveFilePicker) {
+    showToast('Live local backup needs Chrome or Edge on this PC (not supported in this browser)', 'error');
+    return;
+  }
+  try {
+    BACKUP_FILE_HANDLE = await window.showSaveFilePicker({
+      suggestedName: 'renewal-tracker-backup.xlsx',
+      types: [{ description: 'Excel Workbook', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }]
+    });
+    btn.innerHTML = btn.innerHTML.replace('Enable Live Local Backup', 'Live Backup: ON (click to stop)');
+    await writeLiveBackup();
+    showToast('Live local backup on — the file keeps updating while this tab stays open', 'success');
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Could not enable backup: ' + err.message, 'error');
+  }
+}
+
+async function writeLiveBackup() {
+  if (!BACKUP_FILE_HANDLE || BACKUP_WRITE_PENDING) return;
+  BACKUP_WRITE_PENDING = true;
+  try {
+    const wb = XLSX.utils.book_new();
+    const reqRows = REQUESTS_CACHE.map(r => ({
+      'Renewal ID': r.renewal_id, Date: r.date, Encoder: r.encoder, Plate: r.plate, Mobile: r.mobile,
+      Amount: r.amount, 'Sale Order': r.sale_order, Priority: r.priority, Stage: r.stage,
+      'Stage Label': r.stage_label, Device: r.device_status, 'WASL Outcome': r.wasl_outcome,
+      Duplicate: !!r.duplicate, Rectification: !!r.rectification, Remarks: r.remarks
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reqRows), 'Requests');
+    const dailyRows = (typeof DAILY_CACHE !== 'undefined' ? DAILY_CACHE : []).map(r => ({
+      Date: r.date, Mobile: r.mobile, Encoder: r.encoder, Task: r.task,
+      Feedback: [r.complaint_type, r.feedback].filter(Boolean).join(' — '), Status: r.status, 'Done By': r.done_by
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dailyRows), 'Daily Requests');
+
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const writable = await BACKUP_FILE_HANDLE.createWritable();
+    await writable.write(buf);
+    await writable.close();
+    const statusEl = document.getElementById('backup-status');
+    if (statusEl) statusEl.textContent = 'Last saved: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    showToast('Backup write failed: ' + err.message, 'error');
+    BACKUP_FILE_HANDLE = null;
+    const btn = document.getElementById('backup-toggle-btn');
+    if (btn) btn.textContent = 'Enable Live Local Backup';
+  } finally {
+    BACKUP_WRITE_PENDING = false;
+  }
+}
+
 // ==================== Requests (master) ====================
 let REQUESTS_CACHE = [];
 let requestsUnsubscribe = null;
@@ -2398,6 +3086,78 @@ function isEmptyRequest(r) {
 // filtered out everywhere so a mis-click never destroys real data.
 function isVisibleRequest(r) {
   return !isEmptyRequest(r) && r.deleted !== true;
+}
+
+// A Transfer / Plate Change case lives in its own tab (renderTransferPlateTab)
+// until "Send for WASL" hands it to the main pipeline's WASL Processing
+// stage — after that it behaves like any other pipeline case, so it needs to
+// leave the Transfer/Plate Change tab and start showing up in the stage tabs.
+function isPendingTransferPlate(r) {
+  return (r.transfer || r.plate_change) && !r.xfer_handed_off;
+}
+// A case can be Renewal AND Transfer/Plate Change at once — it needs both
+// forms in parallel, not one or the other. Only a transfer/plate-change-ONLY
+// case (Renewal not selected) gets pulled out of the normal stage pipeline;
+// a combined case stays visible in its stage tab (full Renewal form) *and*
+// shows in the Transfer/Plate Change tab (see isPendingTransferPlate above,
+// which intentionally doesn't check `renewal` — that's what puts it there).
+function isTransferOnlyPending(r) {
+  return isPendingTransferPlate(r) && !r.renewal;
+}
+
+// "+966 54 231 5449", "54 231 5449", "542315449" and "0542315449" are all the
+// same number — strip everything but digits, then the country code and/or
+// leading trunk 0, so search matches regardless of how it was typed/stored.
+function normalizePhone(s) {
+  let digits = String(s || '').replace(/\D/g, '');
+  if (digits.startsWith('966')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return digits;
+}
+
+// Shared plate/mobile/sale-order search box used by every pipeline-style
+// case list (stage tabs, duplicates, rectification, transfer/plate change).
+function caseMatchesSearch(r, q) {
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  const qPhone = normalizePhone(q);
+  return (r.plate && r.plate.toLowerCase().includes(ql)) ||
+    (r.sale_order && r.sale_order.toLowerCase().includes(ql)) ||
+    (r.mobile && (r.mobile.toLowerCase().includes(ql) || (qPhone && normalizePhone(r.mobile).includes(qPhone))));
+}
+// Checked against the current user's email when its "My Cases" checkbox is
+// ticked — one shared filter so every stage/report tab behaves the same way.
+function caseMatchesMine(r, key) {
+  const mineEl = document.getElementById(key + '-mine');
+  if (!mineEl || !mineEl.checked) return true;
+  const me = auth.currentUser ? auth.currentUser.email : ME.email;
+  return r.assigned_to === me;
+}
+function caseSearchBox(key, onInput) {
+  return `<div class="row" style="margin-bottom:10px;align-items:center">
+    <input id="${key}-search" placeholder="Search by plate, mobile, or Sale Order..." oninput="${onInput}" style="max-width:320px;flex:1">
+    <label class="chip"><input type="checkbox" id="${key}-mine" onchange="${onInput}"> My Cases</label>
+    <button class="secondary small" onclick="loadRequests()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      Refresh
+    </button>
+  </div>`;
+}
+// Injected once at load, right above each pipeline-style list's status line
+// — not regenerated on every render, or the box would lose focus/typed text
+// on every keystroke.
+function initCaseSearchBoxes() {
+  const onInputFor = {
+    duplicates: 'renderDuplicatesTab()', rectification: 'renderRectificationTab()', transferplate: 'renderTransferPlateTab()'
+  };
+  onInputFor.allcases = 'renderAllCasesTab()';
+  onInputFor.closed = 'renderClosedTab()';
+  [...STAGE_TAB_NAMES, 'duplicates', 'rectification', 'transferplate', 'allcases', 'closed'].forEach(key => {
+    const statusEl = document.getElementById(`${key}-status`);
+    if (!statusEl) return;
+    const onInput = onInputFor[key] || `renderStageTab(${key.replace('stage', '')})`;
+    statusEl.insertAdjacentHTML('beforebegin', caseSearchBox(key, onInput));
+  });
 }
 
 // Fire-and-forget: bring any old-8-stage document onto the current numbering.
@@ -2436,6 +3196,14 @@ function loadRequests() {
         renderRequestsTable();
       }
       if (STAGE_TAB_NAMES.includes(currentActiveTab)) renderStageTab(parseInt(currentActiveTab.replace('stage', ''), 10));
+      if (currentActiveTab === 'duplicates') renderDuplicatesTab();
+      if (currentActiveTab === 'rectification') renderRectificationTab();
+      if (currentActiveTab === 'transferplate') renderTransferPlateTab();
+      if (currentActiveTab === 'allcases') renderAllCasesTab();
+      if (currentActiveTab === 'closed') renderClosedTab();
+      if (currentActiveTab === 'dashboard') renderDashboard();
+      writeLiveBackup();
+      if (CASE_VIEW_ID) renderCaseView();
       updateNavBadges();
     }, err => {
       statusEl.className = 'status error';
@@ -2485,14 +3253,26 @@ async function toggleDuplicate(docId, currentlyDuplicate, label) {
   }
 }
 
+async function toggleOnHold(docId, currentlyOnHold) {
+  try {
+    await db.collection('requests').doc(docId).update({ on_hold: !currentlyOnHold });
+    showToast(currentlyOnHold ? 'Hold removed' : 'Case put on hold', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 // ==================== Stage forms ====================
 // Fields captured at each stage. `required: true` blocks the "next stage"
 // button until it's filled — everything else can be saved and left partial.
 // Add, remove or reorder a field here and the card, the save and the
 // validation all follow; nothing else needs touching.
 const STAGE_FORMS = {
-  // Stage 1 is only "payment received" — the sale order is created in Odoo at
-  // stage 2, so its number is captured there, not here.
+  // Reuses the same `remarks` field set at creation (New Request) and shown
+  // on the Master table / Edit — one field, editable from any of those places.
+  1: [
+    { key: 'remarks', label: 'Remarks', type: 'text' }
+  ],
   2: [
     { key: 'sale_order', label: 'Sale Order #', type: 'text', required: true },
     { key: 'quotation_no', label: 'Quotation No', type: 'text' }
@@ -2557,9 +3337,10 @@ function renderStageForm(r, stage) {
       if (f.type === 'checkbox') {
         return `<label class="chip stage-check"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}> ${escapeHTML(f.label)}</label>`;
       }
+      const isDate = f.type === 'date';
       return `<div class="stage-field">
         <label class="input-label" for="${id}">${escapeHTML(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</label>
-        <input id="${id}" type="${f.type}" value="${escapeHTML(val)}" ${f.required ? 'aria-required="true"' : ''}>
+        <input id="${id}" type="${isDate ? 'text' : f.type}" ${isDate ? 'placeholder="dd-mm-yyyy"' : ''} value="${escapeHTML(isDate ? formatDateDMY(val) : val)}" ${f.required ? 'aria-required="true"' : ''}>
       </div>`;
     }).join('')}
   </div>`;
@@ -2570,24 +3351,44 @@ function collectStageForm(docId, stage) {
   const values = {};
   const missing = [];
   fields.forEach(f => {
-    const el = document.getElementById(fieldId(docId, f.key));
+    // The same case can be rendered in more than one tab at once (its Stage
+    // tab, All Requests, Closed Sales...) — switchTab only hides inactive
+    // tabs with display:none, it never removes their DOM, so the same field
+    // id can exist twice at once. getElementById always returns whichever
+    // copy comes first in document order, which can be a hidden, stale one —
+    // this was silently reading an empty value from a background copy and
+    // blocking "required" fields the user had actually filled in. Pick the
+    // one that's actually visible on screen.
+    const matches = document.querySelectorAll(`[id="${fieldId(docId, f.key)}"]`);
+    const el = [...matches].find(e => e.offsetParent !== null) || matches[0];
     if (!el) return;
-    const v = f.type === 'checkbox' ? el.checked : el.value.trim();
+    let v = f.type === 'checkbox' ? el.checked : el.value.trim();
+    if (f.type === 'date' && v) v = parseDMYToISO(v);
     values[f.key] = v;
     if (f.required && (v === '' || v === false)) missing.push({ field: f, el });
   });
   return { values, missing };
 }
 
+// Each vehicle in a multi-vehicle job now moves through the pipeline fully
+// independently — its own stage, sale order, expiry dates, WASL info,
+// remarks, all separate. (Used to fan out every stage-progression write to
+// every doc sharing the Renewal ID; that's gone — kept as a single-item
+// array so callers that loop over "job members" don't need to change.)
+function jobMemberIds(docId) {
+  return [docId];
+}
+
 async function saveStageForm(docId, stage) {
   const { values } = collectStageForm(docId, stage);
+  const ids = jobMemberIds(docId);
   try {
-    await db.collection('requests').doc(docId).update({
+    await Promise.all(ids.map(id => db.collection('requests').doc(id).update({
       ...values,
       updated_by: auth.currentUser ? auth.currentUser.email : '',
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    showToast('Saved', 'success');
+    })));
+    showToast(ids.length > 1 ? `Saved for the whole job (${ids.length} vehicles)` : 'Saved', 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -2605,14 +3406,70 @@ function advanceWithForm(docId, stage, extraFields, newStage) {
   advancePipelineCase(docId, { ...values, ...extraFields }, newStage);
 }
 
+// Shared by every pipeline-card list view (stage tabs, Duplicates,
+// Rectification). Grouped by Renewal ID — a single-vehicle submission gets
+// its normal full card. A multi-vehicle job gets one compact summary card
+// instead (each vehicle now moves independently, see jobMemberIds, so N
+// full duplicate cards inline here would just be visual noise); "Open"
+// drills into Case View, which renders every vehicle's own full card.
+function renderGroupedCaseList(cases, listElId, emptyText) {
+  const groups = new Map();
+  cases.forEach(r => {
+    const key = r.renewal_id || r.mobile || `__no-key-${r.id}`;
+    (groups.get(key) || groups.set(key, []).get(key)).push(r);
+  });
+
+  document.getElementById(listElId).innerHTML = [...groups.entries()].map(([key, items]) => {
+    if (items.length === 1) return renderPipelineCard(items[0]);
+    // Multi-vehicle job: a compact summary card, not N duplicate full cards —
+    // each vehicle now moves independently (see jobMemberIds), so "last
+    // stage" is whichever member has advanced furthest; "Open" is the way
+    // into each vehicle's own full card (Case View).
+    const total = items.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const lastStage = Math.max(...items.map(r => r.stage || 1));
+    const furthest = items.find(r => (r.stage || 1) === lastStage) || items[0];
+    const soList = [...new Set(items.map(r => r.sale_order).filter(Boolean))];
+    const types = [...new Set(items.flatMap(r => SERVICE_FLAGS.filter(([k]) => r[k]).map(([, label]) => label)))];
+    return `<div class="pipeline-card">
+      <div class="pipeline-card-head">
+        <div>
+          <div class="pipeline-card-title">${escapeHTML(key)}</div>
+          <div class="pipeline-card-sub">${escapeHTML(items[0].encoder)} · ${escapeHTML(items[0].mobile)}</div>
+          <div class="paid-for">
+            ${priorityTag(furthest)}
+            <span class="pill prio-medium">${items.length} vehicles</span>
+            ${soList.length ? `<span class="paid-so">SO ${escapeHTML(soList.join(', '))}</span>` : ''}
+            <span class="paid-amount">SAR ${total} total</span>
+            ${types.map(t => `<span class="paid-tag">${escapeHTML(t)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="stage-dates"><strong>Last stage:</strong> ${lastStage} — ${escapeHTML(STAGE_LABELS[lastStage] || '')}</div>
+      </div>
+      ${furthest.remarks ? `<div class="prev-stage-notes"><div><strong>Remarks:</strong> ${escapeHTML(furthest.remarks)}</div></div>` : ''}
+      <div class="pipeline-actions">
+        <button class="small" onclick="openCaseView('${furthest.id}')">Open — ${items.length} vehicles</button>
+      </div>
+    </div>`;
+  }).join('') || `<div class="no-results">${emptyText}</div>`;
+}
+
 // ==================== Pipeline tab (stage-by-stage, immediate save) ====================
 function renderStageTab(n) {
-  const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === n && !r.duplicate);
+  const q = ((document.getElementById(`stage${n}-search`) || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => (r.stage || 1) === n && !r.duplicate && !r.rectification && !isTransferOnlyPending(r) && !(n === 7 && r.customer_closed) && caseMatchesSearch(r, q) && caseMatchesMine(r, `stage${n}`)));
   const statusEl = document.getElementById(`stage${n}-status`);
   statusEl.className = 'status' + (cases.length ? '' : ' ready');
   statusEl.textContent = `${cases.length} case(s) — ${STAGE_LABELS[n]}`;
-  document.getElementById(`stage${n}-list`).innerHTML = cases.map(renderPipelineCard).join('')
-    || '<div class="no-results">No cases at this stage</div>';
+  renderGroupedCaseList(cases, `stage${n}-list`, 'No cases at this stage');
+}
+
+function exportStage6Excel() {
+  const cases = REQUESTS_CACHE.filter(r => (r.stage || 1) === 6 && !r.duplicate && !r.rectification);
+  const rows = cases.map(r => ({ Contact: r.mobile || '', 'Plate Number': r.plate || '', Remarks: r.remarks || '' }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stage 6');
+  XLSX.writeFile(wb, `stage6-device-check-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // What the customer actually paid for. The boolean flags are the source of
@@ -2622,7 +3479,9 @@ const SERVICE_FLAGS = [
   ['renewal', 'Renewal'],
   ['transfer', 'Transfer'],
   ['plate_change', 'Plate Change'],
-  ['new_install', 'New Installation']
+  ['new_install', 'New Installation'],
+  ['rectification', 'Rectification'],
+  ['wasl_request', 'WASL Request']
 ];
 
 function serviceTags(r) {
@@ -2636,6 +3495,99 @@ function serviceTags(r) {
   }
   if (!names.length) return '<span class="paid-none">No service selected</span>';
   return names.map(n => `<span class="paid-tag">${escapeHTML(n)}</span>`).join('');
+}
+
+const PRIORITY_RANK = { Urgent: 4, High: 3, Medium: 2, Low: 1 };
+const PRIORITY_CLASS = { Urgent: 'prio-urgent', High: 'prio-high', Medium: 'prio-medium', Low: 'prio-low' };
+function priorityTag(r) {
+  if (!r.priority) return '';
+  return `<span class="pill ${PRIORITY_CLASS[r.priority] || 'prio-low'}">${escapeHTML(r.priority)}</span>`;
+}
+
+// Stage 4 (WASL Processing) now branches into 3 outcomes, all of which still
+// advance the case to Stage 5 — this tag is what tells the rest of the
+// pipeline (and the Master table) which one it was, since the stage number
+// alone no longer says. Sticks on the card through every later stage.
+const WASL_OUTCOME_CLASS = { 'Connected': 'yes', 'Device Issue': 'no', 'Pending — Documents Missing': 'prio-high' };
+function waslOutcomeTag(r) {
+  if (!r.wasl_outcome) return '';
+  return `<span class="pill ${WASL_OUTCOME_CLASS[r.wasl_outcome] || 'prio-low'}">WASL: ${escapeHTML(r.wasl_outcome)}</span>`;
+}
+
+// Multiple encoders work the same pipeline at once — this is what stops
+// cases getting picked up twice or nobody's, by making it visible up front
+// who (if anyone) already has this one.
+function assignedTag(r) {
+  return r.assigned_to_name
+    ? `<span class="pill prio-medium">Assigned: ${escapeHTML(r.assigned_to_name)}</span>`
+    : `<span class="pill prio-low">Unassigned</span>`;
+}
+function assignControls(r) {
+  const options = [...USERS_CACHE].sort((a, b) => (a.encoder_name || a.email || '').localeCompare(b.encoder_name || b.email || ''))
+    .map(u => `<option value="${escapeHTML(u.uid)}" ${r.assigned_to === u.email ? 'selected' : ''}>${escapeHTML(u.encoder_name || u.email)}</option>`).join('');
+  return `
+    <button class="secondary small" onclick="assignToMe('${r.id}')">Assign to Me</button>
+    <select id="assign-sel-${r.id}" aria-label="Assign to">
+      <option value="">Assign to...</option>
+      ${options}
+    </select>
+    <button class="secondary small" onclick="assignToSelected('${r.id}')">Assign</button>`;
+}
+async function assignToMe(docId) {
+  try {
+    await db.collection('requests').doc(docId).update({
+      assigned_to: auth.currentUser ? auth.currentUser.email : '',
+      assigned_to_name: ME.encoderName || (auth.currentUser ? auth.currentUser.email : ''),
+      assigned_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Assigned to you', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+async function assignToSelected(docId) {
+  const sel = document.getElementById('assign-sel-' + docId);
+  const uid = sel && sel.value;
+  if (!uid) { showToast('Pick someone to assign to', 'error'); return; }
+  const user = USERS_CACHE.find(u => u.uid === uid);
+  try {
+    await db.collection('requests').doc(docId).update({
+      assigned_to: user ? user.email : uid,
+      assigned_to_name: user ? (user.encoder_name || user.email) : uid,
+      assigned_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`Assigned to ${user ? (user.encoder_name || user.email) : uid}`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// What the previous stage recorded, surfaced on the current stage's card so
+// whoever picks it up next isn't blind to it — keyed by the stage the case
+// is *now* at, pointing back at the field(s) the stage before it captured.
+// Full remarks history across every stage this case has passed through — shown
+// on every stage's card (not just the one right after each field was filled),
+// so nothing typed earlier ever silently disappears as the case moves on.
+const STAGE_NOTE_FIELDS = [
+  { key: 'remarks', label: 'Original Remarks (Stage 1)' },
+  { key: 'renewal_remarks', label: 'Renewal Remarks (Stage 3)' },
+  { key: 'missing_docs', label: 'Missing Documents (Stage 3)' },
+  { key: 'wasl_processing_remarks', label: 'Remarks (Stage 4)' },
+  { key: 'wasl_reject_reason', label: 'Rejection Reason (Stage 4)' },
+  { key: 'wasl_completed_remarks', label: 'Remarks (Stage 5)' }
+];
+function prevStageNotesBlock(r) {
+  const items = STAGE_NOTE_FIELDS.filter(f => r[f.key]);
+  if (!items.length && !r.updated_by) return '';
+  return `<div class="prev-stage-notes">
+    ${items.map(f => `<div><strong>${escapeHTML(f.label)}:</strong> ${escapeHTML(r[f.key])}</div>`).join('')}
+    ${r.updated_by ? `<div>Last updated by: <strong>${escapeHTML(r.updated_by)}</strong></div>` : ''}
+  </div>`;
+}
+// Every pipeline-style list is sorted Urgent → High → Medium → Low → (none),
+// so the most urgent cases always float to the top regardless of stage.
+function sortByPriorityDesc(list) {
+  return [...list].sort((a, b) => (PRIORITY_RANK[b.priority] || 0) - (PRIORITY_RANK[a.priority] || 0));
 }
 
 // Old sale orders for a plate, fetched only when someone opens the dropdown —
@@ -2680,9 +3632,14 @@ function renderPipelineCard(r) {
         <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
         <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
         <div class="paid-for">
+          ${priorityTag(r)}
+          ${assignedTag(r)}
+          ${waslOutcomeTag(r)}
           ${serviceTags(r)}
+          ${r.sale_order ? `<span class="paid-so">SO ${escapeHTML(r.sale_order)}</span>` : ''}
           <span class="paid-amount">SAR ${r.amount || 0}</span>
         </div>
+        ${prevStageNotesBlock(r)}
         <button type="button" class="info-toggle" id="pl-info-btn-${r.id}"
           onclick="togglePipelineInfo('${r.id}', '${escapeHTML(r.plate).replace(/'/g, "\\'")}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -2699,8 +3656,9 @@ function renderPipelineCard(r) {
     ? `<button class="ghost small" onclick="saveStageForm('${r.id}', ${stage})">Save without moving</button>` : '';
 
   if (stage === 1) {
+    // Every case type goes through the Sale Order stage — no exceptions.
     action = `<div class="pipeline-actions">
-      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 2)">Payment Confirmed → Stage 2</button>
+      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 2)">Payment Confirmed → Stage 2</button>${saveBtn}
     </div>`;
   } else if (stage === 2) {
     action = `<div class="pipeline-actions">
@@ -2712,9 +3670,14 @@ function renderPipelineCard(r) {
   } else if (stage === 3) {
     action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → WASL Processing (Stage 4)</button>${saveBtn}</div>`;
   } else if (stage === 4) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 4, {wasl_status: 'Done'}, 5)">Mark WASL Completed → Stage 5</button>${saveBtn}</div>`;
+    action = `<div class="pipeline-actions">
+      <button class="small" onclick="advanceWithForm('${r.id}', 4, {wasl_status: 'Done', wasl_outcome: 'Connected'}, 5)">WASL Connected → Stage 5</button>
+      <button class="small" style="background:var(--c-danger)" onclick="advanceWithForm('${r.id}', 4, {wasl_status: 'Done', wasl_outcome: 'Device Issue'}, 5)">WASL Connected — Device Issue → Stage 5</button>
+      <button class="small secondary" onclick="advanceWithForm('${r.id}', 4, {wasl_status: 'Done', wasl_outcome: 'Pending — Documents Missing'}, 5)">WASL Pending — Documents Missing → Stage 5</button>
+      ${saveBtn}
+    </div>`;
   } else if (stage === 5) {
-    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 5, {}, 6)">Proceed to Device Check → Stage 6</button>${saveBtn}</div>`;
+    action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 5, {}, 7)">Proceed to Customer Close → Stage 7</button>${saveBtn}</div>`;
   } else if (stage === 6) {
     action = `<div class="pipeline-actions">
       <select id="pl-device-${r.id}" onchange="renderPipelineDeviceSub('${r.id}')" aria-label="Device status">
@@ -2730,7 +3693,103 @@ function renderPipelineCard(r) {
       : `<div class="pipeline-actions"><button class="small" onclick="advancePipelineCase('${r.id}', {customer_closed: true}, 7)">Close Case</button></div>`;
   }
 
-  return `<div class="pipeline-card" id="pl-card-${r.id}">${head}${form}${action}</div>`;
+  const label = escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'");
+  const jumpStage = `
+    <select id="jump-stage-${r.id}" aria-label="Send to stage">
+      ${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${n === stage ? 'selected' : ''}>${n} — ${escapeHTML(STAGE_LABELS[n])}</option>`).join('')}
+    </select>
+    <button class="secondary small" onclick="sendToStage('${r.id}')">Send to Stage</button>`;
+  const manage = `<div class="pipeline-actions">
+    <button class="secondary small" onclick="openCaseView('${r.id}')">Case View</button>
+    <button class="secondary small" onclick="switchTab('deal'); document.getElementById('edit-q').value = '${label}'; searchRequestsToEdit();">Edit</button>
+    <button class="secondary small" onclick="toggleDuplicate('${r.id}', ${!!r.duplicate}, '${label}')">${r.duplicate ? 'Unmark Duplicate' : 'Mark Duplicate'}</button>
+    <button class="secondary small" onclick="toggleOnHold('${r.id}', ${!!r.on_hold})">${r.on_hold ? 'Remove Hold' : 'On Hold'}</button>
+    ${jumpStage}
+    ${isAdmin() ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${label}')">Delete</button>` : ''}
+  </div>
+  <div class="pipeline-actions">${assignControls(r)}</div>`;
+
+  return `<div class="pipeline-card${r.on_hold ? ' on-hold' : ''}" id="pl-card-${r.id}">${head}${form}${action}${manage}</div>`;
+}
+
+// ==================== Case View (single-case stepper) ====================
+// Lets one agent walk one case through every stage from a single screen
+// instead of switching between stage tabs. It's a focused modal over the
+// exact same renderPipelineCard body (same buttons, same tested logic) with
+// a visual step bar on top — nothing here duplicates the advance/save logic.
+let CASE_VIEW_ID = null;
+const STAGE_STEP_LABELS = ['Payment Received', 'Sale Order', 'Renewal Processing', 'WASL Processing', 'WASL Completed', 'Device Check', 'Customer Close'];
+
+function openCaseView(docId) {
+  CASE_VIEW_ID = docId;
+  document.getElementById('case-view-modal').style.display = 'flex';
+  // The same card is likely still sitting in the list behind this modal.
+  // renderCaseView is about to draw a second copy with the exact same ids
+  // (pl-card-*, pl-info-*, the stage-form fields) — every getElementById
+  // lookup only ever finds the FIRST match in the DOM, so without this the
+  // background copy silently eats every click and keystroke meant for the
+  // modal (looked like "nothing saves, More Info won't open"). Removing the
+  // background copy first leaves only the modal's as the one true copy;
+  // refreshCurrentCaseList() redraws the list to bring it back on close.
+  const bg = document.getElementById('pl-card-' + docId);
+  if (bg) bg.remove();
+  renderCaseView();
+}
+
+function closeCaseView() {
+  CASE_VIEW_ID = null;
+  document.getElementById('case-view-modal').style.display = 'none';
+  refreshCurrentCaseList();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && CASE_VIEW_ID) closeCaseView(); });
+
+function renderCaseStepper(r) {
+  const stage = r.stage || 1;
+  return `<div class="case-stepper">${STAGE_STEP_LABELS.map((label, i) => {
+    const n = i + 1;
+    const cls = n < stage ? 'done' : n === stage ? 'current' : '';
+    return `<div class="case-step ${cls}"><span class="case-step-num">${n < stage ? '✓' : n}</span>${escapeHTML(label)}</div>`;
+  }).join('')}</div>`;
+}
+
+// Stepping back is a plain stage move (like the Master table's manual stage
+// dropdown) — it doesn't try to undo status flags a forward step set, the
+// agent can fix those from the form if needed.
+function caseViewPrevious(docId) {
+  const r = REQUESTS_CACHE.find(x => x.id === docId);
+  if (!r) return;
+  const stage = r.stage || 1;
+  if (stage <= 1) return;
+  advancePipelineCase(docId, {}, stage - 1);
+}
+
+function renderCaseView() {
+  const box = document.getElementById('case-view-box');
+  const closeBtn = `<button type="button" class="modal-close" onclick="closeCaseView()" aria-label="Close">${icon('x')}</button>`;
+  if (!CASE_VIEW_ID) return;
+  const r = REQUESTS_CACHE.find(x => x.id === CASE_VIEW_ID);
+  if (!r) { box.innerHTML = `${closeBtn}<div class="status error">Case not found — it may have been deleted.</div>`; return; }
+  const stage = r.stage || 1;
+  // Case View was single-doc only — a job with several vehicles under one
+  // Renewal ID only ever showed whichever one doc CASE_VIEW_ID pointed at.
+  // Every vehicle now moves through the pipeline independently (see
+  // jobMemberIds), so each one gets its own full card here — own stage, own
+  // form, own advance buttons — not just a read-only summary row.
+  const siblings = r.renewal_id ? REQUESTS_CACHE.filter(x => x.renewal_id === r.renewal_id && x.id !== r.id) : [];
+  box.innerHTML = `${closeBtn}${renderCaseStepper(r)}
+    <button class="ghost small" style="margin-bottom:10px" onclick="caseViewPrevious('${r.id}')" ${stage <= 1 ? 'disabled' : ''}>&larr; Previous stage</button>
+    <button class="ghost small" style="margin-bottom:10px;margin-left:6px" onclick="openVehicleDetailsFromCase('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Open Vehicle Details</button>
+    ${renderPipelineCard(r)}
+    ${siblings.length ? `<div class="section-label" style="margin:12px 0 6px">Other vehicles in this job (${siblings.length})</div>${siblings.map(renderPipelineCard).join('')}` : ''}`;
+}
+
+// Jump straight from a case's Case View to its full vehicle-master-data
+// record in Search & Renew — closes this modal first so the tab switch
+// underneath isn't hidden behind it.
+function openVehicleDetailsFromCase(plate) {
+  closeCaseView();
+  searchFromRequest(plate);
 }
 
 function renderPipelineDeviceSub(docId) {
@@ -2757,19 +3816,54 @@ function advancePipelineNonReporting(docId) {
 }
 
 async function advancePipelineCase(docId, extraFields, newStage) {
+  const ids = jobMemberIds(docId);
+  const payload = {
+    ...extraFields,
+    ...stampStageDate(newStage),
+    stage: newStage,
+    stage_label: STAGE_LABELS[newStage],
+    updated_by: auth.currentUser ? auth.currentUser.email : '',
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
   try {
-    await db.collection('requests').doc(docId).update({
-      ...extraFields,
-      ...stampStageDate(newStage),
-      stage: newStage,
-      stage_label: STAGE_LABELS[newStage],
-      updated_by: auth.currentUser ? auth.currentUser.email : '',
-      updated_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    showToast(`Advanced to Stage ${newStage} — ${STAGE_LABELS[newStage]}`, 'success');
+    await Promise.all(ids.map(id => db.collection('requests').doc(id).update(payload)));
+    showToast(`Advanced to Stage ${newStage} — ${STAGE_LABELS[newStage]}${ids.length > 1 ? ` (${ids.length} vehicles)` : ''}`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// Jump a case straight to any stage, skipping whatever's in between and the
+// required fields those stages would normally ask for. Open to every user
+// (not admin-gated) — for real-world cases that don't fit the normal
+// sequence: a case created wrong, a manual correction, matching an
+// already-done piece of work.
+async function sendToStage(docId) {
+  const sel = document.getElementById('jump-stage-' + docId);
+  const target = parseInt(sel.value, 10);
+  const r = REQUESTS_CACHE.find(x => x.id === docId);
+  if (!r) return;
+  // No same-stage guard — re-sending to the stage it's already at is a
+  // legitimate way to force a stuck transfer/plate-change case to pick up
+  // the hand-off fix below (it doesn't otherwise get a chance to update).
+  if (!confirm(`Send this case directly to Stage ${target} — ${STAGE_LABELS[target]}? This skips every stage in between and whatever fields they normally require.`)) return;
+  // A transfer/plate-change case only leaves "pending" limbo (and starts
+  // showing in the numbered stage tabs, not just Transfer/Plate Change) once
+  // handed off — normally via "Send for WASL" (see sendTransferToWasl).
+  // Manually sending it to a stage here has to count as that same hand-off,
+  // or it'd land on Stage 6 with the right stage number and still be
+  // invisible there, stuck looking "pending" forever.
+  const extra = (r.transfer || r.plate_change) ? { xfer_handed_off: true } : {};
+  advancePipelineCase(docId, extra, target);
+}
+
+// Transfer / Plate Change work (old/new plate, old/new owner) is done outside
+// the Renewal pipeline (see isPendingTransferPlate), but WASL still has to
+// happen for it — this hands the case to WASL Processing (Stage 4) and marks
+// it handed off, so it leaves the Transfer/Plate Change tab and starts
+// showing up as a normal pipeline card from here on.
+function sendTransferToWasl(docId) {
+  advancePipelineCase(docId, { xfer_handed_off: true }, 4);
 }
 
 // Which customer groups are collapsed, keyed by mobile (or a per-request
@@ -2777,9 +3871,290 @@ async function advancePipelineCase(docId, extraFields, newStage) {
 // live listener firing doesn't snap every group back open.
 let COLLAPSED_CUSTOMERS = new Set();
 
+// Redraws whichever case-list view is currently on screen — used after
+// collapsing/expanding a group and after Case View closes (see closeCaseView).
+function refreshCurrentCaseList() {
+  if (STAGE_TAB_NAMES.includes(currentActiveTab)) renderStageTab(parseInt(currentActiveTab.replace('stage', ''), 10));
+  else if (currentActiveTab === 'duplicates') renderDuplicatesTab();
+  else if (currentActiveTab === 'rectification') renderRectificationTab();
+  else if (currentActiveTab === 'transferplate') renderTransferPlateTab();
+  else if (currentActiveTab === 'allcases') renderAllCasesTab();
+  else if (currentActiveTab === 'closed') renderClosedTab();
+  else if (currentActiveTab === 'requests') renderRequestsTable();
+}
+
 function toggleCustomerGroup(key) {
   if (COLLAPSED_CUSTOMERS.has(key)) COLLAPSED_CUSTOMERS.delete(key); else COLLAPSED_CUSTOMERS.add(key);
-  renderRequestsTable();
+  refreshCurrentCaseList();
+}
+
+// ==================== Dashboard ====================
+// Pure client-side aggregation over the already-loaded REQUESTS_CACHE — no
+// extra Firestore reads. Re-run on every snapshot update while this tab is
+// open (see loadRequests' onSnapshot handler) so it stays live.
+// `requests` docs never get a created_at Timestamp — only users/renewals do.
+// Their creation date lives in `date` as a plain "YYYY-MM-DD" local calendar
+// string, with stage_dates['1'] (full ISO) as a fallback for older docs.
+function caseCreatedDate(r) {
+  if (r.created_at && r.created_at.toDate) return r.created_at.toDate();
+  const raw = r.date || (r.stage_dates && r.stage_dates['1']) || null;
+  if (!raw) return null;
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const d = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function renderDashboard() {
+  const body = document.getElementById('dashboard-body');
+  if (!REQUESTS_CACHE.length) { body.innerHTML = '<div class="status"><span class="spinner"></span>Loading...</div>'; return; }
+
+  const active = REQUESTS_CACHE.filter(r => !r.duplicate && !r.rectification && !isTransferOnlyPending(r));
+
+  const stageCounts = STAGE_TAB_NAMES.map((_, i) => active.filter(r => (r.stage || 1) === i + 1).length);
+  const maxStage = Math.max(1, ...stageCounts);
+
+  // Local calendar key, not toISOString() — `date` holds a local calendar day,
+  // so a UTC key would shift every case by a day for part of each night.
+  const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d; });
+  const byDay = {};
+  active.forEach(r => {
+    const ts = caseCreatedDate(r);
+    if (!ts) return;
+    const k = dayKey(ts);
+    (byDay[k] || (byDay[k] = { count: 0, amount: 0 }));
+    byDay[k].count++;
+    byDay[k].amount += Number(r.amount) || 0;
+  });
+  const trend = days.map(d => ({ day: d, ...(byDay[dayKey(d)] || { count: 0, amount: 0 }) }));
+  const maxCount = Math.max(1, ...trend.map(t => t.count));
+  const maxAmount = Math.max(1, ...trend.map(t => t.amount));
+
+  const totalAmount = active.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  const byUser = {};
+  active.forEach(r => {
+    const u = r.created_by || 'Unknown';
+    (byUser[u] || (byUser[u] = { count: 0, amount: 0 }));
+    byUser[u].count++;
+    byUser[u].amount += Number(r.amount) || 0;
+  });
+  const team = Object.entries(byUser).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
+  const maxTeam = Math.max(1, ...team.map(t => t[1].count));
+
+  body.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num">${active.length}</div><div class="lbl">Active Cases</div></div>
+      <div class="stat-tile"><div class="num">SAR ${totalAmount.toLocaleString()}</div><div class="lbl">Total Collected</div></div>
+      <div class="stat-tile"><div class="num">${trend[trend.length - 1].count}</div><div class="lbl">New Today</div></div>
+      <div class="stat-tile"><div class="num">${team.length}</div><div class="lbl">Active Agents</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pipeline — Stage-wise Cases</div></div>
+        ${STAGE_TAB_NAMES.map((_, i) => `
+          <div class="dash-bar-row">
+            <span class="dash-bar-label" title="${escapeHTML(STAGE_LABELS[i + 1])}">${i + 1}. ${escapeHTML(STAGE_LABELS[i + 1])}</span>
+            <div class="dash-bar-track"><div class="dash-bar-fill" data-w="${(stageCounts[i] / maxStage * 100).toFixed(1)}"></div></div>
+            <span class="dash-bar-value">${stageCounts[i]}</span>
+          </div>`).join('')}
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Team Performance</div></div>
+        ${team.length ? team.map(([user, d]) => `
+          <div class="dash-bar-row">
+            <span class="dash-bar-label" title="${escapeHTML(user)}">${escapeHTML(user.split('@')[0])}</span>
+            <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(d.count / maxTeam * 100).toFixed(1)}"></div></div>
+            <span class="dash-bar-value">${d.count}</span>
+          </div>`).join('') : '<div class="no-results">No data yet</div>'}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">New Requests — Last 14 Days</div></div>
+      <div class="dash-trend">
+        ${trend.map(t => `
+          <div class="dash-trend-col" title="${t.day.toLocaleDateString()}: ${t.count} case(s)">
+            <div class="dash-trend-bar" data-h="${(t.count / maxCount * 100).toFixed(1)}"></div>
+            <span class="dash-trend-day">${t.day.getDate()}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Amount Collected — Last 14 Days</div></div>
+      <div class="dash-trend">
+        ${trend.map(t => `
+          <div class="dash-trend-col" title="${t.day.toLocaleDateString()}: SAR ${t.amount.toLocaleString()}">
+            <div class="dash-trend-bar revenue" data-h="${(t.amount / maxAmount * 100).toFixed(1)}"></div>
+            <span class="dash-trend-day">${t.day.getDate()}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    body.querySelectorAll('.dash-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    body.querySelectorAll('.dash-trend-bar').forEach(el => { el.style.height = Math.max(2, el.dataset.h) + '%'; });
+  }, 20);
+}
+
+// Same grouped/numbered card layout as the stage tabs, just filtered on the
+// duplicate flag instead of a stage number — duplicates are pulled out of the
+// active pipeline but kept here for audit.
+function renderDuplicatesTab() {
+  const q = ((document.getElementById('duplicates-search') || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => r.duplicate && caseMatchesSearch(r, q) && caseMatchesMine(r, 'duplicates')));
+  const statusEl = document.getElementById('duplicates-status');
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} duplicate request(s)`;
+  renderGroupedCaseList(cases, 'duplicates-list', 'No duplicate requests');
+}
+
+// Rectification is its own case type (see the vehicle-row checkbox in New
+// Request) with its own flow, not part of the Renewal pipeline — so it's
+// pulled out of the stage tabs (see renderStageTab's filter) and tracked here
+// instead, same grouped card layout as everywhere else.
+// Shared by every case type that's pulled out of the Renewal pipeline
+// entirely (Rectification, Transfer/Plate Change): no Sale Order, no expiry
+// dates, no WASL. Each type gets its own field set below, keyed under a
+// namespace (`ns`) so they store under different Firestore fields
+// (rect_location vs xfer_old_plate, etc.) without colliding — every type
+// still gets Remarks plus a Done/Pending status added automatically.
+const SIMPLE_CASE_FIELDS = {
+  rect: [
+    { key: 'location', label: 'Location' }
+  ],
+  xfer: [
+    { key: 'old_plate', label: 'Old Plate Number' },
+    { key: 'new_plate', label: 'New Plate Number' },
+    { key: 'old_owner', label: 'Old Owner Name' },
+    { key: 'new_owner', label: 'New Owner Name' }
+  ]
+};
+
+function renderSimpleCaseCard(r, ns) {
+  const label = escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'");
+  const status = r[`${ns}_status`];
+  const fields = SIMPLE_CASE_FIELDS[ns];
+  const stage = r.stage || 1;
+  return `<div class="pipeline-card" id="${ns}-card-${r.id}">
+    <div class="pipeline-card-head">
+      <div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="paid-for">${priorityTag(r)}${assignedTag(r)}${serviceTags(r)}</div>
+        <button type="button" class="info-toggle" id="pl-info-btn-${r.id}"
+          onclick="togglePipelineInfo('${r.id}', '${escapeHTML(r.plate).replace(/'/g, "\\'")}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          More info — old sale orders
+        </button>
+      </div>
+    </div>
+    <div class="pipeline-info" id="pl-info-${r.id}"></div>
+    <div class="stage-form">
+      <div class="stage-field">
+        <label class="input-label" for="${ns}-so-${r.id}">Sale Order #</label>
+        <input id="${ns}-so-${r.id}" value="${escapeHTML(r.sale_order)}">
+      </div>
+      ${fields.map(f => `<div class="stage-field">
+        <label class="input-label" for="${ns}-${f.key}-${r.id}">${escapeHTML(f.label)}</label>
+        <input id="${ns}-${f.key}-${r.id}" value="${escapeHTML(r[`${ns}_${f.key}`])}">
+      </div>`).join('')}
+      <div class="stage-field" style="flex-basis:100%">
+        <label class="input-label" for="${ns}-remarks-${r.id}">Remarks</label>
+        <input id="${ns}-remarks-${r.id}" value="${escapeHTML(r[`${ns}_remarks`])}">
+      </div>
+    </div>
+    <div class="pipeline-actions">
+      ${ns === 'xfer' ? `<button class="small" onclick="sendTransferToWasl('${r.id}')">Send for WASL → WASL Processing (Stage 4)</button>` : ''}
+      <select id="${ns}-status-${r.id}" aria-label="Status">
+        <option value="Pending" ${status === 'Done' ? '' : 'selected'}>Pending</option>
+        <option value="Done" ${status === 'Done' ? 'selected' : ''}>Done</option>
+      </select>
+      <button class="small" onclick="saveSimpleCase('${r.id}', '${ns}')">Save</button>
+      <button class="secondary small" onclick="switchTab('deal'); document.getElementById('edit-q').value = '${label}'; searchRequestsToEdit();">Edit</button>
+      ${isAdmin() ? `<button class="danger small" onclick="deleteRequest('${r.id}', '${label}')">Delete</button>` : ''}
+      <span id="${ns}-status-msg-${r.id}" style="font-size:12px;color:var(--c-fg-subtle)"></span>
+    </div>
+    <div class="pipeline-actions">
+      <select id="jump-stage-${r.id}" aria-label="Send to stage">
+        ${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${n === stage ? 'selected' : ''}>${n} — ${escapeHTML(STAGE_LABELS[n])}</option>`).join('')}
+      </select>
+      <button class="secondary small" onclick="sendToStage('${r.id}')">Send to Stage</button>
+    </div>
+    <div class="pipeline-actions">${assignControls(r)}</div>
+  </div>`;
+}
+
+async function saveSimpleCase(docId, ns) {
+  const statusEl = document.getElementById(`${ns}-status-msg-${docId}`);
+  statusEl.style.color = 'var(--c-fg-subtle)';
+  statusEl.textContent = 'Saving...';
+  const updates = {
+    sale_order: document.getElementById(`${ns}-so-${docId}`).value.trim(),
+    [`${ns}_remarks`]: document.getElementById(`${ns}-remarks-${docId}`).value.trim(),
+    [`${ns}_status`]: document.getElementById(`${ns}-status-${docId}`).value,
+    updated_by: auth.currentUser ? auth.currentUser.email : '',
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  SIMPLE_CASE_FIELDS[ns].forEach(f => {
+    updates[`${ns}_${f.key}`] = document.getElementById(`${ns}-${f.key}-${docId}`).value.trim();
+  });
+  try {
+    await db.collection('requests').doc(docId).update(updates);
+    statusEl.style.color = 'var(--c-success)';
+    statusEl.textContent = 'Saved';
+    showToast('Updated', 'success');
+  } catch (err) {
+    statusEl.style.color = 'var(--c-danger)';
+    statusEl.textContent = err.message;
+    showToast(err.message, 'error');
+  }
+}
+
+function renderRectificationTab() {
+  const q = ((document.getElementById('rectification-search') || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => r.rectification && caseMatchesSearch(r, q) && caseMatchesMine(r, 'rectification')));
+  const statusEl = document.getElementById('rectification-status');
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} rectification case(s)`;
+  document.getElementById('rectification-list').innerHTML = cases.map(r => renderSimpleCaseCard(r, 'rect')).join('')
+    || '<div class="no-results">No rectification cases</div>';
+}
+
+// Transfer and Plate Change are also pulled out of the Renewal pipeline —
+// same reasoning as Rectification, and combined into one tab per request.
+function renderTransferPlateTab() {
+  const q = ((document.getElementById('transferplate-search') || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => isPendingTransferPlate(r) && caseMatchesSearch(r, q) && caseMatchesMine(r, 'transferplate')));
+  const statusEl = document.getElementById('transferplate-status');
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} transfer / plate change case(s)`;
+  document.getElementById('transferplate-list').innerHTML = cases.map(r => renderSimpleCaseCard(r, 'xfer')).join('')
+    || '<div class="no-results">No transfer / plate change cases</div>';
+}
+
+// Everything at once — every stage, Renewal, Transfer/Plate Change — as the
+// same card UI as the other pipeline-style tabs (search, priority sort,
+// assign controls, My Cases). Only Duplicates are left out, same as
+// everywhere else in the app that treats them as "not real work."
+function renderAllCasesTab() {
+  const q = ((document.getElementById('allcases-search') || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => !r.duplicate && caseMatchesSearch(r, q) && caseMatchesMine(r, 'allcases')));
+  const statusEl = document.getElementById('allcases-status');
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} case(s) — all types`;
+  renderGroupedCaseList(cases, 'allcases-list', 'No cases found');
+}
+
+// Final destination for the pipeline — every case marked customer_closed at
+// Stage 7, pulled out of the "Customer Close" tab's own list so that tab stays
+// focused on cases still waiting to be closed.
+function renderClosedTab() {
+  const q = ((document.getElementById('closed-search') || {}).value || '').trim();
+  const cases = sortByPriorityDesc(REQUESTS_CACHE.filter(r => r.customer_closed && !r.duplicate && caseMatchesSearch(r, q) && caseMatchesMine(r, 'closed')));
+  const statusEl = document.getElementById('closed-status');
+  statusEl.className = 'status' + (cases.length ? '' : ' ready');
+  statusEl.textContent = `${cases.length} closed case(s)`;
+  renderGroupedCaseList(cases, 'closed-list', 'No closed cases yet');
 }
 
 function requestRowHtml(r) {
@@ -2832,11 +4207,16 @@ function renderRequestsTable() {
   const onlyRenewalPending = document.getElementById('req-flt-renewal').checked;
   const onlyWaslPending = document.getElementById('req-flt-wasl').checked;
   const q = document.getElementById('req-q').value.trim().toLowerCase();
+  const qPhone = normalizePhone(q);
 
   const rows = REQUESTS_CACHE.filter(r => {
     if (onlyRenewalPending && r.renewal_status === 'Done') return false;
     if (onlyWaslPending && r.wasl_status === 'Done') return false;
-    if (q && !['plate','encoder','sale_order','mobile','remarks','renewal_id'].some(k => r[k] && String(r[k]).toLowerCase().includes(q))) return false;
+    if (q) {
+      const textMatch = ['plate','encoder','sale_order','mobile','remarks','renewal_id'].some(k => r[k] && String(r[k]).toLowerCase().includes(q));
+      const phoneMatch = qPhone && r.mobile && normalizePhone(r.mobile).includes(qPhone);
+      if (!textMatch && !phoneMatch) return false;
+    }
     return true;
   });
 
@@ -2877,9 +4257,15 @@ async function updateRequest(docId) {
   statusEl.style.color = 'var(--c-fg-subtle)';
   statusEl.textContent = 'Saving...';
   const stageVal = parseInt(document.getElementById('req-stage-' + docId).value, 10);
-  const updates = {
+  // Plate and Amount are per-vehicle — stay on this doc only. Everything else
+  // here (Sale Order, Priority, Stage, Device/Renewal/WASL/Closed, Remarks)
+  // belongs to the whole job, so it fans out to every vehicle sharing this
+  // Renewal ID, same as the pipeline card's Save/Advance buttons.
+  const perVehicle = {
     plate: document.getElementById('req-plate-' + docId).value.trim(),
-    amount: parseFloat(document.getElementById('req-amt-' + docId).value) || 0,
+    amount: parseFloat(document.getElementById('req-amt-' + docId).value) || 0
+  };
+  const jobLevel = {
     sale_order: document.getElementById('req-so-' + docId).value.trim(),
     priority: document.getElementById('req-prio-' + docId).value,
     stage: stageVal,
@@ -2888,16 +4274,27 @@ async function updateRequest(docId) {
     renewal_status: document.getElementById('req-ren-' + docId).checked ? 'Done' : 'Pending',
     wasl_status: document.getElementById('req-wasl-' + docId).checked ? 'Done' : 'Pending',
     customer_closed: document.getElementById('req-closed-' + docId).checked,
-    remarks: document.getElementById('req-rem-' + docId).value.trim(),
+    remarks: document.getElementById('req-rem-' + docId).value.trim()
+  };
+  const common = {
     updated_by: auth.currentUser ? auth.currentUser.email : '',
     updated_at: firebase.firestore.FieldValue.serverTimestamp()
   };
   try {
-    await db.collection('requests').doc(docId).update(updates);
+    const jobIds = jobMemberIds(docId);
+    const others = jobIds.filter(id => id !== docId);
+    await Promise.all([
+      db.collection('requests').doc(docId).update({ ...perVehicle, ...jobLevel, ...common }),
+      ...others.map(id => db.collection('requests').doc(id).update({ ...jobLevel, ...common }))
+    ]);
     const idx = REQUESTS_CACHE.findIndex(r => r.id === docId);
-    if (idx !== -1) Object.assign(REQUESTS_CACHE[idx], updates);
+    if (idx !== -1) Object.assign(REQUESTS_CACHE[idx], perVehicle, jobLevel);
+    others.forEach(id => {
+      const i = REQUESTS_CACHE.findIndex(r => r.id === id);
+      if (i !== -1) Object.assign(REQUESTS_CACHE[i], jobLevel);
+    });
     statusEl.style.color = 'var(--c-success)';
-    statusEl.textContent = 'Saved';
+    statusEl.textContent = jobIds.length > 1 ? `Saved (${jobIds.length} vehicles)` : 'Saved';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   } catch (err) {
     statusEl.style.color = 'var(--c-danger)';
@@ -2949,21 +4346,27 @@ document.getElementById('req-q').addEventListener('input', () => {
 
 // ==================== Renewals status tab (Firestore) ====================
 let RENEWALS_CACHE = [];
+let renewalsUnsubscribe = null;
 
-async function loadRenewals() {
+// Was a one-time .get() — every other tab in this app (requests, daily
+// requests, users) is a live onSnapshot listener, so this was the one screen
+// that silently went stale until you manually hit Refresh or left and came
+// back. Now it stays live like everything else.
+function loadRenewals() {
   const statusEl = document.getElementById('renewals-status');
   statusEl.className = 'status';
   statusEl.innerHTML = '<span class="spinner"></span>Loading...';
-  try {
-    const snap = await db.collection('renewals').orderBy('created_at', 'desc').limit(200).get();
-    RENEWALS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    statusEl.className = 'status ready';
-    statusEl.textContent = `${RENEWALS_CACHE.length} renewal record(s)`;
-    renderRenewalsTable();
-  } catch (err) {
-    statusEl.className = 'status error';
-    statusEl.textContent = err.message;
-  }
+  if (renewalsUnsubscribe) renewalsUnsubscribe();
+  renewalsUnsubscribe = db.collection('renewals').orderBy('created_at', 'desc').limit(200)
+    .onSnapshot(snap => {
+      RENEWALS_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      statusEl.className = 'status ready';
+      statusEl.textContent = `${RENEWALS_CACHE.length} renewal record(s) — live`;
+      renderRenewalsTable();
+    }, err => {
+      statusEl.className = 'status error';
+      statusEl.textContent = err.message;
+    });
 }
 
 function pill(v) { return `<span class="pill ${v ? 'yes' : 'no'}">${v ? 'Yes' : 'No'}</span>`; }
@@ -2986,7 +4389,7 @@ function renderRenewalsTable() {
       <td>${escapeHTML(r.plate_no)}</td>
       <td>${escapeHTML(r.company_name)}</td>
       <td>${escapeHTML(r.new_sale_order)}</td>
-      <td>${escapeHTML(r.new_exp_date)}</td>
+      <td>${escapeHTML(formatDateDMY(r.new_exp_date))}</td>
       <td>${pill(r.renewal_done)}</td>
       <td>${pill(r.vehicle_reporting)}</td>
       <td>${pill(r.wasl_done)}</td>
@@ -3005,7 +4408,7 @@ function exportExcel() {
     Plate: r.plate_no || '',
     Company: r.company_name || '',
     'Sale Order': r.new_sale_order || '',
-    'New Exp Date': r.new_exp_date || '',
+    'New Exp Date': formatDateDMY(r.new_exp_date) || '',
     'Renewal Done': r.renewal_done ? 'Yes' : 'No',
     'Vehicle Reporting': r.vehicle_reporting ? 'Yes' : 'No',
     'Wasl Done': r.wasl_done ? 'Yes' : 'No',
