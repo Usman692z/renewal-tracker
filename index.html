@@ -3782,8 +3782,12 @@ function openCaseView(docId) {
   // modal (looked like "nothing saves, More Info won't open"). Removing the
   // background copy first leaves only the modal's as the one true copy;
   // refreshCurrentCaseList() redraws the list to bring it back on close.
-  const bg = document.getElementById('pl-card-' + docId);
-  if (bg) bg.remove();
+  // Rectification/Transfer list cards use their own id prefix, so clear those
+  // too — the modal draws the same ${ns}-card-* / ${ns}-so-* ids.
+  ['pl-card-', 'rect-card-', 'xfer-card-'].forEach(prefix => {
+    const bg = document.getElementById(prefix + docId);
+    if (bg) bg.remove();
+  });
   renderCaseView();
 }
 
@@ -3828,10 +3832,22 @@ function renderCaseView() {
   // jobMemberIds), so each one gets its own full card here — own stage, own
   // form, own advance buttons — not just a read-only summary row.
   const siblings = r.renewal_id ? REQUESTS_CACHE.filter(x => x.renewal_id === r.renewal_id && x.id !== r.id) : [];
-  box.innerHTML = `${closeBtn}${renderCaseStepper(r)}
+
+  // Which form(s) this case actually needs. Rectification and Transfer/Plate
+  // Change have their own fields, not the stage form — a case reached from
+  // those tabs must open with the right one. A Renewal+Transfer case genuinely
+  // needs BOTH (see isTransferOnlyPending): two independent forms, which is
+  // what was explicitly chosen over merging them.
+  const forms = [];
+  if (r.rectification) forms.push(['Rectification', renderSimpleCaseCard(r, 'rect')]);
+  if (isPendingTransferPlate(r)) forms.push(['Transfer / Plate Change', renderSimpleCaseCard(r, 'xfer')]);
+  if (!r.rectification && !isTransferOnlyPending(r)) forms.unshift([null, renderPipelineCard(r)]);
+
+  const stepper = (!r.rectification && !isTransferOnlyPending(r)) ? renderCaseStepper(r) : '';
+  box.innerHTML = `${closeBtn}${stepper}
     <button class="ghost small" style="margin-bottom:10px" onclick="caseViewPrevious('${r.id}')" ${stage <= 1 ? 'disabled' : ''}>&larr; Previous stage</button>
     <button class="ghost small" style="margin-bottom:10px;margin-left:6px" onclick="openVehicleDetailsFromCase('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Open Vehicle Details</button>
-    ${renderPipelineCard(r)}
+    ${forms.map(([heading, html]) => (heading ? `<div class="section-label" style="margin:12px 0 6px">${escapeHTML(heading)}</div>` : '') + html).join('')}
     ${siblings.length ? `<div class="section-label" style="margin:12px 0 6px">Other vehicles in this job (${siblings.length})</div>${siblings.map(renderPipelineCard).join('')}` : ''}`;
 }
 
@@ -4081,6 +4097,32 @@ const SIMPLE_CASE_FIELDS = {
   ]
 };
 
+// List-view version of renderSimpleCaseCard — same idea as
+// renderCompactCaseCard: identity strip + status pill + one View button,
+// with the actual form and actions left to Case View.
+function renderCompactSimpleCard(r, ns) {
+  const status = r[`${ns}_status`] === 'Done' ? 'Done' : 'Pending';
+  return `<div class="pipeline-card${r.on_hold ? ' on-hold' : ''}" id="${ns}-card-${r.id}">
+    <div class="pipeline-card-head">
+      <div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="paid-for">
+          ${priorityTag(r)}
+          ${assignedTag(r)}
+          ${serviceTags(r)}
+          ${r.sale_order ? `<span class="paid-so">SO ${escapeHTML(r.sale_order)}</span>` : ''}
+          <span class="pill ${status === 'Done' ? 'yes' : 'prio-medium'}">${status}</span>
+        </div>
+      </div>
+      <div class="stage-dates"><strong>${ns === 'xfer' ? 'Transfer / Plate' : 'Rectification'}</strong></div>
+    </div>
+    <div class="pipeline-actions">
+      <button class="small" onclick="openCaseView('${r.id}')">View</button>
+    </div>
+  </div>`;
+}
+
 function renderSimpleCaseCard(r, ns) {
   const label = escapeHTML(r.renewal_id || r.plate || r.id).replace(/'/g, "\\'");
   const status = r[`${ns}_status`];
@@ -4167,7 +4209,7 @@ function renderRectificationTab() {
   const statusEl = document.getElementById('rectification-status');
   statusEl.className = 'status' + (cases.length ? '' : ' ready');
   statusEl.textContent = `${cases.length} rectification case(s)`;
-  document.getElementById('rectification-list').innerHTML = cases.map(r => renderSimpleCaseCard(r, 'rect')).join('')
+  document.getElementById('rectification-list').innerHTML = cases.map(r => renderCompactSimpleCard(r, 'rect')).join('')
     || '<div class="no-results">No rectification cases</div>';
 }
 
@@ -4179,7 +4221,7 @@ function renderTransferPlateTab() {
   const statusEl = document.getElementById('transferplate-status');
   statusEl.className = 'status' + (cases.length ? '' : ' ready');
   statusEl.textContent = `${cases.length} transfer / plate change case(s)`;
-  document.getElementById('transferplate-list').innerHTML = cases.map(r => renderSimpleCaseCard(r, 'xfer')).join('')
+  document.getElementById('transferplate-list').innerHTML = cases.map(r => renderCompactSimpleCard(r, 'xfer')).join('')
     || '<div class="no-results">No transfer / plate change cases</div>';
 }
 
