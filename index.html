@@ -1342,7 +1342,7 @@ function showApp(user) {
 }
 
 addVehicleRow();
-document.getElementById('daily-date').value = formatDateDMY(new Date().toISOString().slice(0, 10));
+document.getElementById('daily-date').value = formatDateDMY(todayISO());
 initCaseSearchBoxes();
 
 auth.onAuthStateChanged(user => {
@@ -2662,7 +2662,7 @@ async function saveRenewalRequest(startStage) {
 
   const renewalId = computeRenewalId(mobile, DEAL_HISTORY_DOCS);
   const basePayload = {
-    date: new Date().toISOString().slice(0, 10),
+    date: todayISO(),
     encoder: ME.encoderName || (auth.currentUser ? auth.currentUser.email : ''),
     renewal_id: renewalId,
     mobile: mobile,
@@ -2709,7 +2709,7 @@ function toggleDailyComplaintType() {
 
 async function saveDailyRequest() {
   const statusEl = document.getElementById('daily-status-msg');
-  const date = parseDMYToISO(document.getElementById('daily-date').value) || new Date().toISOString().slice(0, 10);
+  const date = parseDMYToISO(document.getElementById('daily-date').value) || todayISO();
   const mobile = document.getElementById('daily-mobile').value.trim();
   const task = document.getElementById('daily-task').value;
   const complaintType = document.getElementById('daily-complaint-type').value;
@@ -3377,6 +3377,17 @@ const STAGE_FORMS = {
   ]
 };
 
+// Today's LOCAL calendar date. toISOString() returns the UTC date, which in
+// Saudi (UTC+3) is still yesterday between 00:00 and 03:00 local — so a case
+// created at 1am was being stamped and displayed with the previous day's date.
+// Everything reads `date` as a local calendar day, so it has to be written as
+// one. (Note this cannot produce a date in the future: a case dated ahead of
+// today means the machine that created it had its clock set forward.)
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Every stage records when the case landed in it, keyed by stage number, so the
 // card can show the trail without anyone entering a date by hand.
 function stampStageDate(stage) {
@@ -3551,7 +3562,7 @@ function exportStage6Excel() {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Stage 6');
-  XLSX.writeFile(wb, `stage6-device-check-${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `stage6-device-check-${todayISO()}.xlsx`);
 }
 
 // ---- Per-tab Excel export ----
@@ -3612,7 +3623,7 @@ function exportCaseTabExcel(key) {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cases.map(exportRow)), 'Cases');
-  XLSX.writeFile(wb, `${key}${all ? '-all' : ''}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `${key}${all ? '-all' : ''}-${todayISO()}.xlsx`);
   showToast(`Exported ${cases.length} case(s)`, 'success');
 }
 
@@ -4638,7 +4649,7 @@ function exportExcel() {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Renewals');
-  XLSX.writeFile(wb, `renewals-export-${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `renewals-export-${todayISO()}.xlsx`);
 }
 
 renderNav();
