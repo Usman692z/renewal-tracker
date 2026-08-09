@@ -2467,6 +2467,10 @@ function editCardHtml(r) {
         <input id="edit-plate-${r.id}" value="${escapeHTML(r.plate)}">
       </div>
       <div class="stage-field">
+        <label class="input-label" for="edit-mobile-${r.id}">Mobile Number</label>
+        <input id="edit-mobile-${r.id}" type="tel" inputmode="tel" value="${escapeHTML(r.mobile)}">
+      </div>
+      <div class="stage-field">
         <label class="input-label" for="edit-amt-${r.id}">Amount</label>
         <input id="edit-amt-${r.id}" type="number" step="any" value="${r.amount || ''}">
       </div>
@@ -2525,6 +2529,11 @@ async function saveEditedRequest(docId) {
     perVehicle[key] = document.getElementById(`edit-svc-${key}-${docId}`).checked;
   });
   const jobLevel = {
+    // The customer's number belongs to the whole job, not one vehicle.
+    // renewal_id is deliberately NOT recomputed from it — the id is already
+    // printed on paperwork and referenced elsewhere, so a corrected typo in
+    // the phone must not silently renumber the case.
+    mobile: document.getElementById('edit-mobile-' + docId).value.trim(),
     sale_order: document.getElementById('edit-so-' + docId).value.trim(),
     priority: document.getElementById('edit-prio-' + docId).value,
     remarks: document.getElementById('edit-rem-' + docId).value.trim()
