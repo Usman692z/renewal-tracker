@@ -675,7 +675,7 @@ tr.plate-match:hover td { background: #FEF9C3; }
     <div id="tab-stage3" style="display:none"><div id="stage3-status" class="status"></div><div id="stage3-list"></div></div>
     <div id="tab-stage4" style="display:none"><div id="stage4-status" class="status"></div><div id="stage4-list"></div></div>
     <div id="tab-stage5" style="display:none"><div id="stage5-status" class="status"></div><div id="stage5-list"></div></div>
-    <div id="tab-stage6" style="display:none"><button class="secondary small" onclick="exportStage6Excel()">Export to Excel</button><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
+    <div id="tab-stage6" style="display:none"><button class="secondary small" onclick="exportStage6Excel()">Export — Contact / Plate / Remarks only</button><div id="stage6-status" class="status"></div><div id="stage6-list"></div></div>
     <div id="tab-stage7" style="display:none"><div id="stage7-status" class="status"></div><div id="stage7-list"></div></div>
     <div id="tab-closed" style="display:none"><div id="closed-status" class="status"></div><div id="closed-list"></div></div>
 
@@ -3191,6 +3191,11 @@ function caseSearchBox(key, onInput) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
       Refresh
     </button>
+    <button class="secondary small" onclick="exportCaseTabExcel('${key}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      Export Excel
+    </button>
+    <label class="chip"><input type="checkbox" id="${key}-exportall"> Select All</label>
   </div>`;
 }
 // Injected once at load, right above each pipeline-style list's status line
@@ -3520,6 +3525,68 @@ function exportStage6Excel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Stage 6');
   XLSX.writeFile(wb, `stage6-device-check-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ---- Per-tab Excel export ----
+// Each tab's base set, mirroring exactly what its render function shows before
+// the search/My Cases filters are applied. Keep these in step with the
+// matching render* function if its filter ever changes.
+const TAB_BASE_FILTER = {
+  duplicates: r => r.duplicate,
+  rectification: r => r.rectification,
+  transferplate: r => isPendingTransferPlate(r),
+  allcases: r => !r.duplicate,
+  closed: r => r.customer_closed && !r.duplicate
+};
+function baseCasesForTab(key) {
+  if (TAB_BASE_FILTER[key]) return REQUESTS_CACHE.filter(TAB_BASE_FILTER[key]);
+  const n = parseInt(key.replace('stage', ''), 10);
+  return REQUESTS_CACHE.filter(r => (r.stage || 1) === n && !r.duplicate && !r.rectification
+    && !isTransferOnlyPending(r) && !(n === 7 && r.customer_closed));
+}
+
+function exportRow(r) {
+  const stage = r.stage || 1;
+  return {
+    'Renewal ID': r.renewal_id || '',
+    'Plate': r.plate || '',
+    'Mobile': r.mobile || '',
+    'Encoder': r.encoder || '',
+    'Date': r.date || '',
+    'Stage': stage,
+    'Stage Name': STAGE_LABELS[stage] || '',
+    'Priority': r.priority || '',
+    'On Hold': r.on_hold ? 'Yes' : '',
+    'Assigned To': r.assigned_to_name || r.assigned_to || '',
+    'Sale Order': r.sale_order || '',
+    'Amount': Number(r.amount) || 0,
+    'Services': SERVICE_FLAGS.filter(([k]) => r[k]).map(([, label]) => label).join(', '),
+    'Old Expiry': r.old_expiry || '',
+    'New Expiry': r.new_expiry || '',
+    'WASL Status': r.wasl_status || '',
+    'WASL Outcome': r.wasl_outcome || '',
+    'Device Status': r.device_status || '',
+    'Remarks': r.remarks || '',
+    'Last Updated By': r.updated_by || ''
+  };
+}
+
+// "Select All" ticked exports the tab's whole base set; left unticked it
+// exports exactly what's on screen, search and My Cases included.
+function exportCaseTabExcel(key) {
+  const all = (document.getElementById(`${key}-exportall`) || {}).checked;
+  let cases = baseCasesForTab(key);
+  if (!all) {
+    const q = ((document.getElementById(`${key}-search`) || {}).value || '').trim();
+    cases = cases.filter(r => caseMatchesSearch(r, q) && caseMatchesMine(r, key));
+  }
+  if (!cases.length) { showToast('Nothing to export', 'error'); return; }
+  cases = sortByPriorityDesc(cases);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cases.map(exportRow)), 'Cases');
+  XLSX.writeFile(wb, `${key}${all ? '-all' : ''}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  showToast(`Exported ${cases.length} case(s)`, 'success');
 }
 
 // What the customer actually paid for. The boolean flags are the source of
