@@ -1250,7 +1250,7 @@ function renderNav() {
   tabs.forEach(t => {
     if (t.group !== lastGroup) { html += `<div class="nav-group">${t.group}</div>`; lastGroup = t.group; }
     const lead = t.step ? `<span class="step">${t.step}</span>` : icon(t.icon);
-    const badge = t.step ? `<span class="nav-badge" id="nav-badge-${t.key}">0</span>` : '';
+    const badge = (t.step || BADGE_TABS.includes(t.key)) ? `<span class="nav-badge" id="nav-badge-${t.key}">0</span>` : '';
     html += `<button type="button" class="nav-item${t.key === currentActiveTab ? ' active' : ''}" data-tab="${t.key}" onclick="switchTab('${t.key}')">
       ${lead}<span class="label">${escapeHTML(t.label)}</span>${badge}</button>`;
   });
@@ -1428,6 +1428,11 @@ function switchTab(name) {
   if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
 }
 
+// Tabs that get a nav badge without being a numbered stage. 'closed' was
+// already handled in updateNavBadges but never actually rendered one — only
+// t.step tabs got the element — so its count silently went nowhere.
+const BADGE_TABS = ['closed', 'rectification', 'transferplate'];
+
 function updateNavBadges() {
   STAGE_TAB_NAMES.forEach((key, i) => {
     const el = document.getElementById('nav-badge-' + key);
@@ -1435,6 +1440,19 @@ function updateNavBadges() {
   });
   const closedEl = document.getElementById('nav-badge-closed');
   if (closedEl) closedEl.textContent = REQUESTS_CACHE.filter(r => r.customer_closed && !r.duplicate).length;
+
+  // Rectification and Transfer/Plate Change aren't stages, so a single number
+  // says little — they show "pending / done" instead, counted over exactly the
+  // set their own tab lists (see TAB_BASE_FILTER) so the badge and the list
+  // can't disagree.
+  [['rectification', 'rect'], ['transferplate', 'xfer']].forEach(([key, ns]) => {
+    const el = document.getElementById('nav-badge-' + key);
+    if (!el) return;
+    const cases = REQUESTS_CACHE.filter(TAB_BASE_FILTER[key]);
+    const done = cases.filter(r => r[`${ns}_status`] === 'Done').length;
+    el.textContent = `${cases.length - done} / ${done}`;
+    el.title = `${cases.length - done} pending · ${done} done`;
+  });
 }
 
 // ==================== Toasts ====================
