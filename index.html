@@ -3339,7 +3339,11 @@ const STAGE_FORMS = {
   3: [
     { key: 'old_expiry', label: 'Old Expiry Date', type: 'date' },
     { key: 'new_expiry', label: 'New Expiry Date', type: 'date', required: true },
-    { key: 'renewal_ref', label: 'Renewal Reference No', type: 'text' },
+    // Was "Renewal Reference No" — same underlying field, renamed to what it
+    // actually holds. New Sale Order prefills from the Sale Order # captured
+    // one stage earlier (Stage 2) so it doesn't have to be retyped.
+    { key: 'renewal_ref', label: 'Old Sale Order', type: 'text' },
+    { key: 'new_sale_order', label: 'New Sale Order', type: 'text', defaultFrom: 'sale_order' },
     { key: 'missing_docs', label: 'Missing Documents', type: 'text' },
     { key: 'istimara_received', label: 'Istimara received', type: 'checkbox' },
     { key: 'renewal_remarks', label: 'Renewal Remarks', type: 'text' }
@@ -3388,7 +3392,12 @@ function renderStageForm(r, stage) {
   return `<div class="stage-form">
     ${fields.map(f => {
       const id = fieldId(r.id, f.key);
-      const val = r[f.key];
+      // defaultFrom prefills from another field the case already carries,
+      // whenever this one is empty. Anything typed here wins, but clearing it
+      // and saving lets the default come back — empty means "unset", not
+      // "deliberately blank".
+      const own = r[f.key];
+      const val = (own === undefined || own === null || own === '') && f.defaultFrom ? r[f.defaultFrom] : own;
       if (f.type === 'checkbox') {
         return `<label class="chip stage-check"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}> ${escapeHTML(f.label)}</label>`;
       }
