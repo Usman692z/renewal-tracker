@@ -2529,11 +2529,6 @@ async function saveEditedRequest(docId) {
     perVehicle[key] = document.getElementById(`edit-svc-${key}-${docId}`).checked;
   });
   const jobLevel = {
-    // The customer's number belongs to the whole job, not one vehicle.
-    // renewal_id is deliberately NOT recomputed from it — the id is already
-    // printed on paperwork and referenced elsewhere, so a corrected typo in
-    // the phone must not silently renumber the case.
-    mobile: document.getElementById('edit-mobile-' + docId).value.trim(),
     sale_order: document.getElementById('edit-so-' + docId).value.trim(),
     priority: document.getElementById('edit-prio-' + docId).value,
     remarks: document.getElementById('edit-rem-' + docId).value.trim()
@@ -2542,17 +2537,45 @@ async function saveEditedRequest(docId) {
     updated_by: auth.currentUser ? auth.currentUser.email : '',
     updated_at: firebase.firestore.FieldValue.serverTimestamp()
   };
+
+  // mobile and renewal_id are the job's identity, not per-vehicle data. Unlike
+  // everything above they must NOT follow jobMemberIds (which deliberately
+  // returns [docId] so operational fields stay per-vehicle): if one vehicle of
+  // a two-vehicle job took the new number and new Renewal ID while its sibling
+  // kept the old ones, the job would silently split in two — both
+  // renderGroupedCaseList and Case View's sibling lookup group on renewal_id.
+  // So these two always fan out across the whole Renewal ID group.
+  const current = REQUESTS_CACHE.find(x => x.id === docId) || {};
+  const newMobile = document.getElementById('edit-mobile-' + docId).value.trim();
+  const digits = s => String(s || '').replace(/\D/g, '');
+  const identity = { mobile: newMobile };
+
+  const groupIds = current.renewal_id
+    ? REQUESTS_CACHE.filter(x => x.renewal_id === current.renewal_id).map(x => x.id)
+    : [docId];
+
+  if (digits(newMobile) !== digits(current.mobile)) {
+    // Collisions are checked against every OTHER job — this job's own docs are
+    // excluded, or its current id would count as a clash with itself.
+    const otherJobs = REQUESTS_CACHE.filter(x => x.renewal_id !== current.renewal_id);
+    identity.renewal_id = computeRenewalId(newMobile, otherJobs);
+  }
+
   try {
     const jobIds = jobMemberIds(docId);
     const others = jobIds.filter(id => id !== docId);
+    const identityOnly = groupIds.filter(id => id !== docId && !others.includes(id));
     await Promise.all([
-      db.collection('requests').doc(docId).update({ ...perVehicle, ...jobLevel, ...common }),
-      ...others.map(id => db.collection('requests').doc(id).update({ ...jobLevel, ...common }))
+      db.collection('requests').doc(docId).update({ ...perVehicle, ...jobLevel, ...identity, ...common }),
+      ...others.map(id => db.collection('requests').doc(id).update({ ...jobLevel, ...identity, ...common })),
+      ...identityOnly.map(id => db.collection('requests').doc(id).update({ ...identity, ...common }))
     ]);
     PLATE_HISTORY_CACHE.clear(); // the plate or amount just changed
     statusEl.style.color = 'var(--c-success)';
-    statusEl.textContent = jobIds.length > 1 ? `Saved for the whole job (${jobIds.length} vehicles)` : 'Saved';
-    showToast('Request updated', 'success');
+    statusEl.textContent = identity.renewal_id
+      ? `Saved — Renewal ID is now ${identity.renewal_id}${groupIds.length > 1 ? ` (${groupIds.length} vehicles)` : ''}`
+      : (jobIds.length > 1 ? `Saved for the whole job (${jobIds.length} vehicles)` : 'Saved');
+    showToast(identity.renewal_id ? `Renewal ID updated to ${identity.renewal_id}` : 'Request updated', 'success');
   } catch (err) {
     statusEl.style.color = 'var(--c-danger)';
     statusEl.textContent = err.message;
