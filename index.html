@@ -1182,6 +1182,7 @@ const TAB_REGISTRY = [
   { key: 'search',   group: 'Operations', label: 'Search & Renew',    icon: 'search', sub: 'Search a vehicle, record its renewal, track checkpoints' },
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
   { key: 'daily',    group: 'Operations', label: 'Daily Requests',    icon: 'list',   sub: 'Log a daily call — task type, status, and complaint feedback' },
+  { key: 'transferplate', group: 'Operations', label: 'Transfer / Plate Change', icon: 'building', sub: 'Transfer and Plate Change cases — tracked separately from the Renewal pipeline' },
   { key: 'allcases', group: 'Pipeline', label: 'All Requests', icon: 'table', sub: 'Every active case — every type, every stage — as cards, same as the other pipeline views' },
   ...STAGE_TAB_NAMES.map((k, i) => ({
     key: k, group: 'Pipeline', step: i + 1,
@@ -1196,7 +1197,6 @@ const TAB_REGISTRY = [
   { key: 'requests', group: 'Reports', label: 'Master (All Stages)', icon: 'table', sub: 'Every case in one editable table' },
   { key: 'duplicates', group: 'Reports', label: 'Duplicates', icon: 'x', sub: 'Requests marked as duplicate — kept for audit, out of the active pipeline' },
   { key: 'rectification', group: 'Reports', label: 'Rectification', icon: 'alert', sub: 'Rectification cases — tracked separately from the Renewal pipeline' },
-  { key: 'transferplate', group: 'Reports', label: 'Transfer / Plate Change', icon: 'building', sub: 'Transfer and Plate Change cases — tracked separately from the Renewal pipeline' },
   { key: 'admin',    group: 'Administration', label: 'Users & Access', icon: 'users', sub: 'Decide what each user can open', adminOnly: true }
 ];
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
