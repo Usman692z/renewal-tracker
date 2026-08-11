@@ -3173,6 +3173,14 @@ function isTransferOnlyPending(r) {
   return isPendingTransferPlate(r) && !r.renewal;
 }
 
+// A New Installation has nothing to renew and no WASL step of its own, so its
+// journey is just Payment Received -> Sale Order -> Customer Close. Same
+// "-only" rule as isTransferOnlyPending above: a case ticked New Installation
+// AND Renewal still has a renewal to process, so it keeps the full pipeline.
+function isNewInstallOnly(r) {
+  return !!r.new_install && !r.renewal;
+}
+
 // "+966 54 231 5449", "54 231 5449", "542315449" and "0542315449" are all the
 // same number — strip everything but digits, then the country code and/or
 // leading trunk 0, so search matches regardless of how it was typed/stored.
@@ -3849,11 +3857,13 @@ function renderPipelineCard(r) {
       <button class="small" onclick="advancePipelineCase('${r.id}', {}, 2)">Payment Confirmed → Stage 2</button>${saveBtn}
     </div>`;
   } else if (stage === 2) {
+    // New Installation skips renewal/WASL entirely and closes from here.
+    const newInstall = isNewInstallOnly(r);
     action = `<div class="pipeline-actions">
       <a class="btn-link" href="${odooNewUrl('sale.order.wags')}" target="_blank" rel="noopener">
         ${icon('plus')}Create Sale Order in Odoo
       </a>
-      <button class="small" onclick="advanceWithForm('${r.id}', 2, {}, 3)">Start Renewal Processing → Stage 3</button>${saveBtn}
+      <button class="small" onclick="advanceWithForm('${r.id}', 2, {}, ${newInstall ? 7 : 3})">${newInstall ? 'Proceed to Customer Close' : 'Start Renewal Processing → Stage 3'}</button>${saveBtn}
     </div>`;
   } else if (stage === 3) {
     action = `<div class="pipeline-actions"><button class="small" onclick="advanceWithForm('${r.id}', 3, {renewal_status: 'Done'}, 4)">Mark Renewal Done → WASL Processing (Stage 4)</button>${saveBtn}</div>`;
@@ -3908,6 +3918,17 @@ function renderPipelineCard(r) {
 let CASE_VIEW_ID = null;
 const STAGE_STEP_LABELS = ['Payment Received', 'Sale Order', 'Renewal Processing', 'WASL Processing', 'WASL Completed', 'Device Check', 'Customer Close'];
 
+// The New Installation journey. Underlying stage numbers stay 1, 2 and 7 —
+// every tab, badge, filter and export keys off `stage`, so renumbering would
+// have meant touching all of them. Only the steps shown and the Stage 2
+// hand-off differ; the stepper numbers them 1-2-3 since that's the flow the
+// user actually walks.
+const NEW_INSTALL_STEPS = [
+  { stage: 1, label: 'Payment Received' },
+  { stage: 2, label: 'Sale Order' },
+  { stage: 7, label: 'Customer Close' }
+];
+
 function openCaseView(docId) {
   CASE_VIEW_ID = docId;
   document.getElementById('case-view-modal').style.display = 'flex';
@@ -3938,10 +3959,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && CASE_VIEW_
 
 function renderCaseStepper(r) {
   const stage = r.stage || 1;
-  return `<div class="case-stepper">${STAGE_STEP_LABELS.map((label, i) => {
-    const n = i + 1;
-    const cls = n < stage ? 'done' : n === stage ? 'current' : '';
-    return `<div class="case-step ${cls}"><span class="case-step-num">${n < stage ? '✓' : n}</span>${escapeHTML(label)}</div>`;
+  const steps = isNewInstallOnly(r)
+    ? NEW_INSTALL_STEPS
+    : STAGE_STEP_LABELS.map((label, i) => ({ stage: i + 1, label }));
+  return `<div class="case-stepper">${steps.map((s, i) => {
+    const cls = s.stage < stage ? 'done' : s.stage === stage ? 'current' : '';
+    return `<div class="case-step ${cls}"><span class="case-step-num">${s.stage < stage ? '✓' : i + 1}</span>${escapeHTML(s.label)}</div>`;
   }).join('')}</div>`;
 }
 
