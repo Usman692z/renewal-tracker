@@ -1701,10 +1701,10 @@ function addVehicleRow() {
       <button type="button" class="remove-btn" onclick="removeVehicleRow(this)" title="Remove vehicle" aria-label="Remove vehicle">${icon('x')}</button>
     </div>
     <div class="chip-row">
-      <label class="chip"><input type="checkbox" class="v-type-renewal"> Renewal</label>
+      <label class="chip"><input type="checkbox" class="v-type-renewal" onchange="enforceServiceExclusivity(this, '.v-type-newinstall')"> Renewal</label>
       <label class="chip"><input type="checkbox" class="v-type-transfer"> Transfer</label>
       <label class="chip"><input type="checkbox" class="v-type-platechange"> Plate Change</label>
-      <label class="chip"><input type="checkbox" class="v-type-newinstall"> New Installation</label>
+      <label class="chip"><input type="checkbox" class="v-type-newinstall" onchange="enforceServiceExclusivity(this, '.v-type-renewal')"> New Installation</label>
       <label class="chip"><input type="checkbox" class="v-type-rectification"> Rectification</label>
       <label class="chip"><input type="checkbox" class="v-type-wasl"> WASL Request</label>
       <label class="chip"><input type="checkbox" class="v-type-services"> Services</label>
@@ -2513,10 +2513,14 @@ function editCardHtml(r) {
       <div class="stage-field" style="flex-basis:100%">
         <label class="input-label">Service Type</label>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
-          ${SERVICE_FLAGS.map(([key, svcLabel]) => `
+          ${SERVICE_FLAGS.map(([key, svcLabel]) => {
+            const opposite = key === 'renewal' ? 'new_install' : key === 'new_install' ? 'renewal' : null;
+            const excl = opposite ? ` onchange="enforceServiceExclusivity(this, '#edit-svc-${opposite}-${r.id}')"` : '';
+            return `
             <label style="display:flex;align-items:center;gap:6px;font-weight:400">
-              <input type="checkbox" id="edit-svc-${key}-${r.id}" ${r[key] ? 'checked' : ''}>${escapeHTML(svcLabel)}
-            </label>`).join('')}
+              <input type="checkbox" id="edit-svc-${key}-${r.id}" ${r[key] ? 'checked' : ''}${excl}>${escapeHTML(svcLabel)}
+            </label>`;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -3174,11 +3178,24 @@ function isTransferOnlyPending(r) {
 }
 
 // A New Installation has nothing to renew and no WASL step of its own, so its
-// journey is just Payment Received -> Sale Order -> Customer Close. Same
-// "-only" rule as isTransferOnlyPending above: a case ticked New Installation
-// AND Renewal still has a renewal to process, so it keeps the full pipeline.
-function isNewInstallOnly(r) {
-  return !!r.new_install && !r.renewal;
+// journey is just Payment Received -> Sale Order -> Customer Close. Unlike
+// Transfer (which can genuinely accompany a Renewal), New Installation and
+// Renewal are mutually exclusive by definition — the forms enforce that, so
+// there's no "-only" variant to check here.
+function isNewInstall(r) {
+  return !!r.new_install;
+}
+
+// Renewal and New Installation are mutually exclusive — a vehicle is either
+// being renewed or newly installed, never both. Ticking one clears the other
+// at the point of entry, so a contradictory pair can't be saved and then walk
+// an ambiguous flow. Scoped to the surrounding row/form because the New
+// Request screen can have several vehicle rows on screen at once.
+function enforceServiceExclusivity(el, otherSelector) {
+  if (!el.checked) return;
+  const scope = el.closest('.vehicle-row') || el.closest('.stage-form') || document;
+  const other = scope.querySelector(otherSelector);
+  if (other) other.checked = false;
 }
 
 // "+966 54 231 5449", "54 231 5449", "542315449" and "0542315449" are all the
@@ -3858,7 +3875,7 @@ function renderPipelineCard(r) {
     </div>`;
   } else if (stage === 2) {
     // New Installation skips renewal/WASL entirely and closes from here.
-    const newInstall = isNewInstallOnly(r);
+    const newInstall = isNewInstall(r);
     action = `<div class="pipeline-actions">
       <a class="btn-link" href="${odooNewUrl('sale.order.wags')}" target="_blank" rel="noopener">
         ${icon('plus')}Create Sale Order in Odoo
@@ -3959,7 +3976,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && CASE_VIEW_
 
 function renderCaseStepper(r) {
   const stage = r.stage || 1;
-  const steps = isNewInstallOnly(r)
+  const steps = isNewInstall(r)
     ? NEW_INSTALL_STEPS
     : STAGE_STEP_LABELS.map((label, i) => ({ stage: i + 1, label }));
   return `<div class="case-stepper">${steps.map((s, i) => {
