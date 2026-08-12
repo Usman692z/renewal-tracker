@@ -3186,6 +3186,17 @@ function isNewInstall(r) {
   return !!r.new_install;
 }
 
+// A standalone WASL request — nothing is being sold or renewed, the customer
+// just needs the vehicle connected to WASL. So there's no Sale Order stage and
+// no Renewal Processing stage: Payment Received hands straight to WASL
+// Processing. Only counts when WASL Request is the sole service ticked; a
+// renewal that also needs WASL still walks the full pipeline, where WASL is
+// already stage 4.
+function isWaslOnly(r) {
+  return !!r.wasl_request && !r.renewal && !r.new_install
+    && !r.transfer && !r.plate_change && !r.rectification;
+}
+
 // Renewal and New Installation are mutually exclusive — a vehicle is either
 // being renewed or newly installed, never both. Ticking one clears the other
 // at the point of entry, so a contradictory pair can't be saved and then walk
@@ -3869,9 +3880,11 @@ function renderPipelineCard(r) {
     ? `<button class="ghost small" onclick="saveStageForm('${r.id}', ${stage})">Save without moving</button>` : '';
 
   if (stage === 1) {
-    // Every case type goes through the Sale Order stage — no exceptions.
+    // A standalone WASL request has nothing to sell and nothing to renew, so
+    // it skips Sale Order and Renewal Processing and goes straight to WASL.
+    const waslOnly = isWaslOnly(r);
     action = `<div class="pipeline-actions">
-      <button class="small" onclick="advancePipelineCase('${r.id}', {}, 2)">Payment Confirmed → Stage 2</button>${saveBtn}
+      <button class="small" onclick="advancePipelineCase('${r.id}', {}, ${waslOnly ? 4 : 2})">${waslOnly ? 'Payment Confirmed → WASL Processing' : 'Payment Confirmed → Stage 2'}</button>${saveBtn}
     </div>`;
   } else if (stage === 2) {
     // New Installation skips renewal/WASL entirely and closes from here.
@@ -3946,6 +3959,23 @@ const NEW_INSTALL_STEPS = [
   { stage: 7, label: 'Customer Close' }
 ];
 
+// Standalone WASL request — no Sale Order, no Renewal Processing.
+const WASL_ONLY_STEPS = [
+  { stage: 1, label: 'Payment Received' },
+  { stage: 4, label: 'WASL Processing' },
+  { stage: 5, label: 'WASL Completed' },
+  { stage: 7, label: 'Customer Close' }
+];
+
+// The journey a case walks, by type. Stage numbers are the real underlying
+// ones so every tab, badge, filter and export keeps working; only which
+// stages appear, and what each stage hands off to, differs.
+function caseSteps(r) {
+  if (isNewInstall(r)) return NEW_INSTALL_STEPS;
+  if (isWaslOnly(r)) return WASL_ONLY_STEPS;
+  return STAGE_STEP_LABELS.map((label, i) => ({ stage: i + 1, label }));
+}
+
 function openCaseView(docId) {
   CASE_VIEW_ID = docId;
   document.getElementById('case-view-modal').style.display = 'flex';
@@ -3976,9 +4006,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && CASE_VIEW_
 
 function renderCaseStepper(r) {
   const stage = r.stage || 1;
-  const steps = isNewInstall(r)
-    ? NEW_INSTALL_STEPS
-    : STAGE_STEP_LABELS.map((label, i) => ({ stage: i + 1, label }));
+  const steps = caseSteps(r);
   return `<div class="case-stepper">${steps.map((s, i) => {
     const cls = s.stage < stage ? 'done' : s.stage === stage ? 'current' : '';
     return `<div class="case-step ${cls}"><span class="case-step-num">${s.stage < stage ? '✓' : i + 1}</span>${escapeHTML(s.label)}</div>`;
