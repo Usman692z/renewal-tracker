@@ -375,7 +375,9 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
   flex: 1 1 auto; min-width: 84px; text-align: center; padding: 6px 4px;
   border-radius: var(--r-md); font-size: 10.5px; font-weight: 600; color: var(--c-fg-subtle);
   background: var(--c-surface-2); border: 1px solid var(--c-border);
+  cursor: pointer; transition: box-shadow var(--dur) var(--ease);
 }
+.case-step:hover { box-shadow: var(--sh-1); }
 .case-step .case-step-num {
   display: block; width: 22px; height: 22px; margin: 0 auto 4px; border-radius: var(--r-full);
   background: var(--c-surface); border: 1px solid var(--c-border-strong);
@@ -403,7 +405,11 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .stage-dates { font-size: 11.5px; color: var(--c-fg-subtle); text-align: right; white-space: nowrap; }
 .stage-dates strong { color: var(--c-fg-muted); font-weight: 600; }
 .stage-dates .trail { display: block; font-family: var(--font-mono); font-size: 10.5px; color: #94A3B8; margin-top: 2px; }
+.trail-stage, .stage-dates strong.stage-current { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.trail-stage:hover, .stage-dates strong.stage-current:hover { color: var(--c-primary); }
 @media (max-width: 640px) { .stage-dates { text-align: left; white-space: normal; } }
+.stage-snapshot { display: none; margin-top: 8px; padding: 9px 12px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md); text-align: left; white-space: normal; }
+.stage-snapshot.open { display: block; }
 .so-ref { font-size: 12px; color: var(--c-fg-subtle); }
 .so-ref strong { font-family: var(--font-mono); color: var(--c-fg); }
 
@@ -3497,12 +3503,83 @@ function stageDateLine(r) {
   const current = dates[stage] || (stage === 1 ? r.date : null);
   const trail = Object.keys(dates)
     .map(Number).filter(n => n !== stage).sort((a, b) => a - b)
-    .map(n => `${n}: ${new Date(dates[n]).toLocaleDateString()}`)
+    .map(n => `<span class="trail-stage" onclick="toggleStageSnapshot('${r.id}', ${n})">${n}: ${escapeHTML(new Date(dates[n]).toLocaleDateString())}</span>`)
     .join(' · ');
   return `<div class="stage-dates">
-    <strong>Stage ${stage} since:</strong> ${current ? fmt(current) : '—'}
-    ${trail ? `<span class="trail">${escapeHTML(trail)}</span>` : ''}
+    <strong class="stage-current" onclick="toggleStageSnapshot('${r.id}', ${stage})">Stage ${stage} since:</strong> ${current ? fmt(current) : '—'}
+    ${trail ? `<span class="trail">${trail}</span>` : ''}
+    <div class="stage-snapshot" id="stage-snap-${r.id}"></div>
   </div>`;
+}
+
+// What a stage actually recorded — same field/label pairs STAGE_FORMS uses
+// for 1-5 (the form that was filled in to leave that stage), plus stage 6
+// (Device Check) and 7 (Customer Close) which have no editable form of their
+// own but do set fields when a case is advanced through them.
+const STAGE_SNAPSHOT_FIELDS = {
+  1: [{ key: 'remarks', label: 'Remarks' }],
+  2: [{ key: 'sale_order', label: 'Sale Order #' }, { key: 'quotation_no', label: 'Quotation No' }],
+  3: [
+    { key: 'old_expiry', label: 'Old Expiry Date', date: true },
+    { key: 'new_expiry', label: 'New Expiry Date', date: true },
+    { key: 'renewal_ref', label: 'Old Sale Order' },
+    { key: 'new_sale_order', label: 'New Sale Order' },
+    { key: 'missing_docs', label: 'Missing Documents' },
+    { key: 'istimara_received', label: 'Istimara received', checkbox: true },
+    { key: 'renewal_remarks', label: 'Renewal Remarks' }
+  ],
+  4: [
+    { key: 'wasl_processing_remarks', label: 'Remarks' },
+    { key: 'wasl_reject_reason', label: 'Rejection Reason' },
+    { key: 'wasl_outcome', label: 'WASL Outcome' }
+  ],
+  5: [{ key: 'wasl_completed_remarks', label: 'Remarks' }],
+  6: [
+    { key: 'device_status', label: 'Device Status' },
+    { key: 'fix_status', label: 'Fix Status' },
+    { key: 'invoice_vat_sent', label: 'VAT Invoice Sent', checkbox: true }
+  ],
+  7: [{ key: 'customer_closed', label: 'Closed', checkbox: true }]
+};
+
+function renderStageSnapshotBody(r, stageNum) {
+  const dates = r.stage_dates || {};
+  const currentStage = r.stage || 1;
+  const reached = stageNum <= currentStage || !!dates[stageNum];
+  const heading = `<div class="section-label" style="margin-bottom:6px">Stage ${stageNum} — ${escapeHTML(STAGE_LABELS[stageNum] || '')}` +
+    ` <span style="font-weight:400;color:var(--c-fg-subtle);text-transform:none;letter-spacing:0">` +
+    `(${dates[stageNum] ? escapeHTML(new Date(dates[stageNum]).toLocaleString()) : (stageNum === 1 ? escapeHTML(r.date || '') : 'date not recorded')})</span></div>`;
+
+  if (!reached) return `${heading}<div class="field-value empty">Not reached yet.</div>`;
+
+  const fields = STAGE_SNAPSHOT_FIELDS[stageNum] || [];
+  const rows = fields.map(f => {
+    const raw = r[f.key];
+    const empty = raw === undefined || raw === null || raw === '';
+    const val = f.checkbox ? (raw ? 'Yes' : 'No') : (empty ? '' : (f.date ? formatDateDMY(raw) : raw));
+    return `<div class="field"><span class="field-name">${escapeHTML(f.label)}</span><span class="field-value${!f.checkbox && empty ? ' empty' : ''}">${escapeHTML(val || '—')}</span></div>`;
+  }).join('');
+
+  return `${heading}<div class="grid">${rows || '<div class="field"><span class="field-value empty">No details were recorded for this stage.</span></div>'}</div>`;
+}
+
+// Click a stage number/date anywhere on a case card to see what was recorded
+// at that stage. Clicking the same stage again closes it; clicking a
+// different one swaps the content in place rather than requiring a close
+// first. Data's already in REQUESTS_CACHE — no fetch needed.
+function toggleStageSnapshot(docId, stageNum) {
+  const box = document.getElementById('stage-snap-' + docId);
+  if (!box) return;
+  if (box.classList.contains('open') && box.dataset.stage === String(stageNum)) {
+    box.classList.remove('open');
+    box.dataset.stage = '';
+    return;
+  }
+  const r = REQUESTS_CACHE.find(x => x.id === docId);
+  if (!r) return;
+  box.innerHTML = renderStageSnapshotBody(r, stageNum);
+  box.classList.add('open');
+  box.dataset.stage = String(stageNum);
 }
 
 function fieldId(docId, key) { return `sf-${docId}-${key}`; }
@@ -4060,12 +4137,16 @@ function closeCaseView() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && CASE_VIEW_ID) closeCaseView(); });
 
+// Clicking a step shows what that stage recorded — targets the same
+// stage-snap-<id> box stageDateLine renders inside this case's own
+// renderPipelineCard, so there's one snapshot panel per case, not a second
+// one duplicating it.
 function renderCaseStepper(r) {
   const stage = r.stage || 1;
   const steps = caseSteps(r);
   return `<div class="case-stepper">${steps.map((s, i) => {
     const cls = s.stage < stage ? 'done' : s.stage === stage ? 'current' : '';
-    return `<div class="case-step ${cls}"><span class="case-step-num">${s.stage < stage ? '✓' : i + 1}</span>${escapeHTML(s.label)}</div>`;
+    return `<div class="case-step ${cls}" onclick="toggleStageSnapshot('${r.id}', ${s.stage})"><span class="case-step-num">${s.stage < stage ? '✓' : i + 1}</span>${escapeHTML(s.label)}</div>`;
   }).join('')}</div>`;
 }
 
