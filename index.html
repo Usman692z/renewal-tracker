@@ -319,7 +319,7 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .stage-field { flex: 1 1 170px; min-width: 0; }
 .stage-field input { width: 100%; min-width: 0; background: var(--c-surface); }
 .stage-form .input-label { margin-bottom: 3px; }
-.stage-form .req { color: var(--c-danger); }
+.stage-form .req, .req { color: var(--c-danger); }
 .stage-check { align-self: center; background: var(--c-surface); }
 .paid-for { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; }
 .paid-tag {
@@ -447,6 +447,10 @@ tr.plate-match:hover td { background: #FEF9C3; }
 .vehicle-row .remove-btn { background: var(--c-surface); color: var(--c-danger); border: 1px solid var(--c-border-strong); border-radius: var(--r-md); width: 36px; min-height: 36px; padding: 0; flex: none; box-shadow: none; }
 .vehicle-row .remove-btn:hover { background: var(--c-danger-bg); border-color: #FCA5A5; }
 .vehicle-row .chip-row { margin-top: var(--sp-2); }
+.vr-xfer-fields { margin-top: var(--sp-2); }
+.vr-xfer-group { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); flex-wrap: wrap; }
+.vr-xfer-group .stage-field { flex: 1; min-width: 160px; }
+.vr-xfer-group input { background: var(--c-surface); }
 .vehicle-row .chip { padding: 4px 10px; font-size: 12px; }
 
 .renew-form { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-3); margin-top: var(--sp-3); display: none; }
@@ -1702,12 +1706,22 @@ function addVehicleRow() {
     </div>
     <div class="chip-row">
       <label class="chip"><input type="checkbox" class="v-type-renewal" onchange="enforceServiceExclusivity(this, '.v-type-newinstall')"> Renewal</label>
-      <label class="chip"><input type="checkbox" class="v-type-transfer"> Transfer</label>
-      <label class="chip"><input type="checkbox" class="v-type-platechange"> Plate Change</label>
+      <label class="chip"><input type="checkbox" class="v-type-transfer" onchange="toggleVehicleXferFields(this)"> Transfer</label>
+      <label class="chip"><input type="checkbox" class="v-type-platechange" onchange="toggleVehicleXferFields(this)"> Plate Change</label>
       <label class="chip"><input type="checkbox" class="v-type-newinstall" onchange="enforceServiceExclusivity(this, '.v-type-renewal')"> New Installation</label>
       <label class="chip"><input type="checkbox" class="v-type-rectification"> Rectification</label>
       <label class="chip"><input type="checkbox" class="v-type-wasl"> WASL Request</label>
       <label class="chip"><input type="checkbox" class="v-type-services"> Services</label>
+    </div>
+    <div class="vr-xfer-fields" style="display:none">
+      <div class="vr-xfer-group vr-xfer-plate" style="display:none">
+        <div class="stage-field"><label class="input-label">Old Plate Number <span class="req">*</span></label><input class="v-old-plate" placeholder="Old plate"></div>
+        <div class="stage-field"><label class="input-label">New Plate Number <span class="req">*</span></label><input class="v-new-plate" placeholder="New plate"></div>
+      </div>
+      <div class="vr-xfer-group vr-xfer-owner" style="display:none">
+        <div class="stage-field"><label class="input-label">Old Owner ID <span class="req">*</span></label><input class="v-old-owner" placeholder="Old owner ID"></div>
+        <div class="stage-field"><label class="input-label">New Owner ID <span class="req">*</span></label><input class="v-new-owner" placeholder="New owner ID"></div>
+      </div>
     </div>
   `;
   wrap.appendChild(row);
@@ -1797,6 +1811,18 @@ async function refreshPlateHistory() {
   } catch (err) {
     pane.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
   }
+}
+
+// Plate Change needs the old/new plate; Transfer needs the old/new owner ID.
+// Both can be ticked on the same vehicle at once (e.g. selling the car to a
+// new owner who also gets a new plate) — in that case all four fields show.
+function toggleVehicleXferFields(checkbox) {
+  const row = checkbox.closest('.vehicle-row');
+  const showPlate = row.querySelector('.v-type-platechange').checked;
+  const showOwner = row.querySelector('.v-type-transfer').checked;
+  row.querySelector('.vr-xfer-plate').style.display = showPlate ? 'flex' : 'none';
+  row.querySelector('.vr-xfer-owner').style.display = showOwner ? 'flex' : 'none';
+  row.querySelector('.vr-xfer-fields').style.display = (showPlate || showOwner) ? 'block' : 'none';
 }
 
 function removeVehicleRow(btn) {
@@ -2639,10 +2665,23 @@ async function saveRenewalRequest(startStage) {
       };
       const requestType = Object.entries(typeFlags).filter(([,v]) => v).map(([k]) => k.replace('_', ' '));
       if (row.querySelector('.v-type-services').checked) requestType.push('services');
+      // xfer_* naming matches what renderSimpleCaseCard / the Transfer tab's
+      // own form already reads (r.xfer_old_plate etc.) — same fields, just
+      // collected here at creation instead of only later.
+      const xfer = {};
+      if (typeFlags.plate_change) {
+        xfer.xfer_old_plate = row.querySelector('.v-old-plate').value.trim();
+        xfer.xfer_new_plate = row.querySelector('.v-new-plate').value.trim();
+      }
+      if (typeFlags.transfer) {
+        xfer.xfer_old_owner = row.querySelector('.v-old-owner').value.trim();
+        xfer.xfer_new_owner = row.querySelector('.v-new-owner').value.trim();
+      }
       return {
         plate: row.querySelector('.v-plate').value.trim(),
         amount: parseFloat(row.querySelector('.v-amount').value) || 0,
         ...typeFlags,
+        ...xfer,
         services: requestType.join(', ')
       };
     })
@@ -2652,6 +2691,23 @@ async function saveRenewalRequest(startStage) {
     statusEl.style.display = 'block';
     statusEl.className = 'status error';
     statusEl.textContent = 'Mobile Number and at least one Plate Number are required';
+    return;
+  }
+
+  const xferErrors = [];
+  vehicles.forEach(v => {
+    const label = v.plate || '(unnamed vehicle)';
+    if (v.plate_change && (!v.xfer_old_plate || !v.xfer_new_plate)) {
+      xferErrors.push(`${label}: Old Plate Number and New Plate Number are required for Plate Change`);
+    }
+    if (v.transfer && (!v.xfer_old_owner || !v.xfer_new_owner)) {
+      xferErrors.push(`${label}: Old Owner ID and New Owner ID are required for Transfer`);
+    }
+  });
+  if (xferErrors.length) {
+    statusEl.style.display = 'block';
+    statusEl.className = 'status error';
+    statusEl.textContent = xferErrors.join(' · ');
     return;
   }
 
@@ -4297,8 +4353,8 @@ const SIMPLE_CASE_FIELDS = {
   xfer: [
     { key: 'old_plate', label: 'Old Plate Number' },
     { key: 'new_plate', label: 'New Plate Number' },
-    { key: 'old_owner', label: 'Old Owner Name' },
-    { key: 'new_owner', label: 'New Owner Name' }
+    { key: 'old_owner', label: 'Old Owner ID' },
+    { key: 'new_owner', label: 'New Owner ID' }
   ]
 };
 
