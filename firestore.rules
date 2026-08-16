@@ -22,7 +22,7 @@ service cloud.firestore {
       allow create: if isAdmin() || (request.auth != null && request.auth.uid == userId
         && request.resource.data.role == 'agent');
       allow update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /renewals/{renewalId} {
@@ -34,8 +34,24 @@ service cloud.firestore {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
-    // Daily call log: task type, status, and complaint feedback.
+    // Daily call log: task type, status, and complaint feedback. Any
+    // authenticated user can log a new call or mark one Done — the
+    // done_by field on the record shows who closed it out.
     match /daily_requests/{requestId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+    // Team-authored how-to library (WASL, renewals, sale orders, error
+    // handling). Any signed-in user can add or edit an article; soft-delete
+    // only (the `deleted` flag), same pattern as requests/daily_requests.
+    match /help_articles/{articleId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+    // App-wide config edited from the UI (e.g. the Dashboard's yearly
+    // renewal-revenue targets). Any signed-in user can view/edit, same
+    // openness as requests/daily_requests/help_articles.
+    match /settings/{settingId} {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }

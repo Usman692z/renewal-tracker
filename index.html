@@ -9,7 +9,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- defer: ~900KB, only used by the export/backup buttons, never at parse time -->
+<script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* ============================================================
    Design tokens — Soft UI Evolution, light, dense (ops console)
@@ -87,6 +88,7 @@ button.secondary { background: var(--c-surface); color: var(--c-fg-muted); borde
 button.secondary:hover { background: var(--c-surface-2); border-color: var(--c-fg-subtle); color: var(--c-fg); }
 button.ghost { background: transparent; color: var(--c-fg-muted); border-color: transparent; box-shadow: none; }
 button.ghost:hover { background: var(--c-surface-2); color: var(--c-fg); }
+button.ghost.active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 button.danger { background: var(--c-surface); color: var(--c-danger); border-color: #FCA5A5; }
 button.danger:hover { background: var(--c-danger-bg); }
 button.small { padding: 6px 11px; min-height: 32px; font-size: 13px; }
@@ -204,6 +206,10 @@ button svg { width: 15px; height: 15px; flex: none; }
 .field-name { color: var(--c-fg-subtle); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; display: block; margin-bottom: 1px; }
 .field-value { color: var(--c-fg); word-break: break-word; font-weight: 500; }
 .field-value.empty { color: #94A3B8; font-weight: 400; }
+/* The WASL-entry fields — highlighted so they're findable in a ~30-field card. */
+.field-hl { background: #FFF7E6; border-color: var(--c-accent); }
+.field-hl .field-name { color: #B45309; }
+.field-hl .field-value { font-weight: 700; }
 
 /* ---------- Tables ---------- */
 .table-wrap { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); overflow-x: auto; box-shadow: var(--sh-2); }
@@ -314,10 +320,21 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .pipeline-card-title { font-weight: 700; font-size: 14px; }
 .pipeline-card-title .plate { font-family: var(--font-mono); color: var(--c-primary); }
 .pipeline-card-sub { font-size: 12px; color: var(--c-fg-subtle); margin-top: 2px; }
+.copy-mini { background: none; border: none; padding: 0 2px; margin-left: 4px; cursor: pointer;
+  color: var(--c-fg-subtle); font-size: 11px; vertical-align: middle; line-height: 1; }
+.copy-mini svg { width: 13px; height: 13px; display: block; }
+.copy-mini:hover { color: var(--c-primary); }
 .pipeline-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--c-border); }
 .stage-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2) var(--sp-3); margin-top: var(--sp-3); padding: var(--sp-3); background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-md); }
 .stage-field { flex: 1 1 170px; min-width: 0; }
-.stage-field input { width: 100%; min-width: 0; background: var(--c-surface); }
+/* :not(checkbox) — a bare `.stage-field input` also matched the Service Type
+   and Istimara checkboxes and, being later in the sheet, beat the 16px rule
+   above: they stretched to full width and sat on top of their own labels. */
+.stage-field input:not([type="checkbox"]) { width: 100%; min-width: 0; background: var(--c-surface); }
+.edit-card-close { background: none; border: none; box-shadow: none; padding: 2px; min-height: 0;
+  color: var(--c-fg-subtle); cursor: pointer; align-self: flex-start; }
+.edit-card-close svg { width: 17px; height: 17px; display: block; }
+.edit-card-close:hover { background: none; color: var(--c-danger); }
 .stage-form .input-label { margin-bottom: 3px; }
 .stage-form .req, .req { color: var(--c-danger); }
 .stage-check { align-self: center; background: var(--c-surface); }
@@ -401,6 +418,11 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .prev-stage-notes { margin-top: 8px; padding: 7px 10px; background: var(--c-warn-bg); border: 1px solid #FDE68A; border-radius: var(--r-md); font-size: 12.5px; color: var(--c-warn); }
 .prev-stage-notes > div { margin-bottom: 3px; }
 .prev-stage-notes > div:last-child { margin-bottom: 0; }
+.action-drill > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+.action-drill > summary::-webkit-details-marker { display: none; }
+.action-drill > summary::after { content: '▸'; font-size: 11px; opacity: .65; transition: transform var(--dur-fast, 150ms) ease; }
+.action-drill[open] > summary::after { transform: rotate(90deg); }
+.action-drill > .drill-body { margin: 4px 0 2px 4px; }
 .prev-stage-notes strong { color: inherit; }
 .stage-dates { font-size: 11.5px; color: var(--c-fg-subtle); text-align: right; white-space: nowrap; }
 .stage-dates strong { color: var(--c-fg-muted); font-weight: 600; }
@@ -679,6 +701,38 @@ tr.plate-match:hover td { background: #FEF9C3; }
       </div>
     </div>
 
+    <!-- ---------- Help & Troubleshooting ---------- -->
+    <div id="tab-help" style="display:none">
+      <div class="card" style="max-width:640px;margin-bottom:16px">
+        <div class="section-label" style="margin-bottom:10px">Add / Edit Article</div>
+        <label class="input-label" for="help-title">Title</label>
+        <input id="help-title" placeholder="e.g. How to renew WASL" style="width:100%">
+        <label class="input-label" for="help-category" style="margin-top:10px">Category</label>
+        <input id="help-category" list="help-category-list" placeholder="e.g. WASL, Renewal, Sale Order, Errors" style="width:100%">
+        <datalist id="help-category-list">
+          <option value="WASL"><option value="Renewal"><option value="Sale Order"><option value="Errors">
+        </datalist>
+        <label class="input-label" for="help-body" style="margin-top:10px">Steps / Content</label>
+        <textarea id="help-body" placeholder="Step-by-step instructions..." style="width:100%;min-height:140px"></textarea>
+
+        <label class="input-label" style="margin-top:10px">Screenshots (optional)</label>
+        <div class="hint" style="margin:0 0 6px">Pick images, or just paste a screenshot (Ctrl+V) anywhere in this box. They're shrunk automatically to fit Firestore's 1&nbsp;MB-per-article limit.</div>
+        <input id="help-images" type="file" accept="image/*" multiple onchange="addHelpImages(this.files); this.value='';">
+        <div id="help-img-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        <div id="help-img-size" class="hint" style="margin:6px 0 0"></div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button onclick="saveHelpArticle()">Save Article</button>
+          <button class="secondary" id="help-cancel-edit" style="display:none" onclick="cancelHelpEdit()">Cancel Edit</button>
+        </div>
+        <div id="help-form-status" class="status" style="display:none;margin-top:10px"></div>
+      </div>
+
+      <input id="help-q" placeholder="Search help articles (title, category, content)..." style="width:100%;max-width:420px;margin-bottom:12px" oninput="renderHelpList()">
+      <div id="help-status" class="status"></div>
+      <div id="help-list"></div>
+    </div>
+
     <!-- ---------- Pipeline stages ---------- -->
     <div id="tab-stage1" style="display:none"><div id="stage1-status" class="status"></div><div id="stage1-list"></div></div>
     <div id="tab-stage2" style="display:none"><div id="stage2-status" class="status"></div><div id="stage2-list"></div></div>
@@ -905,6 +959,24 @@ tr.plate-match:hover td { background: #FEF9C3; }
           <div><label class="input-label" for="sr-datefield">Date basis</label>
             <select id="sr-datefield"><option value="date">Order date</option><option value="confirm_date">Confirm date</option></select>
           </div>
+          <div><label class="input-label" for="sr-invstatus">Payment Status</label>
+            <select id="sr-invstatus">
+              <option value="">All</option>
+              <option value="paid">Paid</option>
+              <option value="open">Open</option>
+              <option value="partial">Partial</option>
+              <option value="draft">Draft</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div><label class="input-label" for="sr-ordertype">Order Type</label>
+            <select id="sr-ordertype">
+              <option value="">All</option>
+              <option value="1">Official Order</option>
+              <option value="2">Demo Order</option>
+              <option value="3">POC Order</option>
+            </select>
+          </div>
           <div style="align-self:flex-end;display:flex;gap:8px">
             <button onclick="loadSalesReport()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
@@ -986,6 +1058,10 @@ tr.plate-match:hover td { background: #FEF9C3; }
   <div class="modal-box" id="sr-modal-box" style="max-width:960px"></div>
 </div>
 
+<div id="renewal-target-modal" class="modal-overlay" style="display:none" onclick="if (event.target === this) closeRenewalTargetSettings()">
+  <div class="modal-box" id="renewal-target-modal-box" style="max-width:520px"></div>
+</div>
+
 <script>
 // ---- Firebase project config (public client key, protected by Firestore rules) ----
 const firebaseConfig = {
@@ -1038,7 +1114,8 @@ const ICONS = {
   ticket: '<path d="M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v14"/>',
   external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
-  chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'
+  chart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'
 };
 function icon(name) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -1082,6 +1159,16 @@ function convertPlate() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       Copy
     </button>`;
+}
+
+// Small icon-only copy button for plate / mobile on case cards. Reuses
+// copyPlateResult's clipboard + "Copied!" feedback.
+function copyBtn(text, label) {
+  if (!text) return '';
+  return `<button type="button" class="copy-mini" title="Copy ${label}" aria-label="Copy ${label}"
+    onclick="event.stopPropagation();copyPlateResult(this)" data-copy="${escapeHTML(String(text))}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+  </button>`;
 }
 
 async function copyPlateResult(btn) {
@@ -1166,7 +1253,7 @@ function checkRequestStage() {
   out.innerHTML = matches.map(r => {
     const stage = r.stage || 1;
     return `<div class="ok" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span><strong>${escapeHTML(r.plate)}</strong> (${escapeHTML(r.renewal_id) || 'no ID'}) — Stage ${stage}: ${escapeHTML(STAGE_LABELS[stage] || '')}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</span>
+      <span><strong>${escapeHTML(r.plate)}</strong>${copyBtn(r.plate, 'plate')} (${escapeHTML(r.renewal_id) || 'no ID'}) — Stage ${stage}: ${escapeHTML(STAGE_LABELS[stage] || '')}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</span>
       <button type="button" class="ghost small" onclick="openCaseView('${r.id}')">Open</button>
     </div>`;
   }).join('');
@@ -1189,6 +1276,7 @@ const STAGE_TAB_NAMES = ['stage1','stage2','stage3','stage4','stage5','stage6','
 // checkboxes — add a tab here and it shows up in all three.
 const TAB_REGISTRY = [
   { key: 'dashboard', group: 'Overview', label: 'Dashboard', icon: 'chart', sub: 'Live pipeline stats, request trends, revenue, and team performance' },
+  { key: 'help', group: 'Overview', label: 'Help & Troubleshooting', icon: 'alert', sub: 'How-to guides — WASL, renewals, sale orders, and common errors' },
   { key: 'search',   group: 'Operations', label: 'Search & Renew',    icon: 'search', sub: 'Search a vehicle, record its renewal, track checkpoints' },
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
   { key: 'daily',    group: 'Operations', label: 'Daily Requests',    icon: 'list',   sub: 'Log a daily call — task type, status, and complaint feedback' },
@@ -1210,7 +1298,7 @@ const TAB_REGISTRY = [
   { key: 'admin',    group: 'Administration', label: 'Users & Access', icon: 'users', sub: 'Decide what each user can open', adminOnly: true }
 ];
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
-const DEFAULT_AGENT_TABS = ['search'];
+const DEFAULT_AGENT_TABS = ['search', 'help'];
 
 // Self-healing migration for documents written under the old 8-stage
 // numbering (before "Renewal Done" was folded into Renewal Processing).
@@ -1347,8 +1435,9 @@ function showApp(user) {
   renderTestModeBanner();
   watchMyProfile(user);
   fillEncoderName();
-  if (!DATA.length) loadVehicleData();
   loadUsers();
+  warmOdooBridge();
+  if (!window.ODOO_WARM_TIMER) window.ODOO_WARM_TIMER = setInterval(warmOdooBridge, 14 * 60 * 1000);
 }
 
 addVehicleRow();
@@ -1424,8 +1513,11 @@ function switchTab(name) {
   }
   renderCaseTypeNav(name);
 
+  if (name === 'search') ensureVehicleData();
+  if (name === 'help' && !HELP_CACHE.length) loadHelpArticles();
   if (name === 'status') loadRenewals();
   if (name === 'admin') loadUsers();
+  if (name === 'requests') renderRequestsTable();
   if ((name === 'requests' || name === 'duplicates' || name === 'rectification' || name === 'transferplate' || name === 'dashboard' || name === 'allcases' || name === 'closed' || STAGE_TAB_NAMES.includes(name)) && !REQUESTS_CACHE.length) loadRequests();
   if (STAGE_TAB_NAMES.includes(name)) renderStageTab(parseInt(name.replace('stage', ''), 10));
   if (name === 'duplicates') renderDuplicatesTab();
@@ -1434,7 +1526,12 @@ function switchTab(name) {
   if (name === 'allcases') renderAllCasesTab();
   if (name === 'closed') renderClosedTab();
   if (name === 'daily' && !DAILY_UNSUB) loadDailyRequests();
-  if (name === 'dashboard') renderDashboard();
+  if (name === 'dashboard') {
+    if (!DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
+    if (!RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
+    if (!DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
+    renderDashboard();
+  }
   if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
 }
 
@@ -1478,6 +1575,18 @@ function showToast(message, type) {
 // ==================== Users & Access (admin) ====================
 let USERS_CACHE = [];
 let usersUnsubscribe = null;
+
+// Every write stamps `updated_by` with the account's EMAIL — that's the stable
+// identity and it stays in the record. But an email is not what anyone wants
+// to read on a card, so resolve it to the person's encoder name at display
+// time. Doing it here rather than storing a second field means every case
+// already in the database reads correctly too, with no migration, and a name
+// change in Users & Access is reflected everywhere at once.
+function personName(emailOrName) {
+  if (!emailOrName) return '';
+  const u = USERS_CACHE.find(x => x.email && x.email.toLowerCase() === String(emailOrName).toLowerCase());
+  return (u && u.encoder_name) || emailOrName;
+}
 
 // Loads for every signed-in user (not just admins) — the assign-to-agent
 // dropdown on pipeline cards needs the full user list too, not just the
@@ -1800,7 +1909,7 @@ async function refreshPlateHistory() {
                 ${docs.map(d => `<tr class="req-row${d.renewal_status !== 'Done' || d.wasl_status !== 'Done' ? ' open' : ''}">
                   <td>${escapeHTML(d.date)}</td>
                   <td style="font-family:var(--font-mono)">${escapeHTML(d.renewal_id)}</td>
-                  <td>${escapeHTML(d.mobile)}</td>
+                  <td>${escapeHTML(d.mobile)}${copyBtn(d.mobile, 'mobile')}</td>
                   <td>${escapeHTML(d.encoder)}</td>
                   <td>${escapeHTML(d.services)}</td>
                   <td>${escapeHTML(d.sale_order)}</td>
@@ -1886,7 +1995,7 @@ function renderCustomerHistory() {
               const isOpen = r.renewal_status !== 'Done' || r.wasl_status !== 'Done';
               const types = ['renewal','transfer','plate_change','new_install'].filter(k => r[k]).map(k => k.replace('_',' ')).join(', ') || r.services || '';
               return `<tr class="req-row${isOpen ? ' open' : ''}">
-                <td>${escapeHTML(r.renewal_id)}</td><td>${escapeHTML(r.plate)}</td><td>${r.amount || ''}</td>
+                <td>${escapeHTML(r.renewal_id)}</td><td>${escapeHTML(r.plate)}${copyBtn(r.plate, 'plate')}</td><td>${r.amount || ''}</td>
                 <td>${escapeHTML(r.sale_order)}</td><td>${escapeHTML(types)}</td>
                 <td>${r.stage ? r.stage + ' — ' + escapeHTML(r.stage_label) : ''}</td>
                 <td>${pill(r.renewal_status === 'Done')}</td><td>${pill(r.wasl_status === 'Done')}</td>
@@ -2024,7 +2133,8 @@ const SR_DIMENSIONS = [
   ['template', 'Quotation Template'],
   ['team', 'Sales Team'],
   ['type', 'Order Type'],
-  ['state', 'Status']
+  ['state', 'Status'],
+  ['inv_status', 'Payment Status']
 ];
 
 const sarFmt = n => 'SAR ' + Math.round(Number(n) || 0).toLocaleString();
@@ -2061,6 +2171,10 @@ async function loadSalesReport() {
     interval: document.getElementById('sr-interval').value,
     date_field: document.getElementById('sr-datefield').value
   });
+  const invStatus = document.getElementById('sr-invstatus').value;
+  const orderType = document.getElementById('sr-ordertype').value;
+  if (invStatus) params.set('inv_status', invStatus);
+  if (orderType) params.set('type', orderType);
 
   statusEl.className = 'status';
   statusEl.innerHTML = '<span class="spinner"></span>Aggregating in Odoo... (the bridge sleeps when idle, first call can take ~30s)';
@@ -2069,13 +2183,822 @@ async function loadSalesReport() {
   try {
     SALES_REPORT = await odooFetch('/api/sales-report?' + params);
     statusEl.className = 'status ready';
-    statusEl.textContent = `${SALES_REPORT.totals.orders.toLocaleString()} order(s) · ${from} to ${to} · excludes cancelled only`;
+    const filterNote = [invStatus && `payment: ${document.getElementById('sr-invstatus').selectedOptions[0].text}`, orderType && document.getElementById('sr-ordertype').selectedOptions[0].text]
+      .filter(Boolean).join(' · ');
+    statusEl.textContent = `${SALES_REPORT.totals.orders.toLocaleString()} order(s) · ${from} to ${to} · excludes cancelled orders${filterNote ? ' · ' + filterNote : ''}`;
     renderSalesReport(SALES_REPORT);
   } catch (err) {
     SALES_REPORT = null;
     statusEl.className = 'status error';
     statusEl.textContent = 'Report failed: ' + err.message;
   }
+}
+
+// ==================== Dashboard — live PAID sales from Odoo ====================
+// Deliberately its own fetch/state, not shared with SALES_REPORT above: the
+// Dashboard's whole point is "what's actually been paid", so it always asks
+// for inv_status=paid regardless of whatever filters are set on the Sales
+// Report tab.
+let DASHBOARD_SALES_REPORT = null;
+let DASHBOARD_RANGE = 'this-month';
+
+async function loadDashboardSalesReport(preset) {
+  if (preset) DASHBOARD_RANGE = preset;
+  const now = new Date();
+  let from, to = now;
+  if (DASHBOARD_RANGE === 'this-month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (DASHBOARD_RANGE === 'last-month') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (DASHBOARD_RANGE === '90d') { from = new Date(now); from.setDate(from.getDate() - 89); }
+  else { from = new Date(now.getFullYear(), 0, 1); }
+
+  const params = new URLSearchParams({
+    from: isoDay(from), to: isoDay(to),
+    interval: DASHBOARD_RANGE === 'this-month' ? 'day' : 'month',
+    state: 'paid'
+  });
+
+  try {
+    DASHBOARD_SALES_REPORT = await odooFetch('/api/invoice-report?' + params);
+  } catch (err) {
+    DASHBOARD_SALES_REPORT = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+// ==================== Dashboard — Subscription Renewal target ====================
+// Monthly targets (SAR) for the "Subscription Renewal" service (Odoo
+// quotation_template_id 48), editable from the UI (Settings button on the
+// card) and stored in Firestore settings/renewal_target. The DEFAULT_*
+// constants below are only the fallback shown before that doc exists.
+const DEFAULT_RENEWAL_TARGET_YEAR = 2026;
+const RENEWAL_TEMPLATE_ID = 48;
+
+// Per-division monthly targets — from management's "Target 2026" workbook,
+// Renewal section (2026-08-16), Corporate = Central + East + West summed.
+// Cross-checked two ways: (1) each row's own months sum to its stated
+// Jan-Dec total, (2) Corporate Jan-Aug sums to the 2,863,321 YTD figure
+// from the separate "Renewal Revenue (Overall)" screenshot. Editable from
+// the Renewal Target card's Settings button.
+const DEFAULT_DIVISION_TARGETS = {
+  B2B: [84160, 131581, 103327, 136119, 296815, 122386, 128053, 129456, 114858, 131305, 119164, 123994],
+  Corporate: [257948, 397972, 536487, 273209, 326046, 647796, 259926, 163936, 635653, 393063, 111480, 814226],
+  CSU: [100641, 122273, 105573, 138100, 245078, 135903, 171382, 173302, 137899, 152302, 386108, 151982],
+  Retail: [391460, 411727, 364200, 572688, 926906, 414251, 493042, 510130, 442870, 458092, 506940, 560726]
+};
+const DIVISION_TARGET_SEGMENTS = Object.keys(DEFAULT_DIVISION_TARGETS);
+
+// The combined target is the sum of the divisions, never a separate figure.
+// An earlier hardcoded row (630,946 / 782,051 / ... = 10.26M/yr) disagreed
+// with every management report by ~4.25M/yr; the summed divisions reproduce
+// their Jan-Aug YTD target of 9,271,875 exactly, so that is the source of
+// truth. Editing a division in Settings re-derives this automatically.
+// Array.from(12) rather than MONTH_NAMES_SHORT.map — that const is declared
+// further down this file, so using it here would hit the temporal dead zone.
+const sumDivisionTargets = dt => Array.from({ length: 12 }, (_, i) =>
+  DIVISION_TARGET_SEGMENTS.reduce((s, seg) => s + ((dt[seg] && dt[seg][i]) || 0), 0));
+
+let RENEWAL_TARGET_SETTINGS = { year: DEFAULT_RENEWAL_TARGET_YEAR, targets: sumDivisionTargets(DEFAULT_DIVISION_TARGETS), divisionTargets: DEFAULT_DIVISION_TARGETS };
+let RENEWAL_TARGET_REPORT = null;
+
+async function loadRenewalTargetSettings() {
+  try {
+    const doc = await db.collection('settings').doc('renewal_target').get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (d.year) {
+        const divisionTargets = (d.divisionTargets && DIVISION_TARGET_SEGMENTS.every(s => Array.isArray(d.divisionTargets[s]) && d.divisionTargets[s].length === 12))
+          ? d.divisionTargets : DEFAULT_DIVISION_TARGETS;
+        // Combined is always re-derived, never read from the doc — an older
+        // saved doc may still hold the superseded standalone figures.
+        RENEWAL_TARGET_SETTINGS = { year: d.year, targets: sumDivisionTargets(divisionTargets), divisionTargets };
+      }
+    }
+  } catch (err) { /* keep default fallback */ }
+  await loadRenewalTargetReport();
+}
+
+async function loadRenewalTargetReport() {
+  const year = RENEWAL_TARGET_SETTINGS.year;
+  const params = new URLSearchParams({
+    from: `${year}-01-01`, to: `${year}-12-31`, interval: 'month',
+    state: 'paid', template: String(RENEWAL_TEMPLATE_ID)
+  });
+  try {
+    RENEWAL_TARGET_REPORT = await odooFetch('/api/invoice-report?' + params);
+  } catch (err) {
+    RENEWAL_TARGET_REPORT = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+function openRenewalTargetSettings() {
+  const { year, targets, divisionTargets } = RENEWAL_TARGET_SETTINGS;
+  const box = document.getElementById('renewal-target-modal-box');
+  box.style.maxWidth = '95vw';
+  box.style.width = '760px';
+  box.innerHTML = `
+    <button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header"><div class="card-title">Renewal Target Settings</div></div>
+    <div style="max-height:75vh;overflow-y:auto">
+    <div class="row"><div><label class="input-label" for="rt-year">Year</label>
+      <input type="number" id="rt-year" value="${year}" style="max-width:120px"></div></div>
+    <div class="status">Combined monthly target — calculated as the sum of the divisions below, not editable on its own.</div>
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      ${MONTH_NAMES_SHORT.map((name, i) => `
+        <div style="min-width:100px"><label class="input-label">${name}</label>
+          <input type="number" id="rt-m${i}" value="${targets[i]}" disabled></div>`).join('')}
+    </div>
+    <div class="status" style="margin-top:var(--sp-3)">Per-division monthly target</div>
+    ${DIVISION_TARGET_SEGMENTS.map(seg => `
+      <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+        <div style="min-width:90px;font-weight:600">${seg}</div>
+        ${MONTH_NAMES_SHORT.map((name, i) => `
+          <div style="min-width:90px"><label class="input-label" for="rt-dt-${seg}-${i}">${name}</label>
+            <input type="number" id="rt-dt-${seg}-${i}" value="${divisionTargets[seg][i]}" min="0"></div>`).join('')}
+      </div>`).join('')}
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-bottom:0;margin-top:var(--sp-3)">
+      <button class="secondary" onclick="closeRenewalTargetSettings()">Cancel</button>
+      <button onclick="saveRenewalTargetSettings()">Save</button>
+    </div>`;
+  document.getElementById('renewal-target-modal').style.display = 'flex';
+}
+
+function closeRenewalTargetSettings() {
+  document.getElementById('renewal-target-modal').style.display = 'none';
+}
+
+async function saveRenewalTargetSettings() {
+  const year = parseInt(document.getElementById('rt-year').value, 10);
+  if (!year || year < 2000) { showToast('Enter a valid year', 'error'); return; }
+  const divisionTargets = {};
+  DIVISION_TARGET_SEGMENTS.forEach(seg => {
+    divisionTargets[seg] = MONTH_NAMES_SHORT.map((_, i) => Number(document.getElementById(`rt-dt-${seg}-${i}`).value) || 0);
+  });
+  const targets = sumDivisionTargets(divisionTargets);
+
+  try {
+    await db.collection('settings').doc('renewal_target').set({
+      year, targets, divisionTargets,
+      updated_by: ME.email,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    RENEWAL_TARGET_SETTINGS = { year, targets, divisionTargets };
+    closeRenewalTargetSettings();
+    showToast('Renewal target saved', 'success');
+    await loadRenewalTargetReport();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function renderRenewalTargetSection() {
+  const rep = RENEWAL_TARGET_REPORT;
+  const { year, targets } = RENEWAL_TARGET_SETTINGS;
+  const yearTotal = targets.reduce((a, b) => a + b, 0);
+  const settingsBtn = `<button class="ghost small" onclick="openRenewalTargetSettings()">${icon('settings')} Settings</button>
+    <button class="secondary small" onclick="loadRenewalTargetReport()">${icon('table')} Refresh</button>`;
+
+  if (!rep) return `<div class="card">
+    <div class="card-header"><div class="card-title">${year} Subscription Renewal Target (Without VAT)</div>${settingsBtn}</div>
+    <div class="status"><span class="spinner"></span>Loading ${year} renewal target...</div></div>`;
+  if (rep.error) return `<div class="card">
+    <div class="card-header"><div class="card-title">${year} Subscription Renewal Target (Without VAT)</div>${settingsBtn}</div>
+    <div class="status error">Renewal target failed to load: ${escapeHTML(rep.error)}</div></div>`;
+
+  const byMonth = new Array(12).fill(0);
+  // p.sort is a plain "YYYY-MM-DD" string (first of the month) — parse the
+  // month directly rather than via new Date(), which reads it as UTC and
+  // can roll it back a month in negative-UTC timezones.
+  // Without VAT (amount_untaxed), not with — explicit user instruction: this
+  // target is tracked against untaxed revenue, unlike the "Sales — Live from
+  // Odoo" tiles above which show both.
+  (rep.timeline || []).forEach(p => { byMonth[Number(String(p.sort).slice(5, 7)) - 1] = p.untaxed; });
+
+  const now = new Date();
+  const isCurrentYear = now.getFullYear() === year;
+  const curMonth = isCurrentYear ? now.getMonth() : -1;
+  const daysInCurMonth = isCurrentYear ? new Date(now.getFullYear(), curMonth + 1, 0).getDate() : 0;
+  const daysLeftInMonth = isCurrentYear ? Math.max(1, daysInCurMonth - now.getDate() + 1) : 0;
+  const daysLeftInYear = isCurrentYear ? Math.max(1, Math.round((new Date(now.getFullYear(), 11, 31) - now) / 86400000) + 1) : 0;
+
+  const achievedYTD = byMonth.reduce((s, v) => s + v, 0);
+  const remainingYear = Math.max(0, yearTotal - achievedYTD);
+  const thisMonthTarget = curMonth >= 0 ? (targets[curMonth] || 0) : 0;
+  const thisMonthAchieved = curMonth >= 0 ? (byMonth[curMonth] || 0) : 0;
+  const remainingMonth = Math.max(0, thisMonthTarget - thisMonthAchieved);
+
+  const rows = MONTH_NAMES_SHORT.map((name, i) => {
+    const target = targets[i];
+    const achieved = byMonth[i];
+    const pct = target ? (achieved / target * 100) : 0;
+    return `<tr${i === curMonth ? ' style="background:var(--c-surface-2)"' : ''}>
+      <td>${name}${i === curMonth ? ' (current)' : ''}</td>
+      <td>${sarFmt(target)}</td>
+      <td>${sarFmt(achieved)}</td>
+      <td>${sarFmt(Math.max(0, target - achieved))}</td>
+      <td style="min-width:120px">
+        <div class="dash-bar-track"><div class="dash-bar-fill${pct >= 100 ? ' accent' : ''}" data-w="${Math.min(100, pct).toFixed(1)}"></div></div>
+        <span class="dash-trend-day">${pct.toFixed(1)}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="card-header"><div class="card-title">${year} Subscription Renewal Target (Without VAT)</div>${settingsBtn}</div>
+      ${isCurrentYear ? `<div class="stat-grid">
+        <div class="stat-tile"><div class="num">${sarFmt(thisMonthTarget)}</div><div class="lbl">${MONTH_NAMES_SHORT[curMonth]} Target</div></div>
+        <div class="stat-tile"><div class="num">${sarFmt(thisMonthAchieved)}</div><div class="lbl">${MONTH_NAMES_SHORT[curMonth]} Achieved</div></div>
+        <div class="stat-tile"><div class="num">${sarFmt(remainingMonth)}</div><div class="lbl">${MONTH_NAMES_SHORT[curMonth]} Remaining</div></div>
+        <div class="stat-tile"><div class="num">${sarFmt(remainingMonth / daysLeftInMonth)}</div><div class="lbl">Daily Needed (${daysLeftInMonth}d left this month)</div></div>
+      </div>` : ''}
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="num">${sarFmt(yearTotal)}</div><div class="lbl">${year} Target</div></div>
+        <div class="stat-tile"><div class="num">${sarFmt(achievedYTD)}</div><div class="lbl">${year} Achieved${isCurrentYear ? ' YTD' : ''}</div></div>
+        <div class="stat-tile"><div class="num">${sarFmt(remainingYear)}</div><div class="lbl">${year} Remaining</div></div>
+        ${isCurrentYear ? `<div class="stat-tile"><div class="num">${sarFmt(remainingYear / daysLeftInYear)}</div><div class="lbl">Daily Needed (${daysLeftInYear}d left this year)</div></div>` : '<div class="stat-tile"><div class="num">—</div><div class="lbl">Daily Needed</div></div>'}
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Month</th><th>Target</th><th>Achieved</th><th>Remaining</th><th>Progress</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// ==================== Dashboard — Business Segment breakdown ====================
+// Segments (B2B / Corporate / CSU / Retail / Other), Region and City are
+// assigned per order booker, not guessed from Odoo team names — team names
+// don't cleanly map (and booker names collide: three different partner ids
+// are all "Faisal Zaman"), so the mapping is an explicit, user-edited
+// Firestore doc keyed by booker id. Any booker not yet assigned falls back
+// to segment "Other" and blank region/city.
+// CSU and Other are not real Odoo business_segment_id values — CSU only
+// ever comes from an explicit override (see segmentOf), Other is the
+// fallback when a booker has neither an override nor a native segment.
+const SEGMENT_NAMES = ['B2B', 'Corporate', 'CSU', 'Retail', 'Trading', 'New Sale', 'Renwal Sales', 'Other'];
+
+// User-supplied booker → division/region/city directory (2026-08-16), used
+// only to PRE-FILL the settings form below — it never writes to Firestore
+// by itself. Matched against the live Odoo booker list by name at open
+// time; exact matches are trusted, close-but-not-exact spellings (e.g.
+// "Ebtisam Al Qahtani" vs Odoo's "Ebtisam Alqahtani") are still offered as
+// a fuzzy-matched suggestion since the user reviews every row before Save.
+const SEED_BOOKER_DIRECTORY = [
+  ['Abdul Rehman', 'Retail', 'Central', 'FOCO'],
+  ['Addulrahman Elaraki', 'Corporate', 'Central', 'Riyadh'],
+  ['Aleeza Rizvi', 'CSU', 'Central', 'Riyadh'],
+  ['Amir Ilyas', 'Corporate', 'Central', 'Riyadh'],
+  ['Atif Khan', 'Corporate', 'West', 'Jeddah'],
+  ['Bilal Tulimat', 'B2B', 'West', 'Jeddah'],
+  ['Ebtisam Al Qahtani', 'CSU', 'Central', 'Riyadh'],
+  ['Elaf', 'CSU', 'Central', 'Riyadh'],
+  ['Faisal Mohammad', 'Retail', 'Central', 'Sulay'],
+  ['Faisal Zaman', 'Retail', 'Central', 'Tabuk'],
+  ['Faisal Zaman Ali Zaman', 'Retail', 'Central', 'Tabuk'],
+  ['Gamal Mohammad Korani', 'Retail', 'West', 'Khamis Mushayt'],
+  ['Hamed Sabar', 'Retail', 'West', 'Khumra'],
+  ['Imran Anjum', 'Retail', 'Central', 'Qaseem'],
+  ['Irfan Khosa', 'Retail', 'Central', 'Hail'],
+  ['Kashif Mehmood', 'Retail', 'West', 'Khumra'],
+  ['Khalid Jamal Yasin', 'CSU', 'Central', 'Riyadh'],
+  ['Maab', 'CSU', 'Central', 'Riyadh'],
+  ['Mohammad Al Tayeb', 'Corporate', 'Central', 'Riyadh'],
+  ['Mohammed Bakish', 'CSU', 'Central', 'Riyadh'],
+  ['Momin Qureshi', 'CSU', 'Central', 'Riyadh'],
+  ['Mosab', 'CSU', 'Central', 'Riyadh'],
+  ['Muhammad Elatiky', 'Retail', 'West', 'Jezan'],
+  ['Muhammad ElNamroud', 'Corporate', 'West', 'Jeddah'],
+  ['Muhammad Sajid', 'Retail', 'West', 'Madinah'],
+  ['Muhammad Shahroz', 'Retail', 'West', 'Johra'],
+  ['Noura Abdulmalik', 'CSU', 'Central', 'Riyadh'],
+  ['Raja Muhammad Ali', 'CSU', 'Central', 'Riyadh'],
+  ['Ridwan', 'CSU', 'Central', 'Riyadh'],
+  ['Romi Shahzad', 'CSU', 'Central', 'Riyadh'],
+  ['Sadia Asif', 'CSU', 'Central', 'Riyadh'],
+  ['Shahzad Afzal', 'Retail', 'East', 'Dammam'],
+  ['Talha Qureshi', 'Corporate', 'West', 'Jeddah'],
+  ['Tameem', 'Corporate', 'Central', 'Riyadh'],
+  ['Tariq Khan', 'Corporate', 'Central', 'Riyadh'],
+  ['Umar Farooq', 'Corporate', 'West', 'Jeddah'],
+  ['Usman Siddique', 'CSU', 'Central', 'Riyadh'],
+  ['Wasif Khan', 'Retail', 'West', 'Taif']
+];
+
+function normalizeBookerName(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Small edit-distance check — good enough to catch spelling variants
+// ("Elatiky" vs "Alatiky", "Al Qahtani" vs "Alqahtani") without pulling in
+// a library.
+function levenshtein(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+// Best seed-directory match for a live Odoo booker name, or null. Exact
+// normalized match wins outright; otherwise the closest entry within a
+// small edit-distance budget (scaled to name length) is offered.
+function matchSeedBooker(odooName) {
+  const norm = normalizeBookerName(odooName);
+  const exact = SEED_BOOKER_DIRECTORY.find(([name]) => normalizeBookerName(name) === norm);
+  if (exact) return exact;
+  let best = null, bestDist = Infinity;
+  SEED_BOOKER_DIRECTORY.forEach(entry => {
+    const d = levenshtein(norm, normalizeBookerName(entry[0]));
+    if (d < bestDist) { bestDist = d; best = entry; }
+  });
+  return best && bestDist <= Math.max(2, Math.ceil(norm.length * 0.25)) ? best : null;
+}
+
+let BOOKER_LIST = null; // [{id, name, orders, segment}] from Odoo, fetched once
+let BOOKER_NATIVE_SEGMENT = {}; // { [bookerId]: nativeSegmentLabel } — derived from BOOKER_LIST, for O(1) lookup
+let BOOKER_SEGMENTS = {}; // { [bookerId]: { segment, region, city, mergedInto } } — user override, always wins
+let DIVISION_DAILY_REPORT = null;
+
+// Same person under two Odoo partner ids (e.g. "Faisal Zaman" x3, a typo'd
+// duplicate) can be marked mergedInto the id you actually want to keep —
+// every report then attributes that id's revenue to the target's segment.
+// Follows the chain with a depth guard in case of an accidental cycle
+// (A merged into B, B merged into A).
+function resolveBookerKey(bookerKey) {
+  let key = bookerKey, hops = 0;
+  while (BOOKER_SEGMENTS[key] && BOOKER_SEGMENTS[key].mergedInto && hops < 10) {
+    key = BOOKER_SEGMENTS[key].mergedInto;
+    hops++;
+  }
+  return key;
+}
+
+// Firestore override wins; otherwise fall back to the booker's own native
+// Odoo business_segment_id (Retail/Corporate/B2B/Trading/New Sale/Renwal
+// Sales) — Odoo has no "CSU" value, so that one can only ever come from an
+// explicit override here. Merged bookers resolve through to their target
+// first, so they always inherit the target's segment.
+function segmentOf(bookerKey) {
+  const key = resolveBookerKey(bookerKey);
+  const v = BOOKER_SEGMENTS[key];
+  if (v && v.segment) return v.segment;
+  return BOOKER_NATIVE_SEGMENT[key] || 'Other';
+}
+
+async function loadBookerList() {
+  if (BOOKER_LIST) return;
+  try {
+    const data = await odooFetch('/api/order-bookers');
+    BOOKER_LIST = data.bookers || [];
+    BOOKER_LIST.forEach(b => { if (b.segment) BOOKER_NATIVE_SEGMENT[String(b.id)] = b.segment; });
+  } catch (err) {
+    BOOKER_LIST = [];
+  }
+}
+
+async function loadBookerSegments() {
+  try {
+    const doc = await db.collection('settings').doc('booker_segments').get();
+    BOOKER_SEGMENTS = (doc.exists && doc.data().segments) || {};
+  } catch (err) {
+    BOOKER_SEGMENTS = {};
+  }
+}
+
+// Which month the "Renewal by Segment" table shows — defaults to the
+// current month, changeable via the Month filter without needing a new
+// range picker UI.
+const now_ = new Date();
+let DIVISION_YEAR = now_.getFullYear();
+let DIVISION_MONTH = now_.getMonth(); // 0-11
+let DIVISION_STATUS = 'paid'; // '' (All) | draft | open | partial | paid | cancelled
+let DIVISION_FILTER_BOOKER = 'all';
+let DIVISION_FILTER_SEGMENT = 'all';
+
+async function loadDivisionDailyReport() {
+  const from = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH, 1));
+  const to = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH + 1, 0));
+  const params = new URLSearchParams({ from, to, dim: 'booker', template: String(RENEWAL_TEMPLATE_ID) });
+  if (DIVISION_STATUS) params.set('state', DIVISION_STATUS);
+  try {
+    DIVISION_DAILY_REPORT = await odooFetch('/api/invoice-report-daily?' + params);
+  } catch (err) {
+    DIVISION_DAILY_REPORT = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+// Jan 1 -> today, id-keyed by booker (unlike RENEWAL_TARGET_REPORT's
+// breakdown.booker, which is keyed by name and would silently merge
+// same-named-different-id bookers like the 3 "Faisal Zaman"s). Used only
+// for the YTD column of the by-division target table.
+let DIVISION_YTD_REPORT = null;
+
+async function loadDivisionYtdReport() {
+  const year = RENEWAL_TARGET_SETTINGS.year;
+  const from = `${year}-01-01`;
+  const to = isoDay(new Date());
+  const params = new URLSearchParams({ from, to, dim: 'booker', state: 'paid', template: String(RENEWAL_TEMPLATE_ID) });
+  try {
+    DIVISION_YTD_REPORT = await odooFetch('/api/invoice-report-daily?' + params);
+  } catch (err) {
+    DIVISION_YTD_REPORT = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+function setDivisionMonth(monthIndex) {
+  DIVISION_MONTH = Number(monthIndex);
+  loadDivisionDailyReport();
+}
+
+function setDivisionStatus(status) {
+  DIVISION_STATUS = status;
+  loadDivisionDailyReport();
+}
+
+function setDivisionFilter(kind, value) {
+  if (kind === 'booker') DIVISION_FILTER_BOOKER = value;
+  if (kind === 'segment') DIVISION_FILTER_SEGMENT = value;
+  renderDashboard();
+}
+
+async function openBookerSegmentSettings() {
+  const box = document.getElementById('renewal-target-modal-box');
+  box.style.maxWidth = '95vw';
+  box.style.width = '900px';
+  box.innerHTML = `<button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
+    <div class="status"><span class="spinner"></span>Loading order bookers...</div>`;
+  document.getElementById('renewal-target-modal').style.display = 'flex';
+  await loadBookerList();
+
+  const options = seg => SEGMENT_NAMES.map(s => `<option value="${s}"${s === seg ? ' selected' : ''}>${s}</option>`).join('');
+  // Same name, different Odoo id (e.g. 3 separate "Faisal Zaman" partner
+  // records) — flag these so the id column actually gets looked at instead
+  // of assumed to be interchangeable.
+  const nameCounts = {};
+  BOOKER_LIST.forEach(b => { nameCounts[b.name] = (nameCounts[b.name] || 0) + 1; });
+  box.innerHTML = `
+    <button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
+    <div class="status">Segment defaults to Odoo's own record for that booker where available. Rows marked * also got Region/City pre-filled by matching your pasted list to Odoo names — review before saving. Rows marked ⚠ share their name with another booker below — a different Odoo ID, possibly a different person; check ID + order count before assuming they're the same. If two rows really are the same person under two Odoo ids, use "Merge into" — their revenue then always counts under the target's segment.</div>
+    <div class="table-wrap" style="max-height:70vh;overflow-y:auto"><table>
+      <thead><tr><th>ID</th><th>Order Booker</th><th>Orders</th><th>Segment</th><th>Region</th><th>City</th><th>Merge into</th></tr></thead>
+      <tbody>${BOOKER_LIST.map(b => {
+        const key = String(b.id);
+        const saved = BOOKER_SEGMENTS[key];
+        const seed = !saved ? matchSeedBooker(b.name) : null;
+        // Priority: your saved override > Odoo's own native segment for
+        // this booker > your pasted seed list > "Other".
+        const segment = (saved && saved.segment) || b.segment || (seed && seed[1]) || 'Other';
+        const region = (saved && saved.region) || (seed && seed[2]) || '';
+        const city = (saved && saved.city) || (seed && seed[3]) || '';
+        const isDup = nameCounts[b.name] > 1;
+        const mergedInto = (saved && saved.mergedInto) || '';
+        const disabled = mergedInto ? ' disabled' : '';
+        const mergeOptions = BOOKER_LIST.filter(o => o.id !== b.id)
+          .map(o => `<option value="${o.id}"${String(o.id) === mergedInto ? ' selected' : ''}>${escapeHTML(o.name)} (${o.id})</option>`).join('');
+        return `<tr${isDup ? ' style="background:var(--c-accent-soft)"' : ''}>
+          <td style="font-family:var(--font-mono);color:var(--c-fg-muted)">${b.id}</td>
+          <td>${escapeHTML(b.name)}${isDup ? ' <span title="Same name as another booker below — different Odoo ID">⚠</span>' : ''}${seed ? ' <span title="Pre-filled from your pasted list">*</span>' : ''}</td>
+          <td>${b.orders}</td>
+          <td><select id="bs-seg-${b.id}"${disabled}>${options(segment)}</select></td>
+          <td><input id="bs-reg-${b.id}" value="${escapeHTML(region)}" style="max-width:110px"${disabled}></td>
+          <td><input id="bs-city-${b.id}" value="${escapeHTML(city)}" style="max-width:130px"${disabled}></td>
+          <td><select id="bs-merge-${b.id}" onchange="toggleBookerMergeRow(${b.id})" style="max-width:170px">
+            <option value="">— not merged —</option>
+            ${mergeOptions}
+          </select></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div class="row" style="justify-content:flex-end;margin-top:var(--sp-3);margin-bottom:0">
+      <button class="secondary" onclick="closeRenewalTargetSettings()">Cancel</button>
+      <button onclick="saveBookerSegmentSettings()">Save</button>
+    </div>`;
+}
+
+// Merging disables the row's own Segment/Region/City fields (they're
+// inherited from the merge target instead) — toggled live so it's obvious
+// before Save, not just after reload.
+function toggleBookerMergeRow(id) {
+  const merged = !!document.getElementById(`bs-merge-${id}`).value;
+  ['seg', 'reg', 'city'].forEach(f => { document.getElementById(`bs-${f}-${id}`).disabled = merged; });
+}
+
+async function saveBookerSegmentSettings() {
+  const segments = {};
+  (BOOKER_LIST || []).forEach(b => {
+    const mergedInto = document.getElementById(`bs-merge-${b.id}`).value;
+    segments[String(b.id)] = {
+      segment: document.getElementById(`bs-seg-${b.id}`).value,
+      region: document.getElementById(`bs-reg-${b.id}`).value.trim(),
+      city: document.getElementById(`bs-city-${b.id}`).value.trim(),
+      mergedInto: mergedInto || null
+    };
+  });
+  try {
+    await db.collection('settings').doc('booker_segments').set({
+      segments,
+      updated_by: ME.email,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    BOOKER_SEGMENTS = segments;
+    closeRenewalTargetSettings();
+    showToast('Booker segments saved', 'success');
+    if (currentActiveTab === 'dashboard') renderDashboard();
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+const DIVISION_STATUS_OPTIONS = [['', 'All'], ['paid', 'Paid'], ['open', 'Open'], ['partial', 'Partial'], ['draft', 'Draft'], ['cancelled', 'Cancelled']];
+
+function renderDivisionFilterBar() {
+  // Merged-away bookers are hidden: their revenue is reported under the
+  // merge target, so picking one here could only ever return nothing.
+  const bookerOptions = (BOOKER_LIST || [])
+    .filter(b => resolveBookerKey(String(b.id)) === String(b.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return `
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:var(--sp-3)">
+      <div><label class="input-label" for="div-month">Month</label>
+        <select id="div-month" onchange="setDivisionMonth(this.value)">
+          ${MONTH_NAMES_SHORT.map((m, i) => `<option value="${i}"${i === DIVISION_MONTH ? ' selected' : ''}>${m} ${DIVISION_YEAR}</option>`).join('')}
+        </select></div>
+      <div><label class="input-label" for="div-status">Status</label>
+        <select id="div-status" onchange="setDivisionStatus(this.value)">
+          ${DIVISION_STATUS_OPTIONS.map(([v, l]) => `<option value="${v}"${v === DIVISION_STATUS ? ' selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+      <div><label class="input-label" for="div-segment">Segment</label>
+        <select id="div-segment" onchange="setDivisionFilter('segment', this.value)">
+          <option value="all"${DIVISION_FILTER_SEGMENT === 'all' ? ' selected' : ''}>All</option>
+          ${SEGMENT_NAMES.map(s => `<option value="${s}"${s === DIVISION_FILTER_SEGMENT ? ' selected' : ''}>${s}</option>`).join('')}
+        </select></div>
+      <div><label class="input-label" for="div-booker">Order Booker</label>
+        <select id="div-booker" onchange="setDivisionFilter('booker', this.value)" style="max-width:200px">
+          <option value="all"${DIVISION_FILTER_BOOKER === 'all' ? ' selected' : ''}>All</option>
+          ${bookerOptions.map(b => `<option value="${b.id}"${String(b.id) === DIVISION_FILTER_BOOKER ? ' selected' : ''}>${escapeHTML(b.name)}</option>`).join('')}
+        </select></div>
+      <div style="align-self:flex-end">
+        <button class="secondary" onclick="loadDivisionDailyReport()">${icon('table')} Refresh</button>
+      </div>
+    </div>`;
+}
+
+// "Renewal Revenue (Overall)" — MTD/YTD Actual vs Target per division,
+// mirroring management's own reference table (LY comparison columns
+// deliberately left out, per explicit instruction not to build that yet).
+function renderDivisionTargetTable() {
+  if (!DIVISION_DAILY_REPORT || DIVISION_DAILY_REPORT.error || !DIVISION_YTD_REPORT || DIVISION_YTD_REPORT.error) return '';
+  const { divisionTargets } = RENEWAL_TARGET_SETTINGS;
+
+  // Both columns follow the Month filter, so "YTD" always means Jan through
+  // the month being shown. Mixing the filter's month with today's month made
+  // the two columns describe different periods whenever a past month was
+  // selected. `outside` catches revenue whose segment isn't one of the four
+  // target divisions — it belongs in the grand total even without a target.
+  let outsideMtd = 0, outsideYtd = 0;
+  const monthEnd = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH + 1, 0));
+  const sumBySegment = (report, cutoff) => {
+    const out = {};
+    DIVISION_TARGET_SEGMENTS.forEach(s => { out[s] = 0; });
+    let other = 0;
+    report.days.forEach(day => {
+      if (cutoff && day.date > cutoff) return;
+      Object.entries(day.groups).forEach(([bookerKey, amount]) => {
+        const seg = segmentOf(bookerKey);
+        if (out[seg] !== undefined) out[seg] += amount; else other += amount;
+      });
+    });
+    return { out, other };
+  };
+  const mtd = sumBySegment(DIVISION_DAILY_REPORT);
+  const ytd = sumBySegment(DIVISION_YTD_REPORT, monthEnd);
+  const mtdActual = mtd.out, ytdActual = ytd.out;
+  outsideMtd = mtd.other; outsideYtd = ytd.other;
+
+  const mtdTarget = {}, ytdTarget = {};
+  DIVISION_TARGET_SEGMENTS.forEach(s => {
+    mtdTarget[s] = (divisionTargets[s] && divisionTargets[s][DIVISION_MONTH]) || 0;
+    ytdTarget[s] = (divisionTargets[s] || []).slice(0, DIVISION_MONTH + 1).reduce((a, b) => a + b, 0);
+  });
+
+  const pct = (a, t) => t ? (a / t * 100) : 0;
+  const grand = keySet => DIVISION_TARGET_SEGMENTS.reduce((s, seg) => s + keySet[seg], 0);
+
+  const rows = DIVISION_TARGET_SEGMENTS.map(seg => `
+    <tr>
+      <td>${seg}</td>
+      <td>${sarFmt(mtdActual[seg])}</td>
+      <td>${sarFmt(mtdTarget[seg])}</td>
+      <td>${pct(mtdActual[seg], mtdTarget[seg]).toFixed(1)}%</td>
+      <td>${sarFmt(ytdActual[seg])}</td>
+      <td>${sarFmt(ytdTarget[seg])}</td>
+      <td>${pct(ytdActual[seg], ytdTarget[seg]).toFixed(1)}%</td>
+    </tr>`).join('');
+
+  const grandMtd = grand(mtdActual) + outsideMtd;
+  const grandYtd = grand(ytdActual) + outsideYtd;
+  const outsideRow = (outsideMtd || outsideYtd) ? `
+    <tr style="color:var(--c-fg-muted)">
+      <td>Unassigned <span title="Bookers with no segment override and no segment on their Odoo invoices">?</span></td>
+      <td>${sarFmt(outsideMtd)}</td><td>—</td><td>—</td>
+      <td>${sarFmt(outsideYtd)}</td><td>—</td><td>—</td>
+    </tr>` : '';
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Renewal Revenue by Division — ${MONTH_NAMES_SHORT[DIVISION_MONTH]} ${DIVISION_YEAR} (Without VAT)</div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Division</th><th>Month Actual</th><th>Month Target</th><th>Ach%</th><th>YTD Actual</th><th>YTD Target</th><th>Ach%</th></tr></thead>
+        <tbody>${rows}${outsideRow}
+          <tr style="font-weight:600;background:var(--c-surface-2)">
+            <td>Grand Total</td>
+            <td>${sarFmt(grandMtd)}</td>
+            <td>${sarFmt(grand(mtdTarget))}</td>
+            <td>${pct(grandMtd, grand(mtdTarget)).toFixed(1)}%</td>
+            <td>${sarFmt(grandYtd)}</td>
+            <td>${sarFmt(grand(ytdTarget))}</td>
+            <td>${pct(grandYtd, grand(ytdTarget)).toFixed(1)}%</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <div class="status" style="margin-top:var(--sp-3)">YTD = Jan through the month selected above. Per-division targets are editable from the Renewal Target card's Settings button.${outsideYtd ? ' <strong>Unassigned</strong> revenue has no division yet — set those bookers in Booker → Segment.' : ''}</div>
+    </div>`;
+}
+
+function renderDivisionBreakdownSection() {
+  const rep = DIVISION_DAILY_REPORT;
+  const settingsBtn = `<button class="ghost small" onclick="openBookerSegmentSettings()">${icon('settings')} Booker → Segment</button>`;
+  const title = `Renewal by Segment — ${MONTH_NAMES_SHORT[DIVISION_MONTH]} ${DIVISION_YEAR}`;
+
+  if (!rep) return `<div class="card">
+    <div class="card-header"><div class="card-title">${title}</div>${settingsBtn}</div>
+    ${renderDivisionFilterBar()}
+    <div class="status"><span class="spinner"></span>Loading daily breakdown...</div></div>`;
+  if (rep.error) return `<div class="card">
+    <div class="card-header"><div class="card-title">${title}</div>${settingsBtn}</div>
+    ${renderDivisionFilterBar()}
+    <div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
+
+  const today = isoDay(new Date());
+  const mtdBySegment = {};
+  SEGMENT_NAMES.forEach(s => { mtdBySegment[s] = 0; });
+
+  // Booker/Segment filters are applied here client-side (no refetch needed):
+  // a (bookerKey, amount) pair only counts toward a day/segment total if it
+  // passes both.
+  const passesFilter = bookerKey =>
+    // resolveBookerKey so filtering by a merge target also picks up
+    // whichever duplicate ids were merged into it.
+    (DIVISION_FILTER_BOOKER === 'all' || resolveBookerKey(bookerKey) === DIVISION_FILTER_BOOKER) &&
+    (DIVISION_FILTER_SEGMENT === 'all' || segmentOf(bookerKey) === DIVISION_FILTER_SEGMENT);
+
+  const dayRows = rep.days.map(day => {
+    const bySeg = {};
+    SEGMENT_NAMES.forEach(s => { bySeg[s] = 0; });
+    let dayTotal = 0;
+    Object.entries(day.groups).forEach(([bookerKey, amount]) => {
+      if (!passesFilter(bookerKey)) return;
+      const seg = segmentOf(bookerKey);
+      bySeg[seg] += amount;
+      mtdBySegment[seg] += amount;
+      dayTotal += amount;
+    });
+    // day.date is a plain "YYYY-MM-DD" calendar day — parse it directly
+    // instead of via new Date(), which reads it as UTC and can roll the
+    // displayed day back by one in negative-UTC timezones.
+    const [, mm, dd] = day.date.split('-');
+    const label = `${MONTH_NAMES_SHORT[Number(mm) - 1]} ${Number(dd)}`;
+    if (!dayTotal) return '';
+    return `<tr>
+      <td>${escapeHTML(label)}${day.date === today ? ' *' : ''}</td>
+      ${SEGMENT_NAMES.map(s => `<td>${bySeg[s] ? sarFmt(bySeg[s]) : '—'}</td>`).join('')}
+      <td><strong>${sarFmt(dayTotal)}</strong></td>
+    </tr>`;
+  }).join('');
+
+  const mtdTotal = Object.values(mtdBySegment).reduce((a, b) => a + b, 0);
+  const maxSeg = Math.max(1, ...Object.values(mtdBySegment));
+
+  return `
+    <div class="card">
+      <div class="card-header"><div class="card-title">${title} (Without VAT)</div>${settingsBtn}</div>
+      ${renderDivisionFilterBar()}
+      ${SEGMENT_NAMES.map(s => `
+        <div class="dash-bar-row">
+          <span class="dash-bar-label">${s}</span>
+          <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(mtdBySegment[s] / maxSeg * 100).toFixed(1)}"></div></div>
+          <span class="dash-bar-value">${sarFmt(mtdBySegment[s])}${mtdTotal ? ` (${(mtdBySegment[s] / mtdTotal * 100).toFixed(0)}%)` : ''}</span>
+        </div>`).join('')}
+      <div class="table-wrap" style="margin-top:var(--sp-3)"><table>
+        <thead><tr><th>Date</th>${SEGMENT_NAMES.map(s => `<th>${s}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>${dayRows || `<tr><td colspan="${SEGMENT_NAMES.length + 2}" class="no-results">No renewal orders match this filter</td></tr>`}</tbody>
+      </table></div>
+      <div class="status" style="margin-top:var(--sp-3)">* = today. Segment shown here comes from each order's booker → segment mapping (Booker → Segment button above).</div>
+    </div>`;
+}
+
+// ==================== Dashboard — Tickets sub-tab ====================
+let TICKETS_REPORT = null;
+let TICKETS_RANGE = 'this-month';
+
+async function loadTicketsReport(preset) {
+  if (preset) TICKETS_RANGE = preset;
+  const now = new Date();
+  let from, to = now;
+  if (TICKETS_RANGE === 'this-month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  else if (TICKETS_RANGE === 'last-month') {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (TICKETS_RANGE === '90d') { from = new Date(now); from.setDate(from.getDate() - 89); }
+  else { from = new Date(now.getFullYear(), 0, 1); }
+
+  const params = new URLSearchParams({
+    from: isoDay(from), to: isoDay(to),
+    interval: TICKETS_RANGE === 'this-month' ? 'day' : 'month'
+  });
+  try {
+    TICKETS_REPORT = await odooFetch('/api/tickets-report?' + params);
+  } catch (err) {
+    TICKETS_REPORT = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+function renderTicketsSection() {
+  const rep = TICKETS_REPORT;
+  const rangeBtns = `
+    <div class="row" style="margin-bottom:var(--sp-3)">
+      <button class="ghost small${TICKETS_RANGE === 'this-month' ? ' active' : ''}" onclick="loadTicketsReport('this-month')">This month</button>
+      <button class="ghost small${TICKETS_RANGE === 'last-month' ? ' active' : ''}" onclick="loadTicketsReport('last-month')">Last month</button>
+      <button class="ghost small${TICKETS_RANGE === '90d' ? ' active' : ''}" onclick="loadTicketsReport('90d')">Last 90 days</button>
+      <button class="ghost small${TICKETS_RANGE === 'ytd' ? ' active' : ''}" onclick="loadTicketsReport('ytd')">Year to date</button>
+    </div>`;
+
+  if (!rep) return `<div class="card"><div class="card-header"><div class="card-title">Tickets</div></div>${rangeBtns}<div class="status"><span class="spinner"></span>Loading tickets from Odoo...</div></div>`;
+  if (rep.error) return `<div class="card"><div class="card-header"><div class="card-title">Tickets</div></div>${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
+
+  const t = rep.totals;
+  const types = (rep.breakdown.type || []).slice(0, 8);
+  const maxType = Math.max(1, ...types.map(r => r.count));
+  const subStates = rep.breakdown.sub_state || [];
+  const maxSub = Math.max(1, ...subStates.map(r => r.count));
+  const maxTl = Math.max(1, ...rep.timeline.map(p => p.count));
+
+  return `
+    <div class="card">
+      <div class="card-header"><div class="card-title">Tickets</div></div>
+      ${rangeBtns}
+      <div class="stat-grid">
+        <div class="stat-tile"><div class="num">${t.total.toLocaleString()}</div><div class="lbl">Total Tickets</div></div>
+        <div class="stat-tile"><div class="num">${t.open.toLocaleString()}</div><div class="lbl">Open</div></div>
+        <div class="stat-tile"><div class="num">${t.closed.toLocaleString()}</div><div class="lbl">Closed</div></div>
+        <div class="stat-tile"><div class="num">${t.overdue.toLocaleString()}</div><div class="lbl">Overdue (open, past due)</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Top Ticket Types</div></div>
+          ${types.length ? types.map(r => `
+            <div class="dash-bar-row">
+              <span class="dash-bar-label" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span>
+              <div class="dash-bar-track"><div class="dash-bar-fill" data-w="${(r.count / maxType * 100).toFixed(1)}"></div></div>
+              <span class="dash-bar-value">${r.count}</span>
+            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">By Department</div></div>
+          ${subStates.length ? subStates.map(r => `
+            <div class="dash-bar-row">
+              <span class="dash-bar-label" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span>
+              <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(r.count / maxSub * 100).toFixed(1)}"></div></div>
+              <span class="dash-bar-value">${r.count}</span>
+            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Ticket Volume (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
+        <div class="dash-trend">
+          ${rep.timeline.length ? rep.timeline.map(p => `
+            <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${p.count} ticket(s)">
+              <div class="dash-trend-bar" data-h="${(p.count / maxTl * 100).toFixed(1)}"></div>
+              <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
+        </div>
+      </div>
+    </div>`;
 }
 
 // Main tab is ONE compact card — same visual language as a pipeline case
@@ -2220,9 +3143,35 @@ function exportSalesReport() {
 }
 
 // ==================== Odoo tab — sale order search ====================
+// The bridge runs on Render's free tier: it sleeps after ~15 min idle and the
+// first request then pays a 10-30s container cold start. That wait always
+// landed on the user, mid-task. Ping the (unauthenticated, no-op) /health
+// endpoint at login and every 14 min after, so the container is already awake
+// by the time anyone actually clicks something Odoo-backed.
+function warmOdooBridge() { fetchWithTimeout(ODOO_BRIDGE_URL + '/health', {}, 12000).catch(() => {}); }
+
+// Plain fetch() has no timeout — if the bridge is fully down (not just
+// asleep) the browser can sit on a hung connection for 60-90s+. Every
+// Odoo-backed fetch in this app goes through this so a dead bridge fails
+// fast and visibly instead of making the whole tab feel frozen.
+function fetchWithTimeout(url, opts = {}, ms = 20000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  // A caller-supplied signal (e.g. to cancel a superseded keystroke lookup)
+  // must still cancel the request, but must not replace our own timeout —
+  // chain it instead of picking one or the other.
+  if (opts.signal) opts.signal.addEventListener('abort', () => ctrl.abort(), { once: true });
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 async function odooFetch(path) {
   const token = await auth.currentUser.getIdToken();
-  const res = await fetch(ODOO_BRIDGE_URL + path, { headers: { Authorization: 'Bearer ' + token } });
+  let res;
+  try {
+    res = await fetchWithTimeout(ODOO_BRIDGE_URL + path, { headers: { Authorization: 'Bearer ' + token } });
+  } catch (err) {
+    throw new Error(err.name === 'AbortError' ? 'Odoo bridge did not respond (timed out) — it may be down, not just asleep.' : err.message);
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Odoo request failed');
   return data;
@@ -2417,19 +3366,28 @@ document.getElementById('new-ticket-link').href = odooNewUrl('internal.ticket.wa
 document.getElementById('deal-new-so-link').href = odooNewUrl('sale.order.wags');
 document.getElementById('deal-all-so-link').href = `${ODOO_WEB_URL}/web#cids=1&menu_id=141&action=626&model=sale.order.wags&view_type=list`;
 
+// Fires on every keystroke in New Request (400ms debounce below). If the
+// bridge is slow/down, an earlier still-pending lookup must not be left to
+// race a newer one and overwrite it with stale data — cancel it first.
+let lookupOdooAbort = null;
+
 async function lookupOdoo(mobile, plate) {
+  if (lookupOdooAbort) lookupOdooAbort.abort();
   if (!mobile && !plate) { renderOdooPanel(null); return; }
   document.getElementById('odoo-panel').innerHTML = '<div class="status"><span class="spinner"></span>Checking Odoo...</div>';
+  const ctrl = lookupOdooAbort = new AbortController();
   try {
     const token = await auth.currentUser.getIdToken();
     const params = new URLSearchParams();
     if (mobile) params.set('mobile', mobile);
     if (plate) params.set('plate', plate);
-    const res = await fetch(`${ODOO_BRIDGE_URL}/api/lookup?${params}`, { headers: { Authorization: 'Bearer ' + token } });
+    const res = await fetchWithTimeout(`${ODOO_BRIDGE_URL}/api/lookup?${params}`,
+      { headers: { Authorization: 'Bearer ' + token }, signal: ctrl.signal }, 20000);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Odoo lookup failed');
     renderOdooPanel(data);
   } catch (err) {
+    if (err.name === 'AbortError') return;   // superseded by a newer keystroke, not a real failure
     renderOdooPanel(null, err.message);
   }
 }
@@ -2506,10 +3464,12 @@ function editCardHtml(r) {
   return `<div class="pipeline-card" id="edit-card-${r.id}">
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</div>
-        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)} · Stage ${stage} — ${escapeHTML(STAGE_LABELS[stage] || '')}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${copyBtn(r.plate, 'plate')}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.date)} · Stage ${stage} — ${escapeHTML(STAGE_LABELS[stage] || '')}</div>
         <div class="paid-for">${serviceTags(r)}<span class="paid-amount">SAR ${r.amount || 0}</span></div>
       </div>
+      <button type="button" class="edit-card-close" title="Close this card" aria-label="Close"
+        onclick="closeEditCard('${r.id}')">${icon('x')}</button>
     </div>
     <div class="stage-form">
       <div class="stage-field">
@@ -2566,6 +3526,16 @@ function editCardHtml(r) {
   </div>`;
 }
 
+// These edit cards aren't backed by the live listener — nothing ever removed
+// them, so after saving they just sat there and the only way out was a page
+// refresh. Also clears the results status line once the last card is gone.
+function closeEditCard(docId) {
+  const card = document.getElementById('edit-card-' + docId);
+  if (card) card.remove();
+  const wrap = document.getElementById('edit-results');
+  if (wrap && !wrap.querySelector('.pipeline-card')) wrap.innerHTML = '';
+}
+
 async function saveEditedRequest(docId) {
   const statusEl = document.getElementById('edit-status-' + docId);
   statusEl.style.color = 'var(--c-fg-subtle)';
@@ -2620,7 +3590,7 @@ async function saveEditedRequest(docId) {
     const others = jobIds.filter(id => id !== docId);
     const identityOnly = groupIds.filter(id => id !== docId && !others.includes(id));
     await Promise.all([
-      db.collection('requests').doc(docId).update({ ...perVehicle, ...jobLevel, ...identity, ...common }),
+      db.collection('requests').doc(docId).update(withLog({ ...perVehicle, ...jobLevel, ...identity, ...common }, 'Edited case details')),
       ...others.map(id => db.collection('requests').doc(id).update({ ...jobLevel, ...identity, ...common })),
       ...identityOnly.map(id => db.collection('requests').doc(id).update({ ...identity, ...common }))
     ]);
@@ -2630,6 +3600,10 @@ async function saveEditedRequest(docId) {
       ? `Saved — Renewal ID is now ${identity.renewal_id}${groupIds.length > 1 ? ` (${groupIds.length} vehicles)` : ''}`
       : (jobIds.length > 1 ? `Saved for the whole job (${jobIds.length} vehicles)` : 'Saved');
     showToast(identity.renewal_id ? `Renewal ID updated to ${identity.renewal_id}` : 'Request updated', 'success');
+    // The card's own fields are now stale (renewal_id may have changed) and
+    // there's nothing left to do on it — close it out rather than leaving a
+    // saved-but-still-open card the user has to refresh away.
+    setTimeout(() => closeEditCard(docId), 1200);
   } catch (err) {
     statusEl.style.color = 'var(--c-danger)';
     statusEl.textContent = err.message;
@@ -2741,6 +3715,7 @@ async function saveRenewalRequest(startStage) {
     stage: startStage,
     stage_label: STAGE_LABELS[startStage],
     stage_dates: { [startStage]: new Date().toISOString() },
+    activity_log: [logEntry(`Case created at Stage ${startStage} — ${STAGE_LABELS[startStage] || ''}`)],
     device_status: '',
     invoice_vat_sent: false,
     fix_status: 'Pending',
@@ -2876,7 +3851,7 @@ function renderDailyRequestsTable() {
     <tbody>${DAILY_CACHE.map(r => `
       <tr>
         <td>${escapeHTML(formatDateDMY(r.date))}</td>
-        <td>${escapeHTML(r.mobile)}</td>
+        <td>${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')}</td>
         <td>${escapeHTML(r.encoder)}</td>
         <td>${escapeHTML(r.task)}</td>
         <td>${escapeHTML([r.complaint_type, r.feedback].filter(Boolean).join(' — ')) || '—'}</td>
@@ -2893,6 +3868,12 @@ let RESULTS = [];
 let PAGE = 0;
 const PER_PAGE = 25;
 const SEARCHABLE_FIELDS = ['pn','vi','ci','di','vn','rn','im','sn','sq','cn','dn'];
+
+// The vehicle blob is multi-MB (138K records, gzip+base64 over Firestore) and
+// only the Search tab needs it, so it's loaded on first use instead of at
+// login. Memoised as a promise so concurrent callers share one download.
+let DATA_PROMISE = null;
+function ensureVehicleData() { return DATA_PROMISE || (DATA_PROMISE = loadVehicleData()); }
 
 async function loadVehicleData() {
   const status = document.getElementById('data-status');
@@ -2913,14 +3894,18 @@ async function loadVehicleData() {
     document.getElementById('q').placeholder = 'Enter search value...';
     document.getElementById('q').focus();
   } catch (e) {
+    DATA_PROMISE = null;   // let the next visit to the Search tab retry
     status.className = 'status error';
     status.textContent = 'Failed to load vehicle data: ' + e.message;
   }
 }
 
-function fld(label, val) {
+// highlight: the fields an encoder actually retypes into WASL — worth making
+// them findable at a glance in a card of ~30 fields.
+function fld(label, val, copyable, highlight) {
   const isEmpty = !val || val === '' || val === 'nan';
-  return `<div class="field"><span class="field-name">${label}</span><span class="field-value${isEmpty?' empty':''}">${isEmpty ? '—' : escapeHTML(val)}</span></div>`;
+  const copy = copyable && !isEmpty ? copyBtn(val, label) : '';
+  return `<div class="field${highlight ? ' field-hl' : ''}"><span class="field-name">${label}</span><span class="field-value${isEmpty?' empty':''}">${isEmpty ? '—' : escapeHTML(val)}${copy}</span></div>`;
 }
 
 // Rough industry estimate only (GVWR isn't a fixed function of curb weight —
@@ -2954,38 +3939,38 @@ function renderCard(r) {
     <div class="section">
       <div class="section-label">Vehicle Data</div>
       <div class="grid">
-        ${fld('Vehicle No', r.vn)}
+        ${fld('Vehicle No', r.vn, true)}
         ${fld('Vehicle Name', r.vnm)}
-        ${fld('Registration No', r.rn)}
+        ${fld('Registration No', r.rn, true)}
         ${fld('Type', r.tp)}
         ${fld('Vehicle Type', r.vt)}
-        ${fld('IMEI', r.im)}
-        ${fld('SIM No', r.sn)}
-        ${fld('Weight Factor', r.wf)}
-        ${fld('Empty Weight', r.ew)}
-        ${fld('Head Weight', r.hw)}
+        ${fld('IMEI', r.im, true)}
+        ${fld('SIM No', r.sn, true)}
+        ${fld('Weight Factor', r.wf, true, true)}
+        ${fld('Empty Weight', r.ew, true, true)}
+        ${fld('Head Weight', r.hw, true, true)}
         ${fld('Driver ID', r.di)}
       </div>
     </div>
     <div class="section">
       <div class="section-label">Custom &amp; Optional (KSA / Regulatory)</div>
       <div class="grid">
-        ${fld('Weight Sensor Analog Number', 1)}
-        ${fld('Empty Vehicle Weight (kg)', r.ew)}
-        ${fld('Empty Vehicle Voltage (V)', 1.5)}
-        ${fld('Full Load Vehicle Weight (kg)', calcFullLoadWeight(r.ew))}
-        ${fld('Full Load Vehicle Voltage (V)', 4.5)}
+        ${fld('Weight Sensor Analog Number', 1, true)}
+        ${fld('Empty Vehicle Weight (kg)', r.ew, true, true)}
+        ${fld('Empty Vehicle Voltage (V)', 1.5, true, true)}
+        ${fld('Full Load Vehicle Weight (kg)', calcFullLoadWeight(r.ew), true, true)}
+        ${fld('Full Load Vehicle Voltage (V)', 4.5, true, true)}
       </div>
     </div>
     <div class="section">
       <div class="section-label">Wasl / Plate</div>
       ${plateBlock}
       <div class="grid" style="margin-top:8px">
-        ${fld('Plate No', r.pn)}
+        ${fld('Plate No', r.pn, true)}
         ${fld('Right Letter', r.pr)}
         ${fld('Middle Letter', r.pm)}
         ${fld('Left Letter', r.pl)}
-        ${fld('Sequence No', r.sq)}
+        ${fld('Sequence No', r.sq, true, true)}
       </div>
     </div>
     <div class="section">
@@ -2993,10 +3978,10 @@ function renderCard(r) {
       ${identityBadge(r.idn)}
       <div class="grid">
         ${fld('Company ID', r.ci)}
-        ${fld('Company Name', r.cn)}
-        ${fld('Contact No', r.c1)}
-        ${fld('Identity No', r.idn)}
-        ${fld('CR Issue Date', r.crd)}
+        ${fld('Company Name', r.cn, true)}
+        ${fld('Contact No', r.c1, true)}
+        ${fld('Identity No', r.idn, true, true)}
+        ${fld('CR Issue Date', r.crd, true, true)}
         ${fld('Odoo Customer ID', r.ocid)}
       </div>
     </div>
@@ -3362,8 +4347,12 @@ function loadRequests() {
       statusEl.className = 'status ready';
       statusEl.textContent = `${REQUESTS_CACHE.length} request(s)${synced} — live`;
       // Don't re-render while the user is typing in a row, it would wipe their input.
+      // Only the Master tab shows this table, and it's the heaviest render in
+      // the app (up to 2000 grouped rows x 16 cols). Building it on every
+      // snapshot tick while the user sits on some other tab was pure waste —
+      // switchTab('requests') renders it on entry instead.
       const active = document.activeElement;
-      if (!active || !document.getElementById('requests-tbody').contains(active)) {
+      if (currentActiveTab === 'requests' && (!active || !document.getElementById('requests-tbody').contains(active))) {
         renderRequestsTable();
       }
       if (STAGE_TAB_NAMES.includes(currentActiveTab)) renderStageTab(parseInt(currentActiveTab.replace('stage', ''), 10));
@@ -3426,8 +4415,274 @@ async function toggleDuplicate(docId, currentlyDuplicate, label) {
 
 async function toggleOnHold(docId, currentlyOnHold) {
   try {
-    await db.collection('requests').doc(docId).update({ on_hold: !currentlyOnHold });
+    await db.collection('requests').doc(docId).update(withLog({ on_hold: !currentlyOnHold }, currentlyOnHold ? 'Removed On Hold' : 'Put On Hold'));
     showToast(currentlyOnHold ? 'Hold removed' : 'Case put on hold', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ==================== Case journey / activity log ====================
+// "Who did what, and what was the status" wasn't answerable anywhere before —
+// updated_by only ever held the LAST person to touch a case, overwriting the
+// one before. This appends instead of overwriting, at every place a case's
+// status actually changes, so Case View can auto-render the full history —
+// no one has to type a status note by hand.
+function logEntry(action) {
+  return {
+    at: new Date().toISOString(),
+    by: ME.encoderName || (auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : 'Unknown')
+  , action };
+}
+// serverTimestamp() isn't allowed inside arrayUnion array elements, so each
+// entry stamps a plain client ISO string — fine for a human-readable trail.
+function withLog(payload, action) {
+  return { ...payload, activity_log: firebase.firestore.FieldValue.arrayUnion(logEntry(action)) };
+}
+
+// Merges this vehicle's log with every sibling's (a multi-vehicle job is one
+// customer's one journey, even though each vehicle moves independently now),
+// sorted newest first.
+function renderJourney(r, siblings) {
+  const all = [r, ...siblings];
+  const events = all.flatMap(v => (v.activity_log || []).map(e => ({ ...e, plate: v.plate })));
+  if (!events.length) {
+    return `<div class="status" style="margin-top:6px">No activity logged yet for this case — this log started after some cases were already created, so older moves aren't captured here. Check the stage trail dates above instead.</div>`;
+  }
+  events.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return `<div class="prev-stage-notes" style="max-height:280px;overflow-y:auto">
+    ${events.map(e => `<div><strong>${escapeHTML(new Date(e.at).toLocaleString())}</strong> — ${escapeHTML(personName(e.by))}${all.length > 1 ? ` · ${escapeHTML(e.plate) || 'no plate'}` : ''}: ${escapeHTML(e.action)}</div>`).join('')}
+  </div>`;
+}
+
+// ==================== Help & Troubleshooting ====================
+// A reference library the team writes and maintains itself — not something
+// this app has any actual WASL/renewal process knowledge to pre-fill, so it
+// starts empty and any signed-in user can add, edit, or (soft-)delete an
+// article, same open-to-everyone pattern as the rest of the app.
+let HELP_CACHE = [];
+let helpUnsubscribe = null;
+let HELP_EDIT_ID = null;
+let HELP_IMAGES = [];   // data URIs staged for the article currently in the form
+
+// Firestore caps a document at 1 MiB and screenshots go straight into the
+// article doc (Firebase Storage needs the paid Blaze plan, which is off the
+// table here). So every image is downscaled and re-encoded as JPEG before it
+// ever reaches the doc, and the running total is checked against a budget
+// that leaves room for the article text itself.
+const HELP_IMG_MAX_W = 1400;
+const HELP_IMG_QUALITY = 0.72;
+const HELP_IMG_BUDGET = 780 * 1024;   // ~780KB of base64, well under the 1MiB doc cap
+
+function helpImagesBytes(list) {
+  return (list || HELP_IMAGES).reduce((n, uri) => n + uri.length, 0);
+}
+
+function shrinkImage(file, maxW, quality) {
+  const w = maxW || HELP_IMG_MAX_W;
+  const q = quality || HELP_IMG_QUALITY;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read ' + file.name));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Not a readable image: ' + file.name));
+      img.onload = () => {
+        const scale = Math.min(1, w / img.width);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        const ctx = c.getContext('2d');
+        // Screenshots are mostly white UI; JPEG has no alpha, so paint a white
+        // ground first or transparent PNGs come out with black fringes.
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', q));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addHelpImages(files) {
+  const statusEl = document.getElementById('help-form-status');
+  const list = [...files].filter(f => f.type.startsWith('image/'));
+  if (!list.length) return;
+  for (const f of list) {
+    try {
+      let uri = await shrinkImage(f);
+      // A single very detailed image can blow the whole budget on its own.
+      // Rather than dead-ending, try again smaller before giving up.
+      if (uri.length > HELP_IMG_BUDGET) uri = await shrinkImage(f, 1000, 0.6);
+      if (uri.length > HELP_IMG_BUDGET) uri = await shrinkImage(f, 800, 0.5);
+
+      const used = helpImagesBytes();
+      if (uri.length > HELP_IMG_BUDGET) {
+        // Still too big even at 800px — nothing sensible left to try.
+        statusEl.style.display = 'block';
+        statusEl.className = 'status error';
+        statusEl.textContent = `"${f.name}" is too detailed to fit in one article even after shrinking. Crop it to just the part that matters and try again.`;
+        continue;
+      }
+      if (used + uri.length > HELP_IMG_BUDGET) {
+        statusEl.style.display = 'block';
+        statusEl.className = 'status error';
+        statusEl.textContent = `"${f.name}" skipped — this article is already at ${Math.round(used / 1024)}KB of its ~${Math.round(HELP_IMG_BUDGET / 1024)}KB image budget. Remove an image, or split this into two articles.`;
+        continue;
+      }
+      HELP_IMAGES.push(uri);
+    } catch (err) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'status error';
+      statusEl.textContent = err.message;
+    }
+  }
+  renderHelpImagePreview();
+}
+
+function removeHelpImage(i) {
+  HELP_IMAGES.splice(i, 1);
+  renderHelpImagePreview();
+}
+
+function renderHelpImagePreview() {
+  const box = document.getElementById('help-img-preview');
+  box.innerHTML = HELP_IMAGES.map((uri, i) => `
+    <div style="position:relative">
+      <img src="${uri}" style="height:72px;border-radius:var(--r-sm);border:1px solid var(--c-border);display:block">
+      <button type="button" onclick="removeHelpImage(${i})" title="Remove"
+        style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;min-height:0;padding:0;border-radius:50%;background:var(--c-danger);color:#fff;border:none;font-size:13px;line-height:1;cursor:pointer">&times;</button>
+    </div>`).join('');
+  const kb = Math.round(helpImagesBytes() / 1024);
+  document.getElementById('help-img-size').textContent = HELP_IMAGES.length
+    ? `${HELP_IMAGES.length} image(s) — ${kb}KB of ~${Math.round(HELP_IMG_BUDGET / 1024)}KB used`
+    : '';
+}
+
+// Paste-to-attach: screenshots usually live on the clipboard, not on disk, so
+// making the user save a file first would be the slowest part of the job.
+document.getElementById('help-body').addEventListener('paste', e => {
+  const files = [...(e.clipboardData ? e.clipboardData.files : [])];
+  if (files.length) { e.preventDefault(); addHelpImages(files); }
+});
+
+function loadHelpArticles() {
+  const statusEl = document.getElementById('help-status');
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Loading...';
+  if (helpUnsubscribe) helpUnsubscribe();
+  helpUnsubscribe = db.collection('help_articles').onSnapshot(snap => {
+    HELP_CACHE = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(a => !a.deleted);
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${HELP_CACHE.length} article(s)`;
+    renderHelpList();
+  }, err => { statusEl.className = 'status error'; statusEl.textContent = err.message; });
+}
+
+function renderHelpList() {
+  const q = document.getElementById('help-q').value.trim().toLowerCase();
+  const filtered = HELP_CACHE.filter(a => !q ||
+    (a.title || '').toLowerCase().includes(q) ||
+    (a.category || '').toLowerCase().includes(q) ||
+    (a.body || '').toLowerCase().includes(q));
+
+  // Grouped by category so related how-tos (all the WASL ones, all the Sale
+  // Order ones) sit together instead of one long flat list.
+  const groups = new Map();
+  filtered.forEach(a => {
+    const key = a.category || 'General';
+    (groups.get(key) || groups.set(key, []).get(key)).push(a);
+  });
+  const sortedKeys = [...groups.keys()].sort();
+
+  document.getElementById('help-list').innerHTML = sortedKeys.length ? sortedKeys.map(cat => `
+    <div class="section-label" style="margin:14px 0 8px">${escapeHTML(cat)}</div>
+    ${groups.get(cat).map(a => `
+      <details class="card" style="margin-bottom:8px">
+        <summary class="info-toggle" style="font-size:14px;font-weight:700;color:var(--c-fg)">${escapeHTML(a.title)}</summary>
+        <div style="white-space:pre-wrap;margin-top:8px;font-size:13.5px;line-height:1.6">${escapeHTML(a.body)}</div>
+        ${(a.images || []).length ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
+          ${a.images.map(uri => `<a href="${uri}" target="_blank" rel="noopener" title="Open full size"><img src="${uri}" style="max-width:100%;width:240px;border-radius:var(--r-sm);border:1px solid var(--c-border);display:block"></a>`).join('')}
+        </div>` : ''}
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <button class="ghost small" onclick="editHelpArticle('${a.id}')">Edit</button>
+          <button class="ghost small" style="color:var(--c-danger)" onclick="deleteHelpArticle('${a.id}')">Delete</button>
+          <span style="font-size:11px;color:var(--c-fg-subtle)">by ${escapeHTML(a.created_by || '')}</span>
+        </div>
+      </details>`).join('')}
+  `).join('') : `<div class="no-results">No help articles ${q ? 'match your search' : 'yet — add the first one above'}.</div>`;
+}
+
+async function saveHelpArticle() {
+  const title = document.getElementById('help-title').value.trim();
+  const category = document.getElementById('help-category').value.trim() || 'General';
+  const body = document.getElementById('help-body').value.trim();
+  const statusEl = document.getElementById('help-form-status');
+  statusEl.style.display = 'block';
+  if (!title || !body) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Title and content are both required';
+    return;
+  }
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Saving...';
+  const who = ME.encoderName || (auth.currentUser ? auth.currentUser.email : '');
+  const payload = {
+    title, category, body,
+    images: [...HELP_IMAGES],
+    updated_by: who,
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    if (HELP_EDIT_ID) {
+      await db.collection('help_articles').doc(HELP_EDIT_ID).update(payload);
+    } else {
+      await db.collection('help_articles').add({
+        ...payload, created_by: who,
+        created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        deleted: false
+      });
+    }
+    statusEl.style.display = 'none';
+    showToast(HELP_EDIT_ID ? 'Article updated' : 'Article added', 'success');
+    cancelHelpEdit();
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+function editHelpArticle(id) {
+  const a = HELP_CACHE.find(x => x.id === id);
+  if (!a) return;
+  HELP_EDIT_ID = id;
+  document.getElementById('help-title').value = a.title || '';
+  document.getElementById('help-category').value = a.category || '';
+  document.getElementById('help-body').value = a.body || '';
+  HELP_IMAGES = [...(a.images || [])];
+  renderHelpImagePreview();
+  document.getElementById('help-cancel-edit').style.display = 'inline-block';
+  document.getElementById('help-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelHelpEdit() {
+  HELP_EDIT_ID = null;
+  document.getElementById('help-title').value = '';
+  document.getElementById('help-category').value = '';
+  document.getElementById('help-body').value = '';
+  HELP_IMAGES = [];
+  renderHelpImagePreview();
+  document.getElementById('help-cancel-edit').style.display = 'none';
+}
+
+// Soft-delete, same pattern as the rest of the app — never hard-destroy.
+async function deleteHelpArticle(id) {
+  if (!confirm('Delete this help article?')) return;
+  try {
+    await db.collection('help_articles').doc(id).update({ deleted: true });
+    showToast('Article deleted', 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -3645,11 +4900,11 @@ async function saveStageForm(docId, stage) {
   const { values } = collectStageForm(docId, stage);
   const ids = jobMemberIds(docId);
   try {
-    await Promise.all(ids.map(id => db.collection('requests').doc(id).update({
+    await Promise.all(ids.map(id => db.collection('requests').doc(id).update(withLog({
       ...values,
       updated_by: auth.currentUser ? auth.currentUser.email : '',
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
-    })));
+    }, `Saved Stage ${stage} form (${STAGE_LABELS[stage] || ''}) — no stage change`))));
     showToast(ids.length > 1 ? `Saved for the whole job (${ids.length} vehicles)` : 'Saved', 'success');
   } catch (err) {
     showToast(err.message, 'error');
@@ -3696,7 +4951,7 @@ function renderGroupedCaseList(cases, listElId, emptyText) {
       <div class="pipeline-card-head">
         <div>
           <div class="pipeline-card-title">${escapeHTML(key)}</div>
-          <div class="pipeline-card-sub">${escapeHTML(items[0].encoder)} · ${escapeHTML(items[0].mobile)}</div>
+          <div class="pipeline-card-sub">${escapeHTML(items[0].encoder)} · ${escapeHTML(items[0].mobile)}${copyBtn(items[0].mobile, 'mobile')}</div>
           <div class="paid-for">
             ${priorityTag(furthest)}
             <span class="pill prio-medium">${items.length} vehicles</span>
@@ -3707,6 +4962,25 @@ function renderGroupedCaseList(cases, listElId, emptyText) {
         </div>
         <div class="stage-dates"><strong>Last stage:</strong> ${lastStage} — ${escapeHTML(STAGE_LABELS[lastStage] || '')}</div>
       </div>
+      ${(() => {
+        // One collapsed row per distinct action instead of one pill per
+        // vehicle — a 12-vehicle job all needing the same thing was filling
+        // the card. Plates are a drill-down, opened only when wanted.
+        const byAction = new Map();
+        items.forEach(v => {
+          const { label, cls } = nextActionInfo(v);
+          const entry = byAction.get(label) || byAction.set(label, { cls, plates: [] }).get(label);
+          entry.plates.push(v.plate || '?');
+        });
+        return `<div class="prev-stage-notes"><div><strong>Next action:</strong></div>${[...byAction.entries()].map(([label, e]) => {
+          const drillId = `${key}::${label}`;
+          return `<details class="action-drill"${ACTION_DRILL_OPEN.has(drillId) ? ' open' : ''} data-drill="${escapeHTML(drillId)}" ontoggle="rememberActionDrill(this)">
+            <summary><span class="pill ${e.cls}">${escapeHTML(label)} (${e.plates.length})</span></summary>
+            <div class="drill-body plate">${escapeHTML(e.plates.join(', '))}</div>
+          </details>`;
+        }).join('')}</div>`;
+      })()}
+      ${deviceSummaryLine(items)}
       ${furthest.remarks ? `<div class="prev-stage-notes"><div><strong>Remarks:</strong> ${escapeHTML(furthest.remarks)}</div></div>` : ''}
       <div class="pipeline-actions">
         <button class="small" onclick="openCaseView('${furthest.id}')">Open — ${items.length} vehicles</button>
@@ -3774,7 +5048,7 @@ function exportRow(r) {
     'WASL Outcome': r.wasl_outcome || '',
     'Device Status': r.device_status || '',
     'Remarks': r.remarks || '',
-    'Last Updated By': r.updated_by || ''
+    'Last Updated By': personName(r.updated_by) || ''
   };
 }
 
@@ -3838,6 +5112,30 @@ function waslOutcomeTag(r) {
   return `<span class="pill ${WASL_OUTCOME_CLASS[r.wasl_outcome] || 'prio-low'}">WASL: ${escapeHTML(r.wasl_outcome)}</span>`;
 }
 
+// Set at Stage 6 (Device Check), but an agent picking up a case at ANY later
+// stage still needs to know at a glance whether the customer's device is OK
+// or has an open issue — device_status used to only show inside the Stage 6
+// form itself. This sticks it on the card everywhere else, like waslOutcomeTag.
+function deviceStatusTag(r) {
+  if (!r.device_status) return '';
+  if (r.device_status === 'Reporting') return `<span class="pill yes">Device: OK</span>`;
+  const fixed = r.fix_status === 'Fixed';
+  return `<span class="pill ${fixed ? 'yes' : 'no'}">Device: Issue${fixed ? ' (Fixed)' : ' (Pending fix)'}</span>`;
+}
+
+// One customer can have several vehicles now moving independently (see
+// jobMemberIds) — one might report fine while another has an open device
+// issue. A single aggregate pill would hide that, so list each vehicle's
+// plate next to its own status instead.
+function deviceSummaryLine(items) {
+  const withStatus = items.filter(r => r.device_status);
+  if (!withStatus.length) return '';
+  const allOk = withStatus.every(r => r.device_status === 'Reporting') && withStatus.length === items.length;
+  if (allOk) return `<div class="prev-stage-notes"><div>${deviceStatusTag(items[0])} — all vehicles</div></div>`;
+  const parts = items.map(r => `${escapeHTML(r.plate) || '?'}: ${r.device_status ? deviceStatusTag(r) : '<span class="pill prio-low">Not checked</span>'}`);
+  return `<div class="prev-stage-notes"><div><strong>Device status:</strong> ${parts.join(' &nbsp; ')}</div></div>`;
+}
+
 // Multiple encoders work the same pipeline at once — this is what stops
 // cases getting picked up twice or nobody's, by making it visible up front
 // who (if anyone) already has this one.
@@ -3859,11 +5157,11 @@ function assignControls(r) {
 }
 async function assignToMe(docId) {
   try {
-    await db.collection('requests').doc(docId).update({
+    await db.collection('requests').doc(docId).update(withLog({
       assigned_to: auth.currentUser ? auth.currentUser.email : '',
       assigned_to_name: ME.encoderName || (auth.currentUser ? auth.currentUser.email : ''),
       assigned_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    }, `Assigned to ${ME.encoderName || (auth.currentUser ? auth.currentUser.email : 'self')}`));
     showToast('Assigned to you', 'success');
   } catch (err) {
     showToast(err.message, 'error');
@@ -3875,11 +5173,11 @@ async function assignToSelected(docId) {
   if (!uid) { showToast('Pick someone to assign to', 'error'); return; }
   const user = USERS_CACHE.find(u => u.uid === uid);
   try {
-    await db.collection('requests').doc(docId).update({
+    await db.collection('requests').doc(docId).update(withLog({
       assigned_to: user ? user.email : uid,
       assigned_to_name: user ? (user.encoder_name || user.email) : uid,
       assigned_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    }, `Assigned to ${user ? (user.encoder_name || user.email) : uid}`));
     showToast(`Assigned to ${user ? (user.encoder_name || user.email) : uid}`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
@@ -3905,7 +5203,7 @@ function prevStageNotesBlock(r) {
   if (!items.length && !r.updated_by) return '';
   return `<div class="prev-stage-notes">
     ${items.map(f => `<div><strong>${escapeHTML(f.label)}:</strong> ${escapeHTML(r[f.key])}</div>`).join('')}
-    ${r.updated_by ? `<div>Last updated by: <strong>${escapeHTML(r.updated_by)}</strong></div>` : ''}
+    ${r.updated_by ? `<div>Last updated by: <strong>${escapeHTML(personName(r.updated_by))}</strong></div>` : ''}
   </div>`;
 }
 // Every pipeline-style list is sorted Urgent → High → Medium → Low → (none),
@@ -3927,22 +5225,56 @@ async function togglePipelineInfo(docId, plate) {
   if (box.dataset.loaded === '1') return;
 
   if (!plate) { box.innerHTML = '<div class="status">No plate on this case.</div>'; box.dataset.loaded = '1'; return; }
-  box.innerHTML = '<div class="status"><span class="spinner"></span>Checking Odoo for earlier sale orders...</div>';
+  box.innerHTML = '<div class="status"><span class="spinner"></span>Checking Odoo for earlier sale orders... (first call after a quiet spell can take ~30s while the bridge wakes up)</div>';
   try {
-    const key = plate.toUpperCase().replace(/\s+/g, '');
+    // Also send the case's mobile so the SAME call returns the customer's own
+    // orders. A plate typed wrong *in Odoo* (real case: SO S51735 stored
+    // "5506RXA" for a vehicle whose real plate is "5560 RXA") makes the plate
+    // match come back empty and the card claimed "no earlier sale order" —
+    // true for the plate, badly misleading for the customer. Falling back to
+    // their orders surfaces exactly those mistyped ones.
+    const r = REQUESTS_CACHE.find(x => x.id === docId);
+    const mobile = r ? (r.mobile || '') : '';
+    // Third fallback: the company name off the vehicle master record. Odoo's
+    // res.partner often has no phone at all (HAZEM NAQL, the case that started
+    // this, matched on neither plate nor mobile but did match by name), so the
+    // name is frequently the only link left. /api/lookup only falls back to
+    // `customer` when `mobile` found nothing, so all three ride one request.
+    // Only when the vehicle blob is already in memory — never worth pulling
+    // 138k records down just to widen this lookup.
+    const company = (typeof DATA !== 'undefined' && DATA.length)
+      ? ((findVehicleByPlateText(plate) || {}).cn || '') : '';
+    const key = plate.toUpperCase().replace(/\s+/g, '') + '|' + mobile + '|' + company;
     if (!CARD_ODOO_CACHE.has(key)) {
-      CARD_ODOO_CACHE.set(key, await odooFetch('/api/lookup?plate=' + encodeURIComponent(plate)));
+      const params = new URLSearchParams({ plate });
+      if (mobile) params.set('mobile', mobile);
+      if (company) params.set('customer', company);
+      CARD_ODOO_CACHE.set(key, await odooFetch('/api/lookup?' + params));
     }
-    const orders = CARD_ODOO_CACHE.get(key).plateOrders || [];
-    box.innerHTML = orders.length ? `
-      <div class="section-label" style="margin-bottom:6px">Earlier Sale Orders in Odoo for ${escapeHTML(plate)} (${orders.length})</div>
+    const data = CARD_ODOO_CACHE.get(key);
+    const orders = data.plateOrders || [];
+    const custOrders = data.saleOrders || [];
+    const table = list => `
       <div class="table-wrap" style="box-shadow:none">
         <table>
           <thead><tr><th>Order #</th><th>Quotation No</th><th>Type</th><th>Status</th><th>Customer</th><th>Amount</th><th>Date</th><th># Veh</th><th></th></tr></thead>
-          <tbody>${odooOrderRows(orders, true)}</tbody>
+          <tbody>${odooOrderRows(list, true)}</tbody>
         </table>
-      </div>`
-      : `<div class="status">No earlier sale order in Odoo for ${escapeHTML(plate)}.</div>`;
+      </div>`;
+
+    if (orders.length) {
+      box.innerHTML = `
+        <div class="section-label" style="margin-bottom:6px">Earlier Sale Orders in Odoo for ${escapeHTML(plate)} (${orders.length})</div>
+        ${table(orders)}`;
+    } else if (custOrders.length) {
+      box.innerHTML = `
+        <div class="status" style="margin-bottom:8px">No sale order in Odoo carries the plate <strong>${escapeHTML(plate)}</strong> — showing this customer's orders instead. If one of these is really for this vehicle, its Vehicle / Asset field in Odoo is mistyped and should be corrected.</div>
+        <div class="section-label" style="margin-bottom:6px">Sale Orders for ${escapeHTML(data.customer ? data.customer.name : mobile)} (${custOrders.length})</div>
+        ${table(custOrders)}`;
+    } else {
+      const alsoTried = [mobile && escapeHTML(mobile), company && escapeHTML(company)].filter(Boolean).join(' or ');
+      box.innerHTML = `<div class="status">No earlier sale order in Odoo for ${escapeHTML(plate)}${alsoTried ? `, and none under ${alsoTried} either` : ''}.</div>`;
+    }
     box.dataset.loaded = '1';
   } catch (err) {
     box.innerHTML = `<div class="status error">${escapeHTML(err.message)}</div>`;
@@ -3960,12 +5292,13 @@ function renderCompactCaseCard(r) {
   return `<div class="pipeline-card${r.on_hold ? ' on-hold' : ''}" id="pl-card-${r.id}">
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
-        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${copyBtn(r.plate, 'plate')}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.date)}</div>
         <div class="paid-for">
           ${priorityTag(r)}
           ${assignedTag(r)}
           ${waslOutcomeTag(r)}
+          ${deviceStatusTag(r)}
           ${serviceTags(r)}
           ${r.sale_order ? `<span class="paid-so">SO ${escapeHTML(r.sale_order)}</span>` : ''}
           <span class="paid-amount">SAR ${r.amount || 0}</span>
@@ -3974,6 +5307,7 @@ function renderCompactCaseCard(r) {
       <div class="stage-dates">
         <strong>${r.customer_closed ? 'Closed' : `Stage ${stage}`}</strong>
         ${r.customer_closed ? '' : `<span class="trail">${escapeHTML(STAGE_LABELS[stage] || '')}</span>`}
+        <div style="margin-top:4px">${nextActionTag(r)}</div>
       </div>
     </div>
     <div class="pipeline-actions">
@@ -3986,12 +5320,13 @@ function renderPipelineCard(r) {
   const head = `
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
-        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${copyBtn(r.plate, 'plate')}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.date)}</div>
         <div class="paid-for">
           ${priorityTag(r)}
           ${assignedTag(r)}
           ${waslOutcomeTag(r)}
+          ${deviceStatusTag(r)}
           ${serviceTags(r)}
           ${r.sale_order ? `<span class="paid-so">SO ${escapeHTML(r.sale_order)}</span>` : ''}
           <span class="paid-amount">SAR ${r.amount || 0}</span>
@@ -4161,6 +5496,185 @@ function caseViewPrevious(docId) {
   advancePipelineCase(docId, {}, stage - 1);
 }
 
+// Everything an agent needs to understand a case at a glance, in one block at
+// the top of Case View — before now they had to scroll through each vehicle's
+// full stage form to piece together priority/WASL/device/remarks, worse for a
+// multi-vehicle job where that's several full cards. Read-only, purely a
+// digest of fields the full cards below already carry.
+//
+// The one question that actually matters when an agent opens a case: what
+// has to happen next, for THIS vehicle. Stage labels already say that (Stage
+// 6's label IS "Device Check") — the trick is a case at any later stage,
+// rectification, or transfer/plate-change all need their own override so
+// the answer stays correct once a vehicle has left the normal stage flow.
+// These cards are re-rendered on every Firestore snapshot, which would
+// silently collapse an open drill-down mid-read. Remember which ones the
+// user opened so the next render restores them.
+const ACTION_DRILL_OPEN = new Set();
+
+// Id comes from a data attribute, not an inline JS string literal: the HTML
+// parser decodes entities before the handler runs, so an escaped quote in a
+// renewal_id would otherwise break out of the string and throw.
+function rememberActionDrill(el) {
+  const id = el.dataset.drill;
+  if (el.open) ACTION_DRILL_OPEN.add(id); else ACTION_DRILL_OPEN.delete(id);
+}
+
+// Split out from nextActionTag so callers can group vehicles by the action
+// itself — a 12-vehicle job usually needs the same thing for every plate,
+// and printing that pill 12 times filled the whole card.
+function nextActionInfo(r) {
+  if (r.customer_closed) return { label: 'Done — Closed', cls: 'yes' };
+  if (r.rectification) return { label: 'Needs: Rectification', cls: 'no' };
+  if (isTransferOnlyPending(r)) return { label: 'Needs: Transfer / Plate Change', cls: 'prio-high' };
+  const stage = r.stage || 1;
+  const extra = isPendingTransferPlate(r) ? ' + Transfer/Plate Change' : '';
+  return { label: `Needs: ${STAGE_LABELS[stage] || 'Next step'}${extra}`, cls: 'prio-medium' };
+}
+
+function nextActionTag(r) {
+  const { label, cls } = nextActionInfo(r);
+  return `<span class="pill ${cls}">${escapeHTML(label)}</span>`;
+}
+
+// What a vehicle is actually waiting for, in the words an agent would use out
+// loud ("ready for WASL"), not the stage's formal label.
+const STAGE_WAITING_FOR = {
+  1: 'payment received — waiting to start',
+  2: 'ready for Sale Order creation',
+  3: 'ready for Renewal Processing',
+  4: 'ready for WASL',
+  5: 'WASL done — waiting to be closed out',
+  6: 'ready for Device Check',
+  7: 'ready for Customer Close'
+};
+
+// One vehicle's full state as a single sentence. Vehicles sharing a sentence
+// get grouped, which is what turns fourteen identical rows into one line.
+function caseStateSentence(v) {
+  if (v.customer_closed) return 'closed — nothing left to do';
+  if (v.rectification) return 'needs Rectification';
+  if (isTransferOnlyPending(v)) return 'needs Transfer / Plate Change';
+  const stage = v.stage || 1;
+  const parts = [STAGE_WAITING_FOR[stage] || `at Stage ${stage}`];
+  if (isPendingTransferPlate(v)) parts.push('also needs Transfer / Plate Change');
+  if (v.wasl_outcome) parts.push(`WASL: ${v.wasl_outcome}`);
+  if (v.device_status) {
+    parts.push(v.device_status === 'Reporting' ? 'device OK'
+      : (v.fix_status === 'Fixed' ? 'device issue (fixed)' : 'device issue — fix pending'));
+  }
+  return parts.join(', ');
+}
+
+// A digest, not a list. Vehicles in the same state collapse into one line
+// ("All 14 vehicles — ready for Sale Order creation"), so the reader learns
+// the shape of the job in a glance instead of scrolling fourteen copies of
+// the same sentence. Anything that differs — a stuck vehicle, a device issue,
+// a hold — naturally falls out as its own line, which is exactly the thing
+// worth noticing.
+function renderCaseSummary(r, siblings) {
+  const all = [r, ...siblings];
+  const n = all.length;
+  const plates = list => list.map(v => escapeHTML(v.plate) || '(no plate)').join(' · ');
+
+  const groups = new Map();
+  all.forEach(v => {
+    const k = caseStateSentence(v);
+    (groups.get(k) || groups.set(k, []).get(k)).push(v);
+  });
+
+  const stateLines = [...groups.entries()].map(([sentence, list]) => {
+    const who = (list.length === n && n > 1) ? `All ${n} vehicles` : `${list.length} vehicle${list.length > 1 ? 's' : ''}`;
+    return `<div style="margin-bottom:8px">
+      <div><strong>${n > 1 ? who + ' — ' : ''}${escapeHTML(sentence)}</strong></div>
+      ${n > 1 ? `<div class="pipeline-card-sub" style="margin-top:2px">${plates(list)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Flags worth calling out on their own, each stated once for the whole job
+  // rather than repeated per vehicle.
+  const flags = [];
+  const held = all.filter(v => v.on_hold);
+  const dupes = all.filter(v => v.duplicate);
+  const unassigned = all.filter(v => !v.assigned_to_name);
+  if (held.length) flags.push(`<span class="pill prio-high">On hold: ${held.length}</span> ${plates(held)}`);
+  if (dupes.length) flags.push(`<span class="pill no">Duplicate: ${dupes.length}</span> ${plates(dupes)}`);
+  if (unassigned.length === n) flags.push(`<span class="pill prio-low">Nobody assigned yet</span>`);
+  else if (unassigned.length) flags.push(`<span class="pill prio-low">Unassigned: ${unassigned.length}</span> ${plates(unassigned)}`);
+  const owners = [...new Set(all.map(v => v.assigned_to_name).filter(Boolean))];
+  if (owners.length) flags.push(`<span class="pill prio-medium">Assigned: ${owners.map(escapeHTML).join(', ')}</span>`);
+  const prios = [...new Set(all.map(v => v.priority).filter(Boolean))];
+  if (prios.length) flags.push(`<span class="pill prio-medium">Priority: ${prios.map(escapeHTML).join(', ')}</span>`);
+
+  // Remarks are usually identical across a job's vehicles — show each distinct
+  // one once, with the plates it came from, instead of N duplicates.
+  const noteMap = new Map();
+  all.forEach(v => STAGE_NOTE_FIELDS.filter(f => v[f.key]).forEach(f => {
+    const k = f.label + '||' + v[f.key];
+    (noteMap.get(k) || noteMap.set(k, { label: f.label, text: v[f.key], vehicles: [] }).get(k)).vehicles.push(v);
+  }));
+  const notes = [...noteMap.values()].map(x =>
+    `<div><strong>${escapeHTML(x.label)}:</strong> ${escapeHTML(x.text)}${x.vehicles.length < n && n > 1 ? ` <span style="opacity:.7">(${plates(x.vehicles)})</span>` : ''}</div>`).join('');
+
+  return `<details class="section" style="margin-bottom:14px" open>
+    <summary class="info-toggle" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em">Summary${n > 1 ? ` — ${n} vehicles` : ''}</summary>
+    <div class="pipeline-card-sub" style="margin:8px 0">${escapeHTML(r.renewal_id) || '(no ID)'} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.encoder)} · ${escapeHTML(r.date)}</div>
+    ${stateLines}
+    ${flags.length ? `<div class="paid-for" style="gap:10px">${flags.join('')}</div>` : ''}
+    ${notes ? `<div class="prev-stage-notes">${notes}</div>` : ''}
+  </details>`;
+}
+
+// Every vehicle moves independently (jobMemberIds returns just [docId]), which
+// is right for stage progression but brutal for data entry: a 14-vehicle job
+// meant typing the same Sale Order number fourteen times. This fills the
+// current stage's fields once and writes them to every vehicle sitting at that
+// same stage. Only fields actually filled in are written — a blank here means
+// "leave it alone", never "clear it on all 14".
+function bulkFieldOwner(docId) { return 'bulk-' + docId; }
+
+function renderBulkStageForm(r, siblings) {
+  const stage = r.stage || 1;
+  if (!STAGE_FORMS[stage]) return '';
+  const peers = [r, ...siblings].filter(v => (v.stage || 1) === stage && !v.customer_closed);
+  if (peers.length < 2) return '';
+  return `<details class="section" style="margin-bottom:14px">
+    <summary class="info-toggle" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em">Fill once for all ${peers.length} vehicles at Stage ${stage}</summary>
+    <div class="hint" style="margin:6px 0">Anything you type here is written to all ${peers.length} vehicles currently at Stage ${stage} — ${escapeHTML(STAGE_LABELS[stage] || '')}. Leave a field blank to leave that field untouched. This does not move any vehicle to the next stage.</div>
+    ${renderStageForm({ id: bulkFieldOwner(r.id) }, stage)}
+    <button class="small" onclick="applyBulkStageForm('${r.id}', ${stage})">Apply to all ${peers.length} vehicles</button>
+  </details>`;
+}
+
+async function applyBulkStageForm(docId, stage) {
+  const r = REQUESTS_CACHE.find(x => x.id === docId);
+  if (!r) return;
+  const siblings = r.renewal_id ? REQUESTS_CACHE.filter(x => x.renewal_id === r.renewal_id && x.id !== r.id) : [];
+  const peers = [r, ...siblings].filter(v => (v.stage || 1) === stage && !v.customer_closed);
+
+  // Required-field validation is deliberately skipped here: this is a partial
+  // fill helper, not the gate to the next stage. That gate stays on each
+  // vehicle's own advance button.
+  const { values } = collectStageForm(bulkFieldOwner(docId), stage);
+  const filled = {};
+  Object.entries(values).forEach(([k, v]) => { if (v !== '' && v !== false) filled[k] = v; });
+  if (!Object.keys(filled).length) { showToast('Fill at least one field first', 'error'); return; }
+
+  const names = Object.keys(filled).join(', ');
+  if (!confirm(`Write ${names} to all ${peers.length} vehicles at Stage ${stage}? Existing values in those fields will be overwritten.`)) return;
+
+  try {
+    await Promise.all(peers.map(v => db.collection('requests').doc(v.id).update(withLog({
+      ...filled,
+      updated_by: auth.currentUser ? auth.currentUser.email : '',
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    }, `Bulk-filled ${names} across ${peers.length} vehicles at Stage ${stage}`))));
+    showToast(`Applied to ${peers.length} vehicles`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 function renderCaseView() {
   const box = document.getElementById('case-view-box');
   const closeBtn = `<button type="button" class="modal-close" onclick="closeCaseView()" aria-label="Close">${icon('x')}</button>`;
@@ -4187,6 +5701,12 @@ function renderCaseView() {
 
   const stepper = (!r.rectification && !isTransferOnlyPending(r)) ? renderCaseStepper(r) : '';
   box.innerHTML = `${closeBtn}${stepper}
+    ${renderCaseSummary(r, siblings)}
+    ${renderBulkStageForm(r, siblings)}
+    <details style="margin-bottom:12px">
+      <summary class="info-toggle">Journey — who did what, and when</summary>
+      ${renderJourney(r, siblings)}
+    </details>
     <button class="ghost small" style="margin-bottom:10px" onclick="caseViewPrevious('${r.id}')" ${stage <= 1 ? 'disabled' : ''}>&larr; Previous stage</button>
     <button class="ghost small" style="margin-bottom:10px;margin-left:6px" onclick="openVehicleDetailsFromCase('${escapeHTML(r.plate).replace(/'/g, "\\'")}')">Open Vehicle Details</button>
     ${forms.map(([heading, html]) => (heading ? `<div class="section-label" style="margin:12px 0 6px">${escapeHTML(heading)}</div>` : '') + html).join('')}
@@ -4226,14 +5746,14 @@ function advancePipelineNonReporting(docId) {
 
 async function advancePipelineCase(docId, extraFields, newStage) {
   const ids = jobMemberIds(docId);
-  const payload = {
+  const payload = withLog({
     ...extraFields,
     ...stampStageDate(newStage),
     stage: newStage,
     stage_label: STAGE_LABELS[newStage],
     updated_by: auth.currentUser ? auth.currentUser.email : '',
     updated_at: firebase.firestore.FieldValue.serverTimestamp()
-  };
+  }, `Moved to Stage ${newStage} — ${STAGE_LABELS[newStage] || ''}`);
   try {
     await Promise.all(ids.map(id => db.collection('requests').doc(id).update(payload)));
     showToast(`Advanced to Stage ${newStage} — ${STAGE_LABELS[newStage]}${ids.length > 1 ? ` (${ids.length} vehicles)` : ''}`, 'success');
@@ -4313,9 +5833,87 @@ function caseCreatedDate(r) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function renderDashboard() {
-  const body = document.getElementById('dashboard-body');
-  if (!REQUESTS_CACHE.length) { body.innerHTML = '<div class="status"><span class="spinner"></span>Loading...</div>'; return; }
+// Live-from-Odoo section: PAID orders only (inv_status='paid') — see
+// DASHBOARD_SALES_REPORT/loadDashboardSalesReport. Independent of the App
+// section below it, so one can render before the other finishes loading.
+function renderDashboardOdooSection() {
+  const rep = DASHBOARD_SALES_REPORT;
+  const rangeBtns = `
+    <div class="row" style="margin-bottom:var(--sp-3)">
+      <button class="ghost small${DASHBOARD_RANGE === 'this-month' ? ' active' : ''}" onclick="loadDashboardSalesReport('this-month')">This month</button>
+      <button class="ghost small${DASHBOARD_RANGE === 'last-month' ? ' active' : ''}" onclick="loadDashboardSalesReport('last-month')">Last month</button>
+      <button class="ghost small${DASHBOARD_RANGE === '90d' ? ' active' : ''}" onclick="loadDashboardSalesReport('90d')">Last 90 days</button>
+      <button class="ghost small${DASHBOARD_RANGE === 'ytd' ? ' active' : ''}" onclick="loadDashboardSalesReport('ytd')">Year to date</button>
+      <button class="secondary small" onclick="loadDashboardSalesReport()">${icon('table')} Refresh</button>
+    </div>`;
+
+  if (!rep) {
+    return `<div class="card-header" style="margin-top:0"><div class="card-title">Sales — Live from Odoo (Paid Orders)</div></div>
+      ${rangeBtns}<div class="status"><span class="spinner"></span>Loading paid sales from Odoo... (bridge sleeps when idle, first call can take ~30s)</div>`;
+  }
+  if (rep.error) {
+    return `<div class="card-header" style="margin-top:0"><div class="card-title">Sales — Live from Odoo (Paid Orders)</div></div>
+      ${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div>`;
+  }
+
+  const t = rep.totals;
+  const bookers = (rep.breakdown.booker || []).slice(0, 8);
+  const maxBooker = Math.max(1, ...bookers.map(b => b.untaxed));
+  const maxTl = Math.max(1, ...rep.timeline.map(p => p.untaxed));
+
+  return `
+    <div class="card-header" style="margin-top:0">
+      <div class="card-title">Sales — Live from Odoo (Paid Orders, Without VAT)</div>
+      <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
+    </div>
+    ${rangeBtns}
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Paid Orders</div></div>
+      <div class="stat-tile"><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Paid Revenue (Without VAT)</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Top Order Bookers (Paid, Without VAT)</div></div>
+        ${bookers.length ? bookers.map(b => `
+          <div class="dash-bar-row">
+            <span class="dash-bar-label" title="${escapeHTML(b.label)}">${escapeHTML(b.label)}</span>
+            <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(b.untaxed / maxBooker * 100).toFixed(1)}"></div></div>
+            <span class="dash-bar-value">${sarFmt(b.untaxed)}</span>
+          </div>`).join('') : '<div class="no-results">No paid orders in this range</div>'}
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Paid Revenue Trend, Without VAT (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
+        <div class="dash-trend">
+          ${rep.timeline.length ? rep.timeline.map(p => `
+            <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${sarFmt(p.untaxed)} (${p.orders} orders)">
+              <div class="dash-trend-bar revenue" data-h="${(p.untaxed / maxTl * 100).toFixed(1)}"></div>
+              <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+            </div>`).join('') : '<div class="no-results">No paid orders in this range</div>'}
+        </div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:var(--sp-3);margin-bottom:0">
+      <button class="secondary" onclick="switchTab('salesreport')">Full Breakdown — Region, Template, Team, Type &amp; More</button>
+    </div>`;
+}
+
+// Dashboard has 3 sub-tabs, each with its own lazily-loaded data source:
+// Sales (Odoo, live), Pipeline — App Data (Firestore, already loaded
+// elsewhere), Tickets (Odoo, live). switchDashboardSubtab kicks off the
+// fetch for whichever one hasn't loaded yet.
+let DASHBOARD_SUBTAB = 'sales';
+
+function switchDashboardSubtab(key) {
+  DASHBOARD_SUBTAB = key;
+  if (key === 'sales' && !DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
+  if (key === 'sales' && !RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
+  if (key === 'sales' && !DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
+  if (key === 'tickets' && !TICKETS_REPORT) loadTicketsReport('this-month');
+  renderDashboard();
+}
+
+function renderDashboardPipelineHtml() {
+  if (!REQUESTS_CACHE.length) return '<div class="card"><div class="status"><span class="spinner"></span>Loading pipeline data...</div></div>';
 
   const active = REQUESTS_CACHE.filter(r => !r.duplicate && !r.rectification && !isTransferOnlyPending(r));
 
@@ -4351,10 +5949,10 @@ function renderDashboard() {
   const team = Object.entries(byUser).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
   const maxTeam = Math.max(1, ...team.map(t => t[1].count));
 
-  body.innerHTML = `
+  return `
     <div class="stat-grid">
       <div class="stat-tile"><div class="num">${active.length}</div><div class="lbl">Active Cases</div></div>
-      <div class="stat-tile"><div class="num">SAR ${totalAmount.toLocaleString()}</div><div class="lbl">Total Collected</div></div>
+      <div class="stat-tile"><div class="num">SAR ${totalAmount.toLocaleString()}</div><div class="lbl">Amount Entered (App)</div></div>
       <div class="stat-tile"><div class="num">${trend[trend.length - 1].count}</div><div class="lbl">New Today</div></div>
       <div class="stat-tile"><div class="num">${team.length}</div><div class="lbl">Active Agents</div></div>
     </div>
@@ -4369,7 +5967,7 @@ function renderDashboard() {
           </div>`).join('')}
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Team Performance</div></div>
+        <div class="card-header"><div class="card-title">Team Performance (App)</div></div>
         ${team.length ? team.map(([user, d]) => `
           <div class="dash-bar-row">
             <span class="dash-bar-label" title="${escapeHTML(user)}">${escapeHTML(user.split('@')[0])}</span>
@@ -4389,7 +5987,7 @@ function renderDashboard() {
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Amount Collected — Last 14 Days</div></div>
+      <div class="card-header"><div class="card-title">Amount Entered (App) — Last 14 Days</div></div>
       <div class="dash-trend">
         ${trend.map(t => `
           <div class="dash-trend-col" title="${t.day.toLocaleDateString()}: SAR ${t.amount.toLocaleString()}">
@@ -4398,7 +5996,26 @@ function renderDashboard() {
           </div>`).join('')}
       </div>
     </div>`;
+}
 
+function renderDashboard() {
+  const body = document.getElementById('dashboard-body');
+  const nav = `<div class="case-type-nav" style="margin-bottom:var(--sp-3)">
+    <button type="button" class="${DASHBOARD_SUBTAB === 'sales' ? 'active' : ''}" onclick="switchDashboardSubtab('sales')">Sales</button>
+    <button type="button" class="${DASHBOARD_SUBTAB === 'pipeline' ? 'active' : ''}" onclick="switchDashboardSubtab('pipeline')">Pipeline — App Data</button>
+    <button type="button" class="${DASHBOARD_SUBTAB === 'tickets' ? 'active' : ''}" onclick="switchDashboardSubtab('tickets')">Tickets</button>
+  </div>`;
+
+  let content;
+  if (DASHBOARD_SUBTAB === 'pipeline') {
+    content = renderDashboardPipelineHtml();
+  } else if (DASHBOARD_SUBTAB === 'tickets') {
+    content = renderTicketsSection();
+  } else {
+    content = `<div class="card">${renderDashboardOdooSection()}</div>` + renderRenewalTargetSection() + renderDivisionTargetTable() + renderDivisionBreakdownSection();
+  }
+
+  body.innerHTML = nav + content;
   setTimeout(() => {
     body.querySelectorAll('.dash-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
     body.querySelectorAll('.dash-trend-bar').forEach(el => { el.style.height = Math.max(2, el.dataset.h) + '%'; });
@@ -4447,8 +6064,8 @@ function renderCompactSimpleCard(r, ns) {
   return `<div class="pipeline-card${r.on_hold ? ' on-hold' : ''}" id="${ns}-card-${r.id}">
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
-        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${copyBtn(r.plate, 'plate')}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.date)}</div>
         <div class="paid-for">
           ${priorityTag(r)}
           ${assignedTag(r)}
@@ -4473,8 +6090,8 @@ function renderSimpleCaseCard(r, ns) {
   return `<div class="pipeline-card" id="${ns}-card-${r.id}">
     <div class="pipeline-card-head">
       <div>
-        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span></div>
-        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)} · ${escapeHTML(r.date)}</div>
+        <div class="pipeline-card-title">${escapeHTML(r.renewal_id) || '(no ID)'} — <span class="plate">${escapeHTML(r.plate)}</span>${copyBtn(r.plate, 'plate')}</div>
+        <div class="pipeline-card-sub">${escapeHTML(r.encoder)} · ${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')} · ${escapeHTML(r.date)}</div>
         <div class="paid-for">${priorityTag(r)}${assignedTag(r)}${serviceTags(r)}</div>
         <button type="button" class="info-toggle" id="pl-info-btn-${r.id}"
           onclick="togglePipelineInfo('${r.id}', '${escapeHTML(r.plate).replace(/'/g, "\\'")}')">
@@ -4598,8 +6215,8 @@ function requestRowHtml(r) {
       <td>${escapeHTML(r.renewal_id)}${r.duplicate ? ' <span class="pill no">Duplicate</span>' : ''}</td>
       <td>${escapeHTML(r.date)}</td>
       <td>${escapeHTML(r.encoder)}</td>
-      <td><input id="req-plate-${r.id}" value="${escapeHTML(r.plate)}" style="min-width:100px;font-family:var(--font-mono)" aria-label="Plate"></td>
-      <td>${escapeHTML(r.mobile)}</td>
+      <td><input id="req-plate-${r.id}" value="${escapeHTML(r.plate)}" style="min-width:100px;font-family:var(--font-mono)" aria-label="Plate">${copyBtn(r.plate, 'plate')}</td>
+      <td>${escapeHTML(r.mobile)}${copyBtn(r.mobile, 'mobile')}</td>
       <td><input id="req-amt-${r.id}" type="number" step="any" value="${r.amount || ''}" style="min-width:80px" aria-label="Amount"></td>
       <td>${escapeHTML(r.services)}</td>
       <td><input id="req-so-${r.id}" value="${escapeHTML(r.sale_order)}" style="min-width:100px" aria-label="Sale order"></td>
@@ -4754,8 +6371,9 @@ function findVehicleByPlateText(plateText) {
   }) || null;
 }
 
-function searchFromRequest(plate) {
+async function searchFromRequest(plate) {
   switchTab('search');
+  await ensureVehicleData();   // lazy-loaded now, so it may not be in memory yet
   const vehicle = findVehicleByPlateText(plate);
   if (vehicle) {
     RESULTS = [vehicle];
