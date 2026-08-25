@@ -149,6 +149,8 @@ button svg { width: 15px; height: 15px; flex: none; }
   border-radius: var(--r-full); padding: 1px 7px; min-width: 22px; text-align: center;
 }
 .nav-item.active .nav-badge { background: #fff; color: var(--c-primary); }
+.nav-badge.warn { background: var(--c-warn-bg); color: var(--c-warn); }
+.nav-item.active .nav-badge.warn { background: #fff; color: var(--c-warn); }
 .nav-foot { padding: var(--sp-3); border-top: 1px solid var(--c-border); }
 .user-chip { display: flex; align-items: center; gap: 9px; margin-bottom: var(--sp-2); }
 .avatar {
@@ -296,6 +298,65 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 .dash-trend-bar.revenue { background: var(--c-accent); }
 .dash-trend-day { font-size: 10px; color: var(--c-fg-subtle); font-family: var(--font-mono); }
 @media (max-width: 640px) { .dash-bar-label { flex-basis: 110px; font-size: 11.5px; } .dash-trend-day { display: none; } }
+
+/* ---------- Dashboard v2 (Sales / Pipeline / Tickets subtabs) ----------
+   Distinct component set (dv-*) from the legacy .dash-bar-*/.stat-tile
+   classes above, which stay untouched — Target/Division sections and the
+   Daily Requests mini-dashboard still render with those. */
+.dv-tabs { display: flex; gap: 6px; padding: 4px; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: var(--r-full); margin-bottom: var(--sp-4); width: fit-content; max-width: 100%; overflow-x: auto; }
+.dv-tabs button { border: none; background: transparent; padding: 8px 18px; border-radius: var(--r-full); font-size: 13px; font-weight: 600; color: var(--c-fg-muted); cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dv-tabs button svg { width: 15px; height: 15px; }
+.dv-tabs button:hover { color: var(--c-fg); }
+.dv-tabs button.active { background: var(--c-surface); color: var(--c-primary); box-shadow: var(--sh-1); }
+
+.dv-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.dv-kpi { background: var(--c-surface); border: 1px solid var(--c-border); border-top: 3px solid var(--c-primary); border-radius: var(--r-lg); padding: var(--sp-4); box-shadow: var(--sh-2); }
+.dv-kpi:nth-child(2n) { border-top-color: var(--c-accent); }
+.dv-kpi-icon { width: 30px; height: 30px; border-radius: var(--r-md); background: var(--c-primary-soft); color: var(--c-primary); display: grid; place-items: center; margin-bottom: var(--sp-3); }
+.dv-kpi:nth-child(2n) .dv-kpi-icon { background: var(--c-accent-soft); color: var(--c-accent-strong); }
+.dv-kpi-icon svg { width: 16px; height: 16px; }
+.dv-kpi .num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; color: var(--c-primary); line-height: 1.1; }
+.dv-kpi:nth-child(2n) .num { color: var(--c-accent-strong); }
+.dv-kpi .lbl { font-size: 11.5px; color: var(--c-fg-subtle); font-weight: 600; margin-top: 4px; }
+
+.dv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+@media (max-width: 900px) { .dv-grid { grid-template-columns: 1fr; } }
+
+.dv-panel { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-4); box-shadow: var(--sh-2); }
+.dv-panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+.dv-panel-title { font-size: 13px; font-weight: 700; color: var(--c-fg); display: flex; align-items: center; gap: 7px; }
+.dv-panel-title svg { width: 15px; height: 15px; color: var(--c-fg-subtle); }
+
+.dv-rank-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.dv-rank-row:last-child { margin-bottom: 0; }
+.dv-rank-num { flex: 0 0 18px; font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--c-fg-subtle); text-align: center; }
+.dv-rank-row:first-child .dv-rank-num { color: var(--c-accent-strong); }
+.dv-rank-body { flex: 1; min-width: 0; }
+.dv-rank-top { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: 12.5px; margin-bottom: 5px; }
+.dv-rank-name { color: var(--c-fg-muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dv-rank-value { font-family: var(--font-mono); font-weight: 700; color: var(--c-fg); flex: 0 0 auto; }
+.dv-rank-track { height: 6px; background: var(--c-surface-2); border-radius: var(--r-full); overflow: hidden; }
+.dv-rank-fill { display: block; height: 100%; width: 0; border-radius: var(--r-full); background: var(--c-primary); transition: width 700ms var(--ease-spring); }
+.dv-rank-fill.accent { background: var(--c-accent); }
+
+.dv-spark { display: flex; align-items: flex-end; gap: 5px; height: 130px; padding-top: var(--sp-2); }
+.dv-spark-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; min-width: 0; }
+.dv-spark-bar { width: 100%; max-width: 22px; height: 0; border-radius: 5px 5px 2px 2px; background: var(--c-secondary); transition: height 700ms var(--ease-spring); }
+.dv-spark-bar.revenue { background: var(--c-accent); }
+.dv-spark-day { font-size: 10px; color: var(--c-fg-subtle); font-family: var(--font-mono); }
+
+.dv-empty { text-align: center; padding: var(--sp-5) var(--sp-4); color: var(--c-fg-subtle); font-size: 13px; }
+@media (max-width: 640px) { .dv-rank-name { max-width: 100px; } .dv-spark-day { display: none; } .dv-hero { grid-template-columns: repeat(2, 1fr); } }
+
+.dv-day-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 8px 2px; border-bottom: 1px solid var(--c-border); }
+.dv-day-row:last-child { border-bottom: none; }
+.dv-day-label { font-size: 12.5px; color: var(--c-fg-muted); font-weight: 600; }
+.dv-day-right { display: flex; align-items: center; gap: 8px; }
+.dv-day-amount { font-family: var(--font-mono); font-weight: 700; color: var(--c-fg); }
+.dv-day-change { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-full); display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.dv-day-change.up { background: var(--c-success-bg); color: var(--c-success); }
+.dv-day-change.down { background: var(--c-danger-bg); color: var(--c-danger); }
+.dv-day-change.flat { background: var(--c-surface-2); color: var(--c-fg-subtle); }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .stat-tile { background: var(--c-surface); border: 1px solid var(--c-border); border-top: 2px solid var(--c-primary); padding: 9px 12px; border-radius: var(--r-md); }
@@ -458,6 +519,9 @@ td input, td select { padding: 5px 8px; font-size: 13px; min-height: 30px; }
 tr.plate-match td { background: #FEFCE8; }
 tr.plate-match:hover td { background: #FEF9C3; }
 .match-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-full); font-family: var(--font-sans); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: var(--c-warn-bg); color: var(--c-warn); border: 1px solid #FDE68A; }
+tr.reseller-match td { background: #EEF2FF; }
+tr.reseller-match:hover td { background: #E0E7FF; }
+.reseller-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: var(--r-full); font-family: var(--font-sans); font-size: 10px; font-weight: 700; letter-spacing: .02em; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
 .req-row.open td { box-shadow: inset 3px 0 0 var(--c-accent); }
 .cust-group-row { cursor: pointer; background: var(--c-surface-2); }
 .cust-group-row:hover { background: var(--c-primary-soft); }
@@ -890,6 +954,15 @@ tr.plate-match:hover td { background: #FEF9C3; }
       <div id="transferplate-list"></div>
     </div>
 
+    <!-- ---------- Online Paid (Odoo Moyasar receipts, live) ---------- -->
+    <div id="tab-onlinepaid" style="display:none">
+      <div class="row">
+        <button class="secondary small" onclick="loadOnlinePayments()">Refresh</button>
+      </div>
+      <div id="onlinepaid-status" class="status">Loading...</div>
+      <div id="onlinepaid-result"></div>
+    </div>
+
     <div id="tab-allcases" style="display:none">
       <div id="allcases-status" class="status"></div>
       <div id="allcases-list"></div>
@@ -1281,6 +1354,7 @@ const TAB_REGISTRY = [
   { key: 'deal',     group: 'Operations', label: 'New Request',       icon: 'plus',   sub: 'Create a renewal case — one Renewal ID, one or more vehicles' },
   { key: 'daily',    group: 'Operations', label: 'Daily Requests',    icon: 'list',   sub: 'Log a daily call — task type, status, and complaint feedback' },
   { key: 'transferplate', group: 'Operations', label: 'Transfer / Plate Change', icon: 'building', sub: 'Transfer and Plate Change cases — tracked separately from the Renewal pipeline' },
+  { key: 'onlinepaid', group: 'Operations', label: 'Online Paid', icon: 'receipt', sub: 'Live Odoo Moyasar online-payment receipts — updates on its own' },
   { key: 'allcases', group: 'Pipeline', label: 'All Requests', icon: 'table', sub: 'Every active case — every type, every stage — as cards, same as the other pipeline views' },
   ...STAGE_TAB_NAMES.map((k, i) => ({
     key: k, group: 'Pipeline', step: i + 1,
@@ -1438,6 +1512,9 @@ function showApp(user) {
   loadUsers();
   warmOdooBridge();
   if (!window.ODOO_WARM_TIMER) window.ODOO_WARM_TIMER = setInterval(warmOdooBridge, 14 * 60 * 1000);
+  // Loaded right at login (not lazily on first Dashboard visit) so the
+  // "missing division" nav badge is already accurate the moment the app opens.
+  Promise.all([loadBookerSegments(), loadBookerList()]).then(updateNavBadges);
 }
 
 addVehicleRow();
@@ -1503,6 +1580,8 @@ function renderCaseTypeNav(name) {
 function switchTab(name) {
   if (!canOpen(name)) { showToast('You do not have access to that section', 'error'); return; }
   currentActiveTab = name;
+  stopDashboardAutoRefresh(); // re-armed below only if we're actually landing on 'dashboard' — never polls in the background from another tab
+  stopOnlinePaidAutoRefresh(); // same rule — only polls Odoo while 'onlinepaid' is the open tab
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('[id^="tab-"]').forEach(el => { el.style.display = el.id === 'tab-' + name ? 'block' : 'none'; });
 
@@ -1530,15 +1609,26 @@ function switchTab(name) {
     if (!DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
     if (!RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
     if (!DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
+    startDashboardAutoRefresh();
     renderDashboard();
   }
   if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
+  if (name === 'onlinepaid') { loadOnlinePayments(); startOnlinePaidAutoRefresh(); }
 }
 
 // Tabs that get a nav badge without being a numbered stage. 'closed' was
 // already handled in updateNavBadges but never actually rendered one — only
 // t.step tabs got the element — so its count silently went nowhere.
-const BADGE_TABS = ['closed', 'rectification', 'transferplate'];
+const BADGE_TABS = ['closed', 'rectification', 'transferplate', 'dashboard'];
+
+// Any order booker resolving to 'Other' (no Firestore override, no native
+// Odoo segment) has no division assigned — new hires land here the moment
+// they book their first order, since Odoo has no "CSU" value for
+// segmentOf() to fall back on. This is what the Dashboard nav badge counts.
+function missingDivisionBookers() {
+  if (!BOOKER_LIST) return [];
+  return BOOKER_LIST.filter(b => segmentOf(String(b.id)) === 'Other');
+}
 
 function updateNavBadges() {
   STAGE_TAB_NAMES.forEach((key, i) => {
@@ -1560,6 +1650,15 @@ function updateNavBadges() {
     el.textContent = `${cases.length - done} / ${done}`;
     el.title = `${cases.length - done} pending · ${done} done`;
   });
+
+  const dashEl = document.getElementById('nav-badge-dashboard');
+  if (dashEl) {
+    const missing = missingDivisionBookers();
+    dashEl.textContent = missing.length || '';
+    dashEl.classList.toggle('warn', missing.length > 0);
+    dashEl.title = missing.length ? `${missing.length} order booker(s) have no division set — see Dashboard → Settings` : '';
+    dashEl.style.display = missing.length ? '' : 'none';
+  }
 }
 
 // ==================== Toasts ====================
@@ -2038,7 +2137,8 @@ const ODOO_WEB_URL = 'https://odoo.tracking.me';
 const ODOO_TARGETS = {
   'sale.order.wags':      { action: 626, menu: 141 },   // Sale > All Sale Orders
   'internal.ticket.wags': { action: 976, menu: 670 },   // Tickets > All Tickets
-  'res.partner':          { action: 183, menu: 146 }    // Sale > Orders > Customers
+  'res.partner':          { action: 183, menu: 146 },   // Sale > Orders > Customers
+  'payment.wags':         { action: 311, menu: 105 }    // Accounting > Receipts
 };
 
 function odooHash(model, id) {
@@ -2201,6 +2301,17 @@ async function loadSalesReport() {
 // Report tab.
 let DASHBOARD_SALES_REPORT = null;
 let DASHBOARD_RANGE = 'this-month';
+// Order → invoice funnel, from sale.order.wags (a different Odoo model and a
+// different date field than the invoice figures above — see the note rendered
+// under the funnel). Two reports, because the accounting question "how many
+// orders are still unpaid" must not count unconfirmed quotations:
+//   ORDERS    = every state the bridge reports (incl. draft/sent quotations),
+//               used only to show how much is still sitting in quotations.
+//   CONFIRMED = state in sale/done/approved — the real order book, and the
+//               only thing the paid/pending tiles and the table are built from.
+const CONFIRMED_ORDER_STATES = 'sale,done,approved';
+let DASHBOARD_ORDERS_REPORT = null;
+let DASHBOARD_CONFIRMED_REPORT = null;
 
 async function loadDashboardSalesReport(preset) {
   if (preset) DASHBOARD_RANGE = preset;
@@ -2213,17 +2324,21 @@ async function loadDashboardSalesReport(preset) {
   } else if (DASHBOARD_RANGE === '90d') { from = new Date(now); from.setDate(from.getDate() - 89); }
   else { from = new Date(now.getFullYear(), 0, 1); }
 
-  const params = new URLSearchParams({
-    from: isoDay(from), to: isoDay(to),
-    interval: DASHBOARD_RANGE === 'this-month' ? 'day' : 'month',
-    state: 'paid'
-  });
+  const interval = DASHBOARD_RANGE === 'this-month' ? 'day' : 'month';
+  const range = { from: isoDay(from), to: isoDay(to), interval };
+  const invoiceParams = new URLSearchParams({ ...range, state: 'paid' });
+  const orderParams = new URLSearchParams(range);
+  const confirmedParams = new URLSearchParams({ ...range, state: CONFIRMED_ORDER_STATES });
 
-  try {
-    DASHBOARD_SALES_REPORT = await odooFetch('/api/invoice-report?' + params);
-  } catch (err) {
-    DASHBOARD_SALES_REPORT = { error: err.message };
-  }
+  const [invRes, ordRes, confRes] = await Promise.allSettled([
+    odooFetch('/api/invoice-report?' + invoiceParams),
+    odooFetch('/api/sales-report?' + orderParams),
+    odooFetch('/api/sales-report?' + confirmedParams)
+  ]);
+  DASHBOARD_SALES_REPORT = invRes.status === 'fulfilled' ? invRes.value : { error: invRes.reason.message };
+  DASHBOARD_ORDERS_REPORT = ordRes.status === 'fulfilled' ? ordRes.value : { error: ordRes.reason.message };
+  DASHBOARD_CONFIRMED_REPORT = confRes.status === 'fulfilled' ? confRes.value : { error: confRes.reason.message };
+
   if (currentActiveTab === 'dashboard') renderDashboard();
 }
 
@@ -2293,8 +2408,31 @@ async function loadRenewalTargetReport() {
   if (currentActiveTab === 'dashboard') renderDashboard();
 }
 
-function openRenewalTargetSettings() {
+// Shared by the modal (prefix 'rt') and the inline Settings-tab copy (prefix
+// 'irt') — same markup, different element ids, so both can exist in the DOM
+// at once without one's inputs shadowing the other's.
+function renewalTargetFormHtml(idPrefix) {
   const { year, targets, divisionTargets } = RENEWAL_TARGET_SETTINGS;
+  return `
+    <div class="row"><div><label class="input-label" for="${idPrefix}-year">Year</label>
+      <input type="number" id="${idPrefix}-year" value="${year}" style="max-width:120px"></div></div>
+    <div class="status">Combined monthly target — calculated as the sum of the divisions below, not editable on its own.</div>
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      ${MONTH_NAMES_SHORT.map((name, i) => `
+        <div style="min-width:100px"><label class="input-label">${name}</label>
+          <input type="number" id="${idPrefix}-m${i}" value="${targets[i]}" disabled></div>`).join('')}
+    </div>
+    <div class="status" style="margin-top:var(--sp-3)">Per-division monthly target</div>
+    ${DIVISION_TARGET_SEGMENTS.map(seg => `
+      <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+        <div style="min-width:90px;font-weight:600">${seg}</div>
+        ${MONTH_NAMES_SHORT.map((name, i) => `
+          <div style="min-width:90px"><label class="input-label" for="${idPrefix}-dt-${seg}-${i}">${name}</label>
+            <input type="number" id="${idPrefix}-dt-${seg}-${i}" value="${divisionTargets[seg][i]}" min="0"></div>`).join('')}
+      </div>`).join('')}`;
+}
+
+function openRenewalTargetSettings() {
   const box = document.getElementById('renewal-target-modal-box');
   box.style.maxWidth = '95vw';
   box.style.width = '760px';
@@ -2302,26 +2440,11 @@ function openRenewalTargetSettings() {
     <button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
     <div class="card-header"><div class="card-title">Renewal Target Settings</div></div>
     <div style="max-height:75vh;overflow-y:auto">
-    <div class="row"><div><label class="input-label" for="rt-year">Year</label>
-      <input type="number" id="rt-year" value="${year}" style="max-width:120px"></div></div>
-    <div class="status">Combined monthly target — calculated as the sum of the divisions below, not editable on its own.</div>
-    <div class="row" style="flex-wrap:wrap;gap:8px">
-      ${MONTH_NAMES_SHORT.map((name, i) => `
-        <div style="min-width:100px"><label class="input-label">${name}</label>
-          <input type="number" id="rt-m${i}" value="${targets[i]}" disabled></div>`).join('')}
-    </div>
-    <div class="status" style="margin-top:var(--sp-3)">Per-division monthly target</div>
-    ${DIVISION_TARGET_SEGMENTS.map(seg => `
-      <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
-        <div style="min-width:90px;font-weight:600">${seg}</div>
-        ${MONTH_NAMES_SHORT.map((name, i) => `
-          <div style="min-width:90px"><label class="input-label" for="rt-dt-${seg}-${i}">${name}</label>
-            <input type="number" id="rt-dt-${seg}-${i}" value="${divisionTargets[seg][i]}" min="0"></div>`).join('')}
-      </div>`).join('')}
+    ${renewalTargetFormHtml('rt')}
     </div>
     <div class="row" style="justify-content:flex-end;margin-bottom:0;margin-top:var(--sp-3)">
       <button class="secondary" onclick="closeRenewalTargetSettings()">Cancel</button>
-      <button onclick="saveRenewalTargetSettings()">Save</button>
+      <button onclick="saveRenewalTargetSettingsFrom('rt', closeRenewalTargetSettings)">Save</button>
     </div>`;
   document.getElementById('renewal-target-modal').style.display = 'flex';
 }
@@ -2330,12 +2453,12 @@ function closeRenewalTargetSettings() {
   document.getElementById('renewal-target-modal').style.display = 'none';
 }
 
-async function saveRenewalTargetSettings() {
-  const year = parseInt(document.getElementById('rt-year').value, 10);
+async function saveRenewalTargetSettingsFrom(idPrefix, onDone) {
+  const year = parseInt(document.getElementById(`${idPrefix}-year`).value, 10);
   if (!year || year < 2000) { showToast('Enter a valid year', 'error'); return; }
   const divisionTargets = {};
   DIVISION_TARGET_SEGMENTS.forEach(seg => {
-    divisionTargets[seg] = MONTH_NAMES_SHORT.map((_, i) => Number(document.getElementById(`rt-dt-${seg}-${i}`).value) || 0);
+    divisionTargets[seg] = MONTH_NAMES_SHORT.map((_, i) => Number(document.getElementById(`${idPrefix}-dt-${seg}-${i}`).value) || 0);
   });
   const targets = sumDivisionTargets(divisionTargets);
 
@@ -2346,9 +2469,10 @@ async function saveRenewalTargetSettings() {
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
     });
     RENEWAL_TARGET_SETTINGS = { year, targets, divisionTargets };
-    closeRenewalTargetSettings();
     showToast('Renewal target saved', 'success');
+    if (onDone) onDone();
     await loadRenewalTargetReport();
+    if (currentActiveTab === 'dashboard') renderDashboard();
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
   }
@@ -2631,26 +2755,17 @@ function setDivisionFilter(kind, value) {
   renderDashboard();
 }
 
-async function openBookerSegmentSettings() {
-  const box = document.getElementById('renewal-target-modal-box');
-  box.style.maxWidth = '95vw';
-  box.style.width = '900px';
-  box.innerHTML = `<button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
-    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
-    <div class="status"><span class="spinner"></span>Loading order bookers...</div>`;
-  document.getElementById('renewal-target-modal').style.display = 'flex';
-  await loadBookerList();
-
+// Shared by the modal (prefix 'bs') and the inline Settings-tab copy (prefix
+// 'ibs') — same table, different element ids per row so both copies can
+// exist in the DOM without one shadowing the other's getElementById lookups.
+// Rows currently resolving to 'Other' (no override, no native Odoo segment)
+// get a highlight — these are the "missing division" bookers.
+function bookerSegmentTableHtml(idPrefix) {
   const options = seg => SEGMENT_NAMES.map(s => `<option value="${s}"${s === seg ? ' selected' : ''}>${s}</option>`).join('');
-  // Same name, different Odoo id (e.g. 3 separate "Faisal Zaman" partner
-  // records) — flag these so the id column actually gets looked at instead
-  // of assumed to be interchangeable.
   const nameCounts = {};
   BOOKER_LIST.forEach(b => { nameCounts[b.name] = (nameCounts[b.name] || 0) + 1; });
-  box.innerHTML = `
-    <button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
-    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
-    <div class="status">Segment defaults to Odoo's own record for that booker where available. Rows marked * also got Region/City pre-filled by matching your pasted list to Odoo names — review before saving. Rows marked ⚠ share their name with another booker below — a different Odoo ID, possibly a different person; check ID + order count before assuming they're the same. If two rows really are the same person under two Odoo ids, use "Merge into" — their revenue then always counts under the target's segment.</div>
+  return `
+    <div class="status">Segment defaults to Odoo's own record for that booker where available. Rows highlighted amber currently resolve to <b>Other</b> — no override and no native Odoo segment, i.e. a missing division. Rows marked * also got Region/City pre-filled by matching your pasted list to Odoo names — review before saving. Rows marked ⚠ share their name with another booker below — a different Odoo ID, possibly a different person; check ID + order count before assuming they're the same. If two rows really are the same person under two Odoo ids, use "Merge into" — their revenue then always counts under the target's segment.</div>
     <div class="table-wrap" style="max-height:70vh;overflow-y:auto"><table>
       <thead><tr><th>ID</th><th>Order Booker</th><th>Orders</th><th>Segment</th><th>Region</th><th>City</th><th>Merge into</th></tr></thead>
       <tbody>${BOOKER_LIST.map(b => {
@@ -2663,46 +2778,63 @@ async function openBookerSegmentSettings() {
         const region = (saved && saved.region) || (seed && seed[2]) || '';
         const city = (saved && saved.city) || (seed && seed[3]) || '';
         const isDup = nameCounts[b.name] > 1;
+        const isMissing = segment === 'Other';
         const mergedInto = (saved && saved.mergedInto) || '';
         const disabled = mergedInto ? ' disabled' : '';
         const mergeOptions = BOOKER_LIST.filter(o => o.id !== b.id)
           .map(o => `<option value="${o.id}"${String(o.id) === mergedInto ? ' selected' : ''}>${escapeHTML(o.name)} (${o.id})</option>`).join('');
-        return `<tr${isDup ? ' style="background:var(--c-accent-soft)"' : ''}>
+        return `<tr${isDup ? ' style="background:var(--c-accent-soft)"' : isMissing ? ' style="background:var(--c-warn-bg)"' : ''}>
           <td style="font-family:var(--font-mono);color:var(--c-fg-muted)">${b.id}</td>
           <td>${escapeHTML(b.name)}${isDup ? ' <span title="Same name as another booker below — different Odoo ID">⚠</span>' : ''}${seed ? ' <span title="Pre-filled from your pasted list">*</span>' : ''}</td>
           <td>${b.orders}</td>
-          <td><select id="bs-seg-${b.id}"${disabled}>${options(segment)}</select></td>
-          <td><input id="bs-reg-${b.id}" value="${escapeHTML(region)}" style="max-width:110px"${disabled}></td>
-          <td><input id="bs-city-${b.id}" value="${escapeHTML(city)}" style="max-width:130px"${disabled}></td>
-          <td><select id="bs-merge-${b.id}" onchange="toggleBookerMergeRow(${b.id})" style="max-width:170px">
+          <td><select id="${idPrefix}-seg-${b.id}"${disabled}>${options(segment)}</select></td>
+          <td><input id="${idPrefix}-reg-${b.id}" value="${escapeHTML(region)}" style="max-width:110px"${disabled}></td>
+          <td><input id="${idPrefix}-city-${b.id}" value="${escapeHTML(city)}" style="max-width:130px"${disabled}></td>
+          <td><select id="${idPrefix}-merge-${b.id}" onchange="toggleBookerMergeRow('${idPrefix}', ${b.id})" style="max-width:170px">
             <option value="">— not merged —</option>
             ${mergeOptions}
           </select></td>
         </tr>`;
       }).join('')}</tbody>
-    </table></div>
+    </table></div>`;
+}
+
+async function openBookerSegmentSettings() {
+  const box = document.getElementById('renewal-target-modal-box');
+  box.style.maxWidth = '95vw';
+  box.style.width = '900px';
+  box.innerHTML = `<button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
+    <div class="status"><span class="spinner"></span>Loading order bookers...</div>`;
+  document.getElementById('renewal-target-modal').style.display = 'flex';
+  await loadBookerList();
+
+  box.innerHTML = `
+    <button type="button" class="modal-close" onclick="closeRenewalTargetSettings()" aria-label="Close">${icon('x')}</button>
+    <div class="card-header"><div class="card-title">Booker → Segment / Region / City</div></div>
+    ${bookerSegmentTableHtml('bs')}
     <div class="row" style="justify-content:flex-end;margin-top:var(--sp-3);margin-bottom:0">
       <button class="secondary" onclick="closeRenewalTargetSettings()">Cancel</button>
-      <button onclick="saveBookerSegmentSettings()">Save</button>
+      <button onclick="saveBookerSegmentSettingsFrom('bs', closeRenewalTargetSettings)">Save</button>
     </div>`;
 }
 
 // Merging disables the row's own Segment/Region/City fields (they're
 // inherited from the merge target instead) — toggled live so it's obvious
 // before Save, not just after reload.
-function toggleBookerMergeRow(id) {
-  const merged = !!document.getElementById(`bs-merge-${id}`).value;
-  ['seg', 'reg', 'city'].forEach(f => { document.getElementById(`bs-${f}-${id}`).disabled = merged; });
+function toggleBookerMergeRow(idPrefix, id) {
+  const merged = !!document.getElementById(`${idPrefix}-merge-${id}`).value;
+  ['seg', 'reg', 'city'].forEach(f => { document.getElementById(`${idPrefix}-${f}-${id}`).disabled = merged; });
 }
 
-async function saveBookerSegmentSettings() {
+async function saveBookerSegmentSettingsFrom(idPrefix, onDone) {
   const segments = {};
   (BOOKER_LIST || []).forEach(b => {
-    const mergedInto = document.getElementById(`bs-merge-${b.id}`).value;
+    const mergedInto = document.getElementById(`${idPrefix}-merge-${b.id}`).value;
     segments[String(b.id)] = {
-      segment: document.getElementById(`bs-seg-${b.id}`).value,
-      region: document.getElementById(`bs-reg-${b.id}`).value.trim(),
-      city: document.getElementById(`bs-city-${b.id}`).value.trim(),
+      segment: document.getElementById(`${idPrefix}-seg-${b.id}`).value,
+      region: document.getElementById(`${idPrefix}-reg-${b.id}`).value.trim(),
+      city: document.getElementById(`${idPrefix}-city-${b.id}`).value.trim(),
       mergedInto: mergedInto || null
     };
   });
@@ -2713,12 +2845,22 @@ async function saveBookerSegmentSettings() {
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
     });
     BOOKER_SEGMENTS = segments;
-    closeRenewalTargetSettings();
     showToast('Booker segments saved', 'success');
+    if (onDone) onDone();
+    updateNavBadges();
     if (currentActiveTab === 'dashboard') renderDashboard();
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
   }
+}
+
+// Bypasses the loadBookerList() one-time cache so a booker created in Odoo
+// after this session started shows up without a full page reload.
+async function refreshBookerList() {
+  BOOKER_LIST = null;
+  await loadBookerList();
+  updateNavBadges();
+  if (currentActiveTab === 'dashboard') renderDashboard();
 }
 
 const DIVISION_STATUS_OPTIONS = [['', 'All'], ['paid', 'Paid'], ['open', 'Open'], ['partial', 'Partial'], ['draft', 'Draft'], ['cancelled', 'Cancelled']];
@@ -2866,7 +3008,8 @@ function renderDivisionBreakdownSection() {
     (DIVISION_FILTER_BOOKER === 'all' || resolveBookerKey(bookerKey) === DIVISION_FILTER_BOOKER) &&
     (DIVISION_FILTER_SEGMENT === 'all' || segmentOf(bookerKey) === DIVISION_FILTER_SEGMENT);
 
-  const dayRows = rep.days.map(day => {
+  const dayTotals = []; // { label, total } per calendar day, for the trend chart below — includes zero-total days
+  const dayData = rep.days.map(day => {
     const bySeg = {};
     SEGMENT_NAMES.forEach(s => { bySeg[s] = 0; });
     let dayTotal = 0;
@@ -2882,30 +3025,48 @@ function renderDivisionBreakdownSection() {
     // displayed day back by one in negative-UTC timezones.
     const [, mm, dd] = day.date.split('-');
     const label = `${MONTH_NAMES_SHORT[Number(mm) - 1]} ${Number(dd)}`;
-    if (!dayTotal) return '';
-    return `<tr>
-      <td>${escapeHTML(label)}${day.date === today ? ' *' : ''}</td>
-      ${SEGMENT_NAMES.map(s => `<td>${bySeg[s] ? sarFmt(bySeg[s]) : '—'}</td>`).join('')}
-      <td><strong>${sarFmt(dayTotal)}</strong></td>
-    </tr>`;
-  }).join('');
+    dayTotals.push({ label, day: Number(dd), total: dayTotal, isToday: day.date === today });
+    return { date: day.date, label, bySeg, dayTotal, isToday: day.date === today };
+  });
 
   const mtdTotal = Object.values(mtdBySegment).reduce((a, b) => a + b, 0);
   const maxSeg = Math.max(1, ...Object.values(mtdBySegment));
+  const maxDayTotal = Math.max(1, ...dayTotals.map(d => d.total));
+  // Only columns/rows for segments that actually have revenue this month —
+  // Odoo's own segment list (Trading/New Sale/Renwal Sales/etc.) is mostly
+  // unused by this business, so an all-dash column is just noise.
+  const activeSegments = SEGMENT_NAMES.filter(s => mtdBySegment[s]);
+
+  const dayRows = dayData.map(d => {
+    if (!d.dayTotal) return '';
+    return `<tr>
+      <td>${escapeHTML(d.label)}${d.isToday ? ' *' : ''}</td>
+      ${activeSegments.map(s => `<td>${d.bySeg[s] ? sarFmt(d.bySeg[s]) : '—'}</td>`).join('')}
+      <td><strong>${sarFmt(d.dayTotal)}</strong></td>
+    </tr>`;
+  }).join('');
 
   return `
     <div class="card">
       <div class="card-header"><div class="card-title">${title} (Without VAT)</div>${settingsBtn}</div>
       ${renderDivisionFilterBar()}
-      ${SEGMENT_NAMES.map(s => `
+      ${activeSegments.map(s => `
         <div class="dash-bar-row">
           <span class="dash-bar-label">${s}</span>
           <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(mtdBySegment[s] / maxSeg * 100).toFixed(1)}"></div></div>
           <span class="dash-bar-value">${sarFmt(mtdBySegment[s])}${mtdTotal ? ` (${(mtdBySegment[s] / mtdTotal * 100).toFixed(0)}%)` : ''}</span>
         </div>`).join('')}
+      <div class="card-header" style="margin-top:var(--sp-3)"><div class="card-title">Renewal Sales — Daily</div></div>
+      <div class="dash-trend">
+        ${dayTotals.map(d => `
+          <div class="dash-trend-col" title="${escapeHTML(d.label)}${d.isToday ? ' (today)' : ''}: ${sarFmt(d.total)}">
+            <div class="dash-trend-bar revenue" data-h="${(d.total / maxDayTotal * 100).toFixed(1)}"></div>
+            <span class="dash-trend-day">${d.day}</span>
+          </div>`).join('')}
+      </div>
       <div class="table-wrap" style="margin-top:var(--sp-3)"><table>
-        <thead><tr><th>Date</th>${SEGMENT_NAMES.map(s => `<th>${s}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody>${dayRows || `<tr><td colspan="${SEGMENT_NAMES.length + 2}" class="no-results">No renewal orders match this filter</td></tr>`}</tbody>
+        <thead><tr><th>Date</th>${activeSegments.map(s => `<th>${s}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>${dayRows || `<tr><td colspan="${activeSegments.length + 2}" class="no-results">No renewal orders match this filter</td></tr>`}</tbody>
       </table></div>
       <div class="status" style="margin-top:var(--sp-3)">* = today. Segment shown here comes from each order's booker → segment mapping (Booker → Segment button above).</div>
     </div>`;
@@ -2948,8 +3109,8 @@ function renderTicketsSection() {
       <button class="ghost small${TICKETS_RANGE === 'ytd' ? ' active' : ''}" onclick="loadTicketsReport('ytd')">Year to date</button>
     </div>`;
 
-  if (!rep) return `<div class="card"><div class="card-header"><div class="card-title">Tickets</div></div>${rangeBtns}<div class="status"><span class="spinner"></span>Loading tickets from Odoo...</div></div>`;
-  if (rep.error) return `<div class="card"><div class="card-header"><div class="card-title">Tickets</div></div>${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
+  if (!rep) return `<div class="dv-panel"><div class="dv-panel-head"><div class="dv-panel-title">${icon('ticket')} Tickets</div></div>${rangeBtns}<div class="status"><span class="spinner"></span>Loading tickets from Odoo...</div></div>`;
+  if (rep.error) return `<div class="dv-panel"><div class="dv-panel-head"><div class="dv-panel-title">${icon('ticket')} Tickets</div></div>${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
 
   const t = rep.totals;
   const types = (rep.breakdown.type || []).slice(0, 8);
@@ -2959,44 +3120,48 @@ function renderTicketsSection() {
   const maxTl = Math.max(1, ...rep.timeline.map(p => p.count));
 
   return `
-    <div class="card">
-      <div class="card-header"><div class="card-title">Tickets</div></div>
-      ${rangeBtns}
-      <div class="stat-grid">
-        <div class="stat-tile"><div class="num">${t.total.toLocaleString()}</div><div class="lbl">Total Tickets</div></div>
-        <div class="stat-tile"><div class="num">${t.open.toLocaleString()}</div><div class="lbl">Open</div></div>
-        <div class="stat-tile"><div class="num">${t.closed.toLocaleString()}</div><div class="lbl">Closed</div></div>
-        <div class="stat-tile"><div class="num">${t.overdue.toLocaleString()}</div><div class="lbl">Overdue (open, past due)</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap">
+      <div class="dv-panel-title" style="font-size:15px">${icon('ticket')} Tickets</div>
+    </div>
+    ${rangeBtns}
+    <div class="dv-hero">
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('ticket')}</div><div class="num">${t.total.toLocaleString()}</div><div class="lbl">Total Tickets</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('alert')}</div><div class="num">${t.open.toLocaleString()}</div><div class="lbl">Open</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('table')}</div><div class="num">${t.closed.toLocaleString()}</div><div class="lbl">Closed</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('alert')}</div><div class="num">${t.overdue.toLocaleString()}</div><div class="lbl">Overdue (open, past due)</div></div>
+    </div>
+    <div class="dv-grid">
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('list')} Top Ticket Types</div></div>
+        ${types.length ? types.map((r, i) => `
+          <div class="dv-rank-row">
+            <span class="dv-rank-num">${i + 1}</span>
+            <div class="dv-rank-body">
+              <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span><span class="dv-rank-value">${r.count}</span></div>
+              <div class="dv-rank-track"><div class="dv-rank-fill" data-w="${(r.count / maxType * 100).toFixed(1)}"></div></div>
+            </div>
+          </div>`).join('') : '<div class="dv-empty">No tickets in this range</div>'}
       </div>
-      <div class="grid2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Top Ticket Types</div></div>
-          ${types.length ? types.map(r => `
-            <div class="dash-bar-row">
-              <span class="dash-bar-label" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span>
-              <div class="dash-bar-track"><div class="dash-bar-fill" data-w="${(r.count / maxType * 100).toFixed(1)}"></div></div>
-              <span class="dash-bar-value">${r.count}</span>
-            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">By Department</div></div>
-          ${subStates.length ? subStates.map(r => `
-            <div class="dash-bar-row">
-              <span class="dash-bar-label" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span>
-              <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(r.count / maxSub * 100).toFixed(1)}"></div></div>
-              <span class="dash-bar-value">${r.count}</span>
-            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
-        </div>
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('building')} By Department</div></div>
+        ${subStates.length ? subStates.map((r, i) => `
+          <div class="dv-rank-row">
+            <span class="dv-rank-num">${i + 1}</span>
+            <div class="dv-rank-body">
+              <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(r.label)}">${escapeHTML(r.label)}</span><span class="dv-rank-value">${r.count}</span></div>
+              <div class="dv-rank-track"><div class="dv-rank-fill accent" data-w="${(r.count / maxSub * 100).toFixed(1)}"></div></div>
+            </div>
+          </div>`).join('') : '<div class="dv-empty">No tickets in this range</div>'}
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Ticket Volume (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
-        <div class="dash-trend">
-          ${rep.timeline.length ? rep.timeline.map(p => `
-            <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${p.count} ticket(s)">
-              <div class="dash-trend-bar" data-h="${(p.count / maxTl * 100).toFixed(1)}"></div>
-              <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
-            </div>`).join('') : '<div class="no-results">No tickets in this range</div>'}
-        </div>
+    </div>
+    <div class="dv-panel">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} Ticket Volume (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
+      <div class="dv-spark">
+        ${rep.timeline.length ? rep.timeline.map(p => `
+          <div class="dv-spark-col" title="${escapeHTML(p.label)}: ${p.count} ticket(s)">
+            <div class="dv-spark-bar" data-h="${(p.count / maxTl * 100).toFixed(1)}"></div>
+            <span class="dv-spark-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+          </div>`).join('') : '<div class="dv-empty">No tickets in this range</div>'}
       </div>
     </div>`;
 }
@@ -3177,6 +3342,41 @@ async function odooFetch(path) {
   return data;
 }
 
+// Some customers in Odoo are actually resellers operating under their own
+// trade name — a sale order booked to them was really sold by that reseller,
+// not a direct customer. Static reference table (rarely changes), matched by
+// Odoo partner id first (exact, stable across renames) with a name fallback.
+const RESELLER_MAP = [
+  { reseller: 'Roi Al Kayan', oddoName: 'Roaia AlKayan Logistics', erpId: 6736 },
+  { reseller: 'Masarat Tattabo', oddoName: 'شركة مسارات تتبع للاتصالات و تقنية المعلومات', erpId: 6984 },
+  { reseller: 'Specialized', oddoName: 'Specialized Solution Co', erpId: 6038 },
+  { reseller: 'Diamond Horizon', oddoName: 'Jabal Ateen Contracting (ISG Prefab)', erpId: 6003 },
+  { reseller: 'Taghreed', oddoName: 'Tagreed Abdulrehman Mohammad AlGhamd.', erpId: 6070 },
+  { reseller: 'TechSup', oddoName: 'techsup', erpId: 8293 },
+  { reseller: 'Taqneen', oddoName: 'Taqneen Independent Co. (Al-Elm IT Co.)', erpId: 8291 },
+  { reseller: 'Enteshaar', oddoName: 'انتشار الجوده', erpId: 6031 },
+  { reseller: 'Shabakah', oddoName: 'شركة شبكة التقنية المتقدمة للاتصالات وتقنية المعلومات', erpId: 8285 },
+  { reseller: 'Osus', oddoName: 'مؤسسة اسس البرمجيات لتقنية المعلومات', erpId: 13568 },
+  { reseller: 'Matti u rehman', oddoName: 'Matti ur Rehman1', erpId: 8504 },
+  { reseller: 'Muaviya', oddoName: 'Muaviya Alsodani', erpId: 6064 },
+  { reseller: 'Advance Arab Solutions', oddoName: 'شركة الحلول العربية المتقدمة', erpId: 14346 },
+  { reseller: 'Dubai Madinah', oddoName: 'Dubai Al Madina Trading Est', erpId: 13388 },
+  { reseller: 'Quality Skills', oddoName: 'Quality Skills', erpId: 13443 },
+  { reseller: 'GCC', oddoName: 'Razan Trading EST (GCC)', erpId: 23955 },
+  { reseller: 'Ibtikar Almustaheel', oddoName: 'Ibtikar Almustaheel', erpId: 24228 },
+  { reseller: 'Qadsiya', oddoName: 'Qadsiya Limited Co', erpId: 30664 },
+  { reseller: 'Safe Track', oddoName: 'Safe Tracking Solutions for Information Technology Est', erpId: 31641 },
+  { reseller: 'Abu Rakan', oddoName: 'مؤسسة خطوط الجزيره للخدمات اللوجستية', erpId: 9666 },
+  { reseller: 'Al Taj Company', oddoName: 'شركة التاج للمنتجات الأسمنتية', erpId: 9189 },
+];
+const RESELLER_BY_ID = new Map(RESELLER_MAP.map(r => [r.erpId, r]));
+const RESELLER_BY_NAME = new Map(RESELLER_MAP.map(r => [r.oddoName.trim().toLowerCase(), r]));
+function matchReseller(partnerId, partnerName) {
+  if (partnerId != null && RESELLER_BY_ID.has(partnerId)) return RESELLER_BY_ID.get(partnerId);
+  if (partnerName) return RESELLER_BY_NAME.get(String(partnerName).trim().toLowerCase()) || null;
+  return null;
+}
+
 async function searchOdooOrders() {
   const q = document.getElementById('odoo-q').value.trim();
   const state = document.getElementById('odoo-state').value;
@@ -3205,7 +3405,9 @@ async function searchOdooOrders() {
 
     statusEl.className = 'status ready';
     const plateNote = data.plateMatches ? ` · ${data.plateMatches} matched by plate (shown first)` : '';
-    statusEl.textContent = `${orders.length} sale order(s)${q ? ` for "${q}"` : ' (newest first)'}${state ? ` · ${ODOO_STATES[state]}` : ''}${plateNote}`;
+    const resellerCount = orders.filter(o => matchReseller(o.partner_id ? o.partner_id[0] : null, o.partner_id ? o.partner_id[1] : '')).length;
+    const resellerNote = resellerCount ? ` · ${resellerCount} by a reseller` : '';
+    statusEl.textContent = `${orders.length} sale order(s)${q ? ` for "${q}"` : ' (newest first)'}${state ? ` · ${ODOO_STATES[state]}` : ''}${plateNote}${resellerNote}`;
 
     resultEl.innerHTML = orders.length ? `
       <div class="table-wrap">
@@ -3215,12 +3417,17 @@ async function searchOdooOrders() {
             <th># Veh</th><th>Amount</th><th>Expiry</th><th>Salesperson</th><th></th>
           </tr></thead>
           <tbody>
-            ${orders.map(o => `<tr${o.matched_plate ? ' class="plate-match"' : ''}>
+            ${orders.map(o => {
+              const partnerId = o.partner_id ? o.partner_id[0] : null;
+              const partnerName = o.partner_id ? o.partner_id[1] : '';
+              const reseller = matchReseller(partnerId, partnerName);
+              const rowClasses = [o.matched_plate && 'plate-match', reseller && 'reseller-match'].filter(Boolean).join(' ');
+              return `<tr${rowClasses ? ` class="${rowClasses}"` : ''}>
               <td style="font-family:var(--font-mono);font-weight:600">${escapeHTML(o.name)}${o.matched_plate ? '<span class="match-tag">plate</span>' : ''}</td>
               <td style="font-family:var(--font-mono)">${escapeHTML(o.order_rfq)}</td>
               <td><span class="tpl-tag">${escapeHTML(o.quotation_template_id ? o.quotation_template_id[1] : '—')}</span></td>
               <td>${odooStatePill(o.state)}</td>
-              <td>${escapeHTML(o.partner_id ? o.partner_id[1] : '')}</td>
+              <td>${escapeHTML(partnerName)}${reseller ? `<span class="reseller-tag" title="Odoo Erp ${reseller.erpId}">Reseller: ${escapeHTML(reseller.reseller)}</span>` : ''}</td>
               <td>${escapeHTML(o.phone_number)}</td>
               <td>${escapeHTML(o.date)}</td>
               <td>${o.no_of_vehicles || 0}</td>
@@ -3229,9 +3436,10 @@ async function searchOdooOrders() {
               <td>${escapeHTML(o.sales_person ? o.sales_person[1] : '')}</td>
               <td class="actions-cell">
                 ${odooLink('sale.order.wags', o.id, 'Open in Odoo')}
-                <button class="secondary small" onclick="odooSearchCustomer('${escapeHTML(o.partner_id ? o.partner_id[1] : '').replace(/'/g, "\\'")}')">All orders</button>
+                <button class="secondary small" onclick="odooSearchCustomer('${escapeHTML(partnerName).replace(/'/g, "\\'")}')">All orders</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>` : '<div class="no-results">No sale orders matched. Try the order number, customer name, phone or plate.</div>';
@@ -3239,6 +3447,63 @@ async function searchOdooOrders() {
     statusEl.className = 'status error';
     statusEl.textContent = err.message;
   }
+}
+
+// ==================== Odoo tab — Online Paid (Moyasar receipts) ====================
+// Odoo has no push channel the browser can subscribe to, so "auto-updating,
+// no manual refresh" means polling on a timer — same pattern as the
+// Dashboard's own auto-refresh (see startDashboardAutoRefresh), armed only
+// while this tab is actually open (see switchTab).
+let ONLINE_PAID_REFRESH_TIMER = null;
+const ONLINE_PAID_REFRESH_MS = 30000;
+
+async function loadOnlinePayments() {
+  const statusEl = document.getElementById('onlinepaid-status');
+  const resultEl = document.getElementById('onlinepaid-result');
+  statusEl.className = 'status';
+  statusEl.innerHTML = '<span class="spinner"></span>Loading online payments...';
+
+  try {
+    const data = await odooFetch('/api/online-payments?limit=100');
+    const payments = data.payments || [];
+    statusEl.className = 'status ready';
+    statusEl.textContent = `${payments.length} online payment(s) — live, updates every ${ONLINE_PAID_REFRESH_MS / 1000}s`;
+
+    resultEl.innerHTML = payments.length ? `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Reference</th><th>Date</th><th>Partner</th><th>Ref No</th><th>Description</th>
+            <th>Reconciled Amount</th><th>Amount</th><th>State</th><th>Moyasar Status</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${payments.map(p => `<tr>
+              <td style="font-family:var(--font-mono)">${escapeHTML(p.reference)}</td>
+              <td>${escapeHTML(p.date)}</td>
+              <td>${escapeHTML(p.partner_id ? p.partner_id[1] : '')}</td>
+              <td style="font-family:var(--font-mono)">${escapeHTML(p.ref_no)}</td>
+              <td>${escapeHTML(p.description)}</td>
+              <td>${sarFmt(p.reconciled_amount)}</td>
+              <td>${sarFmt(p.amount)}</td>
+              <td><span class="pill ${p.state === 'paid' ? 'yes' : 'no'}">${escapeHTML(p.state)}</span></td>
+              <td><span class="pill ${p.moyasar_payment_status === 'paid' ? 'yes' : 'no'}">${escapeHTML(p.moyasar_payment_status)}</span></td>
+              <td class="actions-cell">${odooLink('payment.wags', p.id, 'Open in Odoo')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="no-results">No online (Moyasar) payments yet.</div>';
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = err.message;
+  }
+}
+
+function startOnlinePaidAutoRefresh() {
+  if (ONLINE_PAID_REFRESH_TIMER) return;
+  ONLINE_PAID_REFRESH_TIMER = setInterval(loadOnlinePayments, ONLINE_PAID_REFRESH_MS);
+}
+function stopOnlinePaidAutoRefresh() {
+  if (ONLINE_PAID_REFRESH_TIMER) { clearInterval(ONLINE_PAID_REFRESH_TIMER); ONLINE_PAID_REFRESH_TIMER = null; }
 }
 
 function odooSearchCustomer(name) {
@@ -3279,8 +3544,11 @@ async function searchOdooCustomers() {
             <th>Phone</th><th>Email</th><th>City</th><th>CR Expiry</th><th></th>
           </tr></thead>
           <tbody>
-            ${customers.map(c => `<tr${c.matched_plate ? ' class="plate-match"' : ''}>
-              <td style="font-weight:600">${escapeHTML(c.name)}${c.matched_plate ? '<span class="match-tag">plate</span>' : ''}</td>
+            ${customers.map(c => {
+              const reseller = matchReseller(c.id, c.name);
+              const rowClasses = [c.matched_plate && 'plate-match', reseller && 'reseller-match'].filter(Boolean).join(' ');
+              return `<tr${rowClasses ? ` class="${rowClasses}"` : ''}>
+              <td style="font-weight:600">${escapeHTML(c.name)}${c.matched_plate ? '<span class="match-tag">plate</span>' : ''}${reseller ? `<span class="reseller-tag" title="Odoo Erp ${reseller.erpId}">Reseller: ${escapeHTML(reseller.reseller)}</span>` : ''}</td>
               <td style="font-family:var(--font-mono)">${escapeHTML(c.cr_number)}</td>
               <td style="font-family:var(--font-mono)">${escapeHTML(c.tax_number || c.vat)}</td>
               <td style="font-family:var(--font-mono)">${escapeHTML(c.iqama_id)}</td>
@@ -3292,7 +3560,8 @@ async function searchOdooCustomers() {
                 ${odooLink('res.partner', c.id, 'Open')}
                 <button class="secondary small" onclick="odooSearchCustomer('${escapeHTML(c.name).replace(/'/g, "\\'")}')">Sale orders</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>` : '<div class="no-results">No customer matched. Try the CR number, VAT number, Iqama, phone, email, name or a plate.</div>';
@@ -5767,9 +6036,12 @@ async function advancePipelineCase(docId, extraFields, newStage) {
 // (not admin-gated) — for real-world cases that don't fit the normal
 // sequence: a case created wrong, a manual correction, matching an
 // already-done piece of work.
-async function sendToStage(docId) {
+async function sendToStage(docId, targetOverride) {
+  // targetOverride lets callers with no `jump-stage-*` select in the DOM (the
+  // Assistant panel) reuse this same path — including the transfer hand-off
+  // fix below — instead of duplicating it.
   const sel = document.getElementById('jump-stage-' + docId);
-  const target = parseInt(sel.value, 10);
+  const target = targetOverride != null ? targetOverride : parseInt(sel.value, 10);
   const r = REQUESTS_CACHE.find(x => x.id === docId);
   if (!r) return;
   // No same-stage guard — re-sending to the stage it's already at is a
@@ -5833,6 +6105,112 @@ function caseCreatedDate(r) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// The five real inv_status values on sale.order.wags — same list the Sales
+// Report tab's Payment Status filter has always used, so these are the actual
+// stored values, not a guess. Anything Odoo returns outside this list is shown
+// under its own raw label rather than being silently folded into a bucket.
+const INV_STATUS_META = {
+  paid:      { label: 'Paid',                    bucket: 'paid' },
+  partial:   { label: 'Partially Paid',          bucket: 'awaiting' },
+  open:      { label: 'Open (invoiced, unpaid)', bucket: 'awaiting' },
+  draft:     { label: 'Draft (not invoiced)',    bucket: 'awaiting' },
+  cancelled: { label: 'Cancelled',               bucket: 'cancelled' }
+};
+const INV_STATUS_ORDER = ['paid', 'partial', 'open', 'draft', 'cancelled'];
+
+// Accountant view of DASHBOARD_ORDERS_REPORT (sale.order.wags, by ORDER date).
+// Deliberately its own panel with its own heading: it counts sale orders,
+// while the revenue panel above counts invoices by invoice date — two
+// different Odoo models on two different date fields, so the two sets of
+// numbers are not meant to reconcile and the note below says so.
+function renderOrderInvoiceFunnel() {
+  const all = DASHBOARD_ORDERS_REPORT;
+  const conf = DASHBOARD_CONFIRMED_REPORT;
+  const head = `<div class="dv-panel-head"><div class="dv-panel-title">${icon('receipt')} Confirmed Sale Orders — Invoice &amp; Payment Status</div></div>`;
+  if (!all || !conf) return `<div class="dv-panel">${head}<div class="status"><span class="spinner"></span>Loading sale orders from Odoo...</div></div>`;
+  const failed = (all.error && all) || (conf.error && conf);
+  if (failed) return `<div class="dv-panel">${head}<div class="status error">Failed to load: ${escapeHTML(failed.error)}</div></div>`;
+
+  // The confirmed-states query needs the bridge's comma-separated state
+  // filter. An older bridge treats "sale,done,approved" as one literal value,
+  // matches nothing, and would silently render an all-zero report — so say
+  // that plainly instead of showing numbers that look real but aren't.
+  if (!conf.totals.orders && all.totals.orders) {
+    return `<div class="dv-panel">${head}<div class="status error">The Odoo bridge is running an older version that can't filter multiple order states, so confirmed-order figures can't be calculated. Deploy the current odoo-bridge, then hit Refresh.</div></div>`;
+  }
+
+  // Canonical accounting order (Paid → Partial → Open → Draft → Cancelled),
+  // not the amount-descending order the bridge returns, with any unrecognised
+  // status appended at the end so it stays visible.
+  const statuses = (conf.breakdown.inv_status || []).slice().sort((a, b) => {
+    const ia = INV_STATUS_ORDER.indexOf(String(a.label)), ib = INV_STATUS_ORDER.indexOf(String(b.label));
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  const zero = () => ({ orders: 0, untaxed: 0, tax: 0, total: 0 });
+  const buckets = { paid: zero(), awaiting: zero(), cancelled: zero() };
+  statuses.forEach(s => {
+    const meta = INV_STATUS_META[String(s.label)];
+    // Unknown status counts as awaiting, never as paid — an unexpected value
+    // must not silently inflate the collected figure.
+    const b = buckets[meta ? meta.bucket : 'awaiting'];
+    b.orders += s.orders; b.untaxed += s.untaxed; b.tax += s.tax; b.total += s.total;
+  });
+
+  const totalOrders = conf.totals.orders;
+  const pct = n => totalOrders ? (n / totalOrders * 100).toFixed(1) : '0.0';
+  // Invoiced = an invoice exists at all (paid, partly paid, or issued and
+  // unpaid). Only inv_status 'draft' means no invoice has been raised yet.
+  const notInvoiced = statuses.filter(s => String(s.label) === 'draft')
+    .reduce((a, s) => ({ orders: a.orders + s.orders, untaxed: a.untaxed + s.untaxed }), { orders: 0, untaxed: 0 });
+  const invoicedOrders = totalOrders - notInvoiced.orders - buckets.cancelled.orders;
+  const invoicedUntaxed = conf.totals.untaxed - notInvoiced.untaxed - buckets.cancelled.untaxed;
+
+  // Quotations (draft/sent) are NOT part of the order book above — shown
+  // separately because they were previously inflating the pending figure.
+  const quotationStates = ['draft', 'sent'];
+  const quotes = (all.breakdown.state || []).filter(s => quotationStates.includes(String(s.label)))
+    .reduce((a, s) => ({ orders: a.orders + s.orders, untaxed: a.untaxed + s.untaxed }), { orders: 0, untaxed: 0 });
+
+  return `
+    <div class="dv-panel">
+      ${head}
+      <div class="dv-hero">
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${totalOrders.toLocaleString()}</div><div class="lbl">Confirmed Orders (${sarFmt(conf.totals.untaxed)})</div></div>
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${invoicedOrders.toLocaleString()}</div><div class="lbl">Invoiced (${sarFmt(invoicedUntaxed)})</div></div>
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('alert')}</div><div class="num">${notInvoiced.orders.toLocaleString()}</div><div class="lbl">Not Invoiced Yet (${sarFmt(notInvoiced.untaxed)})</div></div>
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${buckets.paid.orders.toLocaleString()}</div><div class="lbl">Paid (${sarFmt(buckets.paid.untaxed)})</div></div>
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('alert')}</div><div class="num">${buckets.awaiting.orders.toLocaleString()}</div><div class="lbl">Payment Pending (${sarFmt(buckets.awaiting.untaxed)})</div></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Payment Status</th><th>Orders</th><th>% of Orders</th><th>Untaxed</th><th>Tax</th><th>Total (with VAT)</th></tr></thead>
+        <tbody>
+          ${statuses.length ? statuses.map(s => {
+            const meta = INV_STATUS_META[String(s.label)];
+            return `<tr>
+              <td>${escapeHTML(meta ? meta.label : s.label)}</td>
+              <td>${s.orders.toLocaleString()}</td>
+              <td>${pct(s.orders)}%</td>
+              <td>${sarFmt(s.untaxed)}</td>
+              <td>${sarFmt(s.tax)}</td>
+              <td>${sarFmt(s.total)}</td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="6" class="no-results">No confirmed sale orders in this range</td></tr>'}
+          <tr style="font-weight:600;background:var(--c-surface-2)">
+            <td>Grand Total</td>
+            <td>${totalOrders.toLocaleString()}</td>
+            <td>100.0%</td>
+            <td>${sarFmt(conf.totals.untaxed)}</td>
+            <td>${sarFmt(conf.totals.tax)}</td>
+            <td>${sarFmt(conf.totals.total)}</td>
+          </tr>
+        </tbody>
+      </table></div>
+      ${quotes.orders ? `<div class="status" style="margin-top:var(--sp-3)">Plus <strong>${quotes.orders.toLocaleString()} open quotation(s)</strong> worth ${sarFmt(quotes.untaxed)} not yet confirmed — deliberately excluded from every figure above, since an unconfirmed quotation is not a receivable.</div>` : ''}
+      <div class="status"><strong>Counts confirmed sale orders by order date.</strong> The revenue figures above count <em>invoices</em> by invoice date — a different Odoo record on a different date — so the two sets of numbers are not expected to match (an order booked this month may be invoiced next month).</div>
+    </div>`;
+}
+
 // Live-from-Odoo section: PAID orders only (inv_status='paid') — see
 // DASHBOARD_SALES_REPORT/loadDashboardSalesReport. Independent of the App
 // section below it, so one can render before the other finishes loading.
@@ -5848,12 +6226,12 @@ function renderDashboardOdooSection() {
     </div>`;
 
   if (!rep) {
-    return `<div class="card-header" style="margin-top:0"><div class="card-title">Sales — Live from Odoo (Paid Orders)</div></div>
-      ${rangeBtns}<div class="status"><span class="spinner"></span>Loading paid sales from Odoo... (bridge sleeps when idle, first call can take ~30s)</div>`;
+    return `<div class="dv-panel"><div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} Sales — Live from Odoo (Paid Orders)</div></div>
+      ${rangeBtns}<div class="status"><span class="spinner"></span>Loading paid sales from Odoo... (bridge sleeps when idle, first call can take ~30s)</div></div>`;
   }
   if (rep.error) {
-    return `<div class="card-header" style="margin-top:0"><div class="card-title">Sales — Live from Odoo (Paid Orders)</div></div>
-      ${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div>`;
+    return `<div class="dv-panel"><div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} Sales — Live from Odoo (Paid Orders)</div></div>
+      ${rangeBtns}<div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
   }
 
   const t = rep.totals;
@@ -5862,35 +6240,55 @@ function renderDashboardOdooSection() {
   const maxTl = Math.max(1, ...rep.timeline.map(p => p.untaxed));
 
   return `
-    <div class="card-header" style="margin-top:0">
-      <div class="card-title">Sales — Live from Odoo (Paid Orders, Without VAT)</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap">
+      <div class="dv-panel-title" style="font-size:15px">${icon('chart')} Sales — Live from Odoo (Paid Invoices, Without VAT)</div>
       <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
     </div>
     ${rangeBtns}
-    <div class="stat-grid">
-      <div class="stat-tile"><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Paid Orders</div></div>
-      <div class="stat-tile"><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Paid Revenue (Without VAT)</div></div>
+    <div class="dv-hero">
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Paid Invoices</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Paid Revenue (Without VAT)</div></div>
     </div>
-    <div class="grid2">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Top Order Bookers (Paid, Without VAT)</div></div>
-        ${bookers.length ? bookers.map(b => `
-          <div class="dash-bar-row">
-            <span class="dash-bar-label" title="${escapeHTML(b.label)}">${escapeHTML(b.label)}</span>
-            <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(b.untaxed / maxBooker * 100).toFixed(1)}"></div></div>
-            <span class="dash-bar-value">${sarFmt(b.untaxed)}</span>
-          </div>`).join('') : '<div class="no-results">No paid orders in this range</div>'}
+    ${renderOrderInvoiceFunnel()}
+    <div class="dv-grid">
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('users')} Top Order Bookers</div></div>
+        ${bookers.length ? bookers.map((b, i) => `
+          <div class="dv-rank-row">
+            <span class="dv-rank-num">${i + 1}</span>
+            <div class="dv-rank-body">
+              <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(b.label)}">${escapeHTML(b.label)}</span><span class="dv-rank-value">${sarFmt(b.untaxed)}</span></div>
+              <div class="dv-rank-track"><div class="dv-rank-fill" data-w="${(b.untaxed / maxBooker * 100).toFixed(1)}"></div></div>
+            </div>
+          </div>`).join('') : '<div class="dv-empty">No paid orders in this range</div>'}
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Paid Revenue Trend, Without VAT (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
-        <div class="dash-trend">
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} Paid Revenue Trend (${rep.range.interval === 'day' ? 'Daily' : 'Monthly'})</div></div>
+        <div class="dv-spark">
           ${rep.timeline.length ? rep.timeline.map(p => `
-            <div class="dash-trend-col" title="${escapeHTML(p.label)}: ${sarFmt(p.untaxed)} (${p.orders} orders)">
-              <div class="dash-trend-bar revenue" data-h="${(p.untaxed / maxTl * 100).toFixed(1)}"></div>
-              <span class="dash-trend-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
-            </div>`).join('') : '<div class="no-results">No paid orders in this range</div>'}
+            <div class="dv-spark-col" title="${escapeHTML(p.label)}: ${sarFmt(p.untaxed)} (${p.orders} orders)">
+              <div class="dv-spark-bar revenue" data-h="${(p.untaxed / maxTl * 100).toFixed(1)}"></div>
+              <span class="dv-spark-day">${escapeHTML(String(p.label).split(' ')[0])}</span>
+            </div>`).join('') : '<div class="dv-empty">No paid orders in this range</div>'}
         </div>
       </div>
+    </div>
+    <div class="dv-panel">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} ${rep.range.interval === 'day' ? 'Daily' : 'Monthly'} Sales — Change vs Previous ${rep.range.interval === 'day' ? 'Day' : 'Month'}</div></div>
+      ${rep.timeline.length ? rep.timeline.slice().reverse().map((p, idx, arr) => {
+        const prev = arr[idx + 1];
+        const change = (prev && prev.untaxed) ? ((p.untaxed - prev.untaxed) / prev.untaxed * 100) : null;
+        const dir = change === null ? 'flat' : change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+        const arrowChar = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
+        const changeLabel = change === null ? 'no prior data' : `${arrowChar} ${Math.abs(change).toFixed(1)}%`;
+        return `<div class="dv-day-row">
+          <span class="dv-day-label">${escapeHTML(p.label)}</span>
+          <div class="dv-day-right">
+            <span class="dv-day-amount">${sarFmt(p.untaxed)}</span>
+            <span class="dv-day-change ${dir}">${changeLabel}</span>
+          </div>
+        </div>`;
+      }).join('') : '<div class="dv-empty">No paid orders in this range</div>'}
     </div>
     <div class="row" style="justify-content:center;margin-top:var(--sp-3);margin-bottom:0">
       <button class="secondary" onclick="switchTab('salesreport')">Full Breakdown — Region, Template, Team, Type &amp; More</button>
@@ -5903,17 +6301,611 @@ function renderDashboardOdooSection() {
 // fetch for whichever one hasn't loaded yet.
 let DASHBOARD_SUBTAB = 'sales';
 
+// ==================== Dashboard — auto-refresh ====================
+// Re-pulls whatever subtab is currently showing on a timer, so the numbers
+// stay live without a manual reload. Only ever runs while 'dashboard' is the
+// active top-level tab (armed in switchTab, disarmed the moment you leave —
+// see there) — never polls Odoo/Firestore in the background from an
+// unrelated tab. Pipeline needs no fetch of its own: REQUESTS_CACHE is
+// already a live Firestore onSnapshot listener.
+let DASHBOARD_AUTO_REFRESH = true;
+let DASHBOARD_REFRESH_TIMER = null;
+const DASHBOARD_REFRESH_INTERVAL_MS = 120000;
+
+function dashboardRefreshCurrentSubtab() {
+  if (DASHBOARD_SUBTAB === 'sales') {
+    loadDashboardSalesReport();
+    loadRenewalTargetReport();
+    if (BOOKER_LIST) { loadDivisionDailyReport(); loadDivisionYtdReport(); }
+  } else if (DASHBOARD_SUBTAB === 'tickets') {
+    loadTicketsReport();
+  } else if (DASHBOARD_SUBTAB === 'renewal' || DASHBOARD_SUBTAB === 'settings' || DASHBOARD_SUBTAB === 'allsales') {
+    loadRenewalMatrix();
+  }
+}
+
+function startDashboardAutoRefresh() {
+  if (DASHBOARD_REFRESH_TIMER || !DASHBOARD_AUTO_REFRESH) return;
+  DASHBOARD_REFRESH_TIMER = setInterval(dashboardRefreshCurrentSubtab, DASHBOARD_REFRESH_INTERVAL_MS);
+}
+function stopDashboardAutoRefresh() {
+  if (DASHBOARD_REFRESH_TIMER) { clearInterval(DASHBOARD_REFRESH_TIMER); DASHBOARD_REFRESH_TIMER = null; }
+}
+function toggleDashboardAutoRefresh() {
+  DASHBOARD_AUTO_REFRESH = !DASHBOARD_AUTO_REFRESH;
+  if (DASHBOARD_AUTO_REFRESH) startDashboardAutoRefresh(); else stopDashboardAutoRefresh();
+  renderDashboard();
+}
+
+// ==================== Dashboard — Renewal Revenue (filterable) ====================
+// Multi-select Division / Invoice Status / Quotation Template filters, all
+// recomputed client-side from one wide pull — see /api/renewal-matrix. Kept
+// as live global state (not closure-local) so onclick="" handlers in the
+// generated HTML can reach it, matching how DIVISION_FILTER_BOOKER etc. work
+// elsewhere in this file.
+let RENEWAL_MONTH_MATRIX = null;
+let RENEWAL_DAY_MATRIX = null;
+let RENEWAL_FILTER_DIV = new Set(['all']);
+let RENEWAL_FILTER_INV = new Set(['paid']);
+let RENEWAL_FILTER_TPL = null; // seeded to {RENEWAL_TEMPLATE_ID} once the matrix loads and we know it's present
+let RENEWAL_PERIOD_A = { from: '', to: '' };
+let RENEWAL_PERIOD_B = { from: '', to: '' };
+
+// ==================== Dashboard — All Sales (every quotation template) ====================
+// Same /api/renewal-matrix pull as Renewal Revenue (RENEWAL_MONTH_MATRIX /
+// RENEWAL_DAY_MATRIX), own independent filter state so switching templates
+// here never disturbs the Renewal Revenue tab's own selection. Defaults to
+// every template (not just Subscription Renewal) and has no target section —
+// targets only ever track renewal revenue.
+let ALLSALES_FILTER_DIV = new Set(['all']);
+let ALLSALES_FILTER_INV = new Set(['paid']);
+let ALLSALES_FILTER_TPL = new Set(['all']);
+let ALLSALES_PERIOD_A = { from: '', to: '' };
+let ALLSALES_PERIOD_B = { from: '', to: '' };
+
+async function loadRenewalMatrix() {
+  const now = new Date();
+  const yearStart = `${RENEWAL_TARGET_SETTINGS.year}-01-01`;
+  const today = isoDay(now);
+  const dayFrom = isoDay(new Date(now.getTime() - 89 * 86400000));
+  try {
+    const [m, dd] = await Promise.all([
+      odooFetch(`/api/renewal-matrix?bucket=month&from=${yearStart}&to=${today}`),
+      odooFetch(`/api/renewal-matrix?bucket=day&from=${dayFrom}&to=${today}`)
+    ]);
+    // Same pull feeds both the Renewal Revenue and All Sales tabs — the bridge
+    // endpoint carries every quotation template already, so "all templates"
+    // is just a different default filter over the same rows, not a second fetch.
+    RENEWAL_MONTH_MATRIX = m;
+    RENEWAL_DAY_MATRIX = dd;
+    if (!RENEWAL_FILTER_TPL) {
+      const hasRenewalTpl = m.rows.some(r => r.templateId === String(RENEWAL_TEMPLATE_ID));
+      RENEWAL_FILTER_TPL = new Set([hasRenewalTpl ? String(RENEWAL_TEMPLATE_ID) : 'all']);
+    }
+    if (!RENEWAL_PERIOD_A.from) {
+      RENEWAL_PERIOD_A = { from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, to: today };
+      const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+      const prevMonthTo = new Date(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), Math.min(now.getDate(), prevMonthLastDay));
+      RENEWAL_PERIOD_B = { from: isoDay(prevMonthStart), to: isoDay(prevMonthTo) };
+    }
+    if (!ALLSALES_PERIOD_A.from) {
+      ALLSALES_PERIOD_A = { ...RENEWAL_PERIOD_A };
+      ALLSALES_PERIOD_B = { ...RENEWAL_PERIOD_B };
+    }
+  } catch (err) {
+    RENEWAL_MONTH_MATRIX = { error: err.message };
+    RENEWAL_DAY_MATRIX = { error: err.message };
+  }
+  if (currentActiveTab === 'dashboard') renderDashboard();
+}
+
+function renewalDivisionOf(bookerId) {
+  return segmentOf(bookerId) || 'Other';
+}
+
+// Filter sets default to the Renewal Revenue tab's own globals so every
+// existing bare call (renewalMatches(r)) keeps working unchanged — the All
+// Sales tab (and anything else) passes its own div/inv/tpl sets explicitly
+// to run the exact same matching logic against a different filter selection,
+// without a second copy of this function to keep in sync.
+function renewalMatches(row, divSet, invSet, tplSet) {
+  divSet = divSet || RENEWAL_FILTER_DIV; invSet = invSet || RENEWAL_FILTER_INV; tplSet = tplSet || RENEWAL_FILTER_TPL;
+  if (!invSet.has('all') && !invSet.has(row.state)) return false;
+  if (!tplSet.has('all') && !tplSet.has(row.templateId)) return false;
+  if (divSet.has('all')) return true;
+  return divSet.has(renewalDivisionOf(row.bookerId));
+}
+
+function renewalMonthlySeries(divSet, invSet, tplSet) {
+  const out = Array.from({ length: 12 }, () => ({ untaxed: 0, tax: 0, total: 0, count: 0 }));
+  (RENEWAL_MONTH_MATRIX.rows || []).forEach(r => {
+    if (!renewalMatches(r, divSet, invSet, tplSet)) return;
+    const mi = parseInt(r.bucket.slice(5, 7), 10) - 1;
+    out[mi].untaxed += r.untaxed; out[mi].tax += r.tax; out[mi].total += r.total; out[mi].count += r.count;
+  });
+  return out;
+}
+
+// Every calendar date from fromISO to toISO inclusive, built from y/m/d parts
+// (not by adding 86400000ms) so it can't drift across a DST boundary.
+function renewalDatesBetween(fromISO, toISO) {
+  const out = [];
+  if (!fromISO || !toISO || fromISO > toISO) return out;
+  const f = fromISO.split('-').map(Number), t = toISO.split('-').map(Number);
+  const d = new Date(f[0], f[1] - 1, f[2]);
+  const end = new Date(t[0], t[1] - 1, t[2]);
+  while (d <= end) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+function renewalRangeSeries(fromISO, toISO, divSet, invSet, tplSet) {
+  const out = {};
+  if (!fromISO || !toISO || fromISO > toISO) return out;
+  (RENEWAL_DAY_MATRIX.rows || []).forEach(r => {
+    if (!renewalMatches(r, divSet, invSet, tplSet)) return;
+    if (r.bucket < fromISO || r.bucket > toISO) return;
+    if (!out[r.bucket]) out[r.bucket] = { untaxed: 0, tax: 0, total: 0, count: 0 };
+    out[r.bucket].untaxed += r.untaxed; out[r.bucket].tax += r.tax; out[r.bucket].total += r.total; out[r.bucket].count += r.count;
+  });
+  return out;
+}
+
+function renewalFmtDate(iso) {
+  const p = iso.split('-').map(Number);
+  return `${MONTH_NAMES_SHORT[p[1] - 1]} ${p[2]}`;
+}
+
+// Sums the target arrays of every selected division that has one defined
+// (DIVISION_TARGET_SEGMENTS, from the live-editable Renewal Target Settings —
+// CSU included, unlike an offline pull, because this runs inside the logged-in
+// app with real Firestore access to the booker override map).
+function renewalTargetFor() {
+  if (RENEWAL_FILTER_DIV.has('all')) return RENEWAL_TARGET_SETTINGS.targets;
+  let sum = null;
+  RENEWAL_FILTER_DIV.forEach(k => {
+    const t = RENEWAL_TARGET_SETTINGS.divisionTargets[k];
+    if (!t) return;
+    sum = sum ? sum.map((v, i) => v + t[i]) : t.slice();
+  });
+  return sum;
+}
+function renewalTargetCoversSelection() {
+  if (RENEWAL_FILTER_DIV.has('all')) return true;
+  let covered = true;
+  RENEWAL_FILTER_DIV.forEach(k => { if (!RENEWAL_TARGET_SETTINGS.divisionTargets[k]) covered = false; });
+  return covered;
+}
+
+// Known target divisions first (fixed order), then whatever other resolved
+// segments actually appear in the data (native Odoo segments like Trading /
+// New Sale, or "Other"), sorted by revenue.
+function renewalDivisionOptions() {
+  const seen = new Map();
+  (RENEWAL_MONTH_MATRIX.rows || []).forEach(r => {
+    const seg = renewalDivisionOf(r.bookerId);
+    seen.set(seg, (seen.get(seg) || 0) + r.untaxed);
+  });
+  const known = DIVISION_TARGET_SEGMENTS.filter(k => seen.has(k));
+  const rest = [...seen.keys()].filter(k => !DIVISION_TARGET_SEGMENTS.includes(k)).sort((a, b) => seen.get(b) - seen.get(a));
+  return [{ key: 'all', label: 'All Divisions' }, ...known.map(k => ({ key: k, label: k })), ...rest.map(k => ({ key: k, label: k }))];
+}
+
+function renewalTemplateOptions() {
+  const seen = new Map(), labels = {};
+  (RENEWAL_MONTH_MATRIX.rows || []).forEach(r => {
+    seen.set(r.templateId, (seen.get(r.templateId) || 0) + r.untaxed);
+    labels[r.templateId] = r.template;
+  });
+  const ids = [...seen.keys()].sort((a, b) => seen.get(b) - seen.get(a));
+  return [{ key: 'all', label: 'All Templates' }, ...ids.map(id => ({ key: id, label: labels[id] || 'Unknown' }))];
+}
+
+function renewalToggle(setRef, key) {
+  if (key === 'all') { setRef.clear(); setRef.add('all'); }
+  else {
+    setRef.delete('all');
+    if (setRef.has(key)) setRef.delete(key); else setRef.add(key);
+    if (setRef.size === 0) setRef.add('all');
+  }
+  renderDashboard();
+}
+function toggleRenewalDiv(key) { renewalToggle(RENEWAL_FILTER_DIV, key); }
+function toggleRenewalInv(key) { renewalToggle(RENEWAL_FILTER_INV, key); }
+function toggleRenewalTpl(key) { renewalToggle(RENEWAL_FILTER_TPL, key); }
+function setRenewalPeriod(which, field, value) {
+  (which === 'a' ? RENEWAL_PERIOD_A : RENEWAL_PERIOD_B)[field] = value;
+  renderDashboard();
+}
+function toggleAllSalesDiv(key) { renewalToggle(ALLSALES_FILTER_DIV, key); }
+function toggleAllSalesInv(key) { renewalToggle(ALLSALES_FILTER_INV, key); }
+function toggleAllSalesTpl(key) { renewalToggle(ALLSALES_FILTER_TPL, key); }
+function setAllSalesPeriod(which, field, value) {
+  (which === 'a' ? ALLSALES_PERIOD_A : ALLSALES_PERIOD_B)[field] = value;
+  renderDashboard();
+}
+
+// onclickFnName is passed explicitly (not inferred from which global the set
+// happens to be) so this same renderer works for both RENEWAL_FILTER_* and
+// ALLSALES_FILTER_* without the two tabs' pills wiring to each other's toggle.
+function renewalPillRow(options, selectedSet, onclickFnName) {
+  return options.map(o =>
+    `<button type="button" class="${selectedSet.has(o.key) ? 'active' : ''}" onclick="${onclickFnName}('${o.key}')">${escapeHTML(o.label)}</button>`
+  ).join('');
+}
+
+// bookerId -> {name, untaxed, count}, grouped under the division each booker
+// resolves to — the YTD "who sold what" view, shared by Renewal Revenue and
+// All Sales (each passes its own filter sets).
+function renewalBookerByDivision(divSet, invSet, tplSet) {
+  const byDiv = {};
+  (RENEWAL_MONTH_MATRIX.rows || []).forEach(r => {
+    if (!renewalMatches(r, divSet, invSet, tplSet)) return;
+    const div = renewalDivisionOf(r.bookerId);
+    if (!byDiv[div]) byDiv[div] = new Map();
+    const cur = byDiv[div].get(r.bookerId) || { name: r.bookerName, untaxed: 0, count: 0 };
+    cur.untaxed += r.untaxed; cur.count += r.count;
+    byDiv[div].set(r.bookerId, cur);
+  });
+  return byDiv;
+}
+
+function renderRenewalBookersByDivision(divSet, invSet, tplSet) {
+  const byDiv = renewalBookerByDivision(divSet, invSet, tplSet);
+  const totalOf = m => [...m.values()].reduce((s, x) => s + x.untaxed, 0);
+  const divisions = Object.keys(byDiv).sort((a, b) => totalOf(byDiv[b]) - totalOf(byDiv[a]));
+  if (!divisions.length) return '<div class="no-results">No booker data for the selected filters</div>';
+  return divisions.map(div => {
+    const bookers = [...byDiv[div].entries()].map(([id, v]) => ({ id, ...v })).sort((a, b) => b.untaxed - a.untaxed);
+    const total = bookers.reduce((s, b) => s + b.untaxed, 0);
+    const max = Math.max(1, ...bookers.map(b => b.untaxed));
+    return `<div class="dv-panel" style="margin-bottom:var(--sp-3)">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('users')} ${escapeHTML(div)}</div><span class="card-id">${sarFmt(total)} · ${bookers.length} booker${bookers.length === 1 ? '' : 's'}</span></div>
+      ${bookers.map((b, i) => `
+        <div class="dv-rank-row">
+          <span class="dv-rank-num">${i + 1}</span>
+          <div class="dv-rank-body">
+            <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(b.name)}">${escapeHTML(b.name)}</span><span class="dv-rank-value">${sarFmt(b.untaxed)}</span></div>
+            <div class="dv-rank-track"><div class="dv-rank-fill" data-w="${(b.untaxed / max * 100).toFixed(1)}"></div></div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderRenewalRevenueTab() {
+  const rep = RENEWAL_MONTH_MATRIX, repDay = RENEWAL_DAY_MATRIX;
+  if (!rep || !repDay) return '<div class="dv-panel"><div class="status"><span class="spinner"></span>Loading renewal revenue from Odoo... (bridge sleeps when idle, first call can take ~30s)</div></div>';
+  if (rep.error || repDay.error) return `<div class="dv-panel"><div class="status error">Failed to load: ${escapeHTML(rep.error || repDay.error)}</div></div>`;
+
+  const divOptions = renewalDivisionOptions();
+  const tplOptions = renewalTemplateOptions();
+  const invOptions = [
+    { key: 'paid', label: 'Paid' }, { key: 'all', label: 'All Statuses' }, { key: 'open', label: 'Open' },
+    { key: 'partial', label: 'Partial' }, { key: 'draft', label: 'Draft' }, { key: 'cancelled', label: 'Cancelled' }
+  ];
+
+  const months = renewalMonthlySeries();
+  const now = new Date();
+  const curM = now.getMonth();
+  const target = (RENEWAL_FILTER_INV.size === 1 && RENEWAL_FILTER_INV.has('paid')) ? renewalTargetFor() : null;
+  const targetPartial = target && !renewalTargetCoversSelection();
+  let ytdA = 0, ytdC = 0;
+  for (let i = 0; i <= curM; i++) { ytdA += months[i].untaxed; ytdC += months[i].count; }
+  const ytdT = target ? target.slice(0, curM + 1).reduce((a, b) => a + b, 0) : null;
+
+  const monthRows = MONTH_NAMES_SHORT.slice(0, curM + 1).map((name, i) => {
+    const a = months[i].untaxed, t = target ? target[i] : null;
+    const pct = t ? (a / t * 100) : null;
+    return `<tr${i === curM ? ' style="background:var(--c-surface-2)"' : ''}>
+      <td>${name}${i === curM ? ' (to date)' : ''}</td>
+      <td>${t === null ? '—' : sarFmt(t)}</td>
+      <td>${sarFmt(a)}</td>
+      <td>${months[i].count.toLocaleString()}</td>
+      <td style="min-width:120px">${t ? `<div class="dash-bar-track"><div class="dash-bar-fill${pct >= 100 ? ' accent' : ''}" data-w="${Math.min(100, pct).toFixed(1)}"></div></div><span class="dash-trend-day">${pct.toFixed(1)}%</span>` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const dayRows = repDay.rows;
+  const dayMin = dayRows.length ? dayRows.reduce((m, r) => r.bucket < m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
+  const dayMax = dayRows.length ? dayRows.reduce((m, r) => r.bucket > m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
+  const pA = RENEWAL_PERIOD_A, pB = RENEWAL_PERIOD_B;
+  const datesA = renewalDatesBetween(pA.from, pA.to);
+  const datesB = renewalDatesBetween(pB.from, pB.to);
+  const seriesA = renewalRangeSeries(pA.from, pA.to);
+  const seriesB = renewalRangeSeries(pB.from, pB.to);
+  const maxDay = Math.max(1, ...datesA.map(d => (seriesA[d] || {}).untaxed || 0), ...datesB.map(d => (seriesB[d] || {}).untaxed || 0));
+
+  const sparkFor = (dates, series) => dates.length ? dates.map(d => `
+    <div class="dv-spark-col" title="${escapeHTML(renewalFmtDate(d))}: ${sarFmt((series[d] || {}).untaxed || 0)}">
+      <div class="dv-spark-bar revenue" data-h="${(((series[d] || {}).untaxed || 0) / maxDay * 100).toFixed(1)}"></div>
+      <span class="dv-spark-day">${d.slice(8, 10)}</span>
+    </div>`).join('') : '<div class="dv-empty">No days in range</div>';
+
+  let running = 0, prevU = null;
+  const dayTableRows = datesA.map(iso => {
+    const rec = seriesA[iso] || { untaxed: 0, tax: 0, total: 0, count: 0 };
+    running += rec.untaxed;
+    const delta = (prevU !== null && prevU > 0) ? (rec.untaxed - prevU) / prevU * 100 : null;
+    prevU = rec.untaxed;
+    return `<tr>
+      <td>${escapeHTML(renewalFmtDate(iso))}</td>
+      <td>${rec.count || '—'}</td>
+      <td>${rec.untaxed ? sarFmt(rec.untaxed) : '—'}</td>
+      <td style="color:${delta === null ? 'var(--c-fg-subtle)' : delta >= 0 ? 'var(--c-success)' : 'var(--c-danger)'};font-weight:700">${delta === null ? '—' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%'}</td>
+      <td>${sarFmt(running)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card-header" style="margin-top:0"><div class="card-title">Renewal Revenue — Filterable</div>
+      <button class="secondary small" onclick="loadRenewalMatrix()">${icon('table')} Refresh</button></div>
+    <div class="input-label">Division</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(divOptions, RENEWAL_FILTER_DIV, 'toggleRenewalDiv')}</div>
+    <div class="input-label">Invoice Status</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(invOptions, RENEWAL_FILTER_INV, 'toggleRenewalInv')}</div>
+    <div class="input-label">Quotation Template</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(tplOptions, RENEWAL_FILTER_TPL, 'toggleRenewalTpl')}</div>
+
+    <div class="dv-hero">
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(ytdA)}</div><div class="lbl">YTD Achieved</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${ytdT ? (ytdA / ytdT * 100).toFixed(1) + '%' : '—'}</div><div class="lbl">${ytdT ? sarFmt(ytdT - ytdA) + ' behind target' : 'No target for this view'}</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${ytdC.toLocaleString()}</div><div class="lbl">Invoices, YTD</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('users')}</div><div class="num">${sarFmt(ytdC ? ytdA / ytdC : 0)}</div><div class="lbl">Avg / Invoice</div></div>
+    </div>
+    ${targetPartial ? `<div class="status">Target line only covers the selected divisions that have one defined — the rest show achieved revenue only.</div>` : ''}
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Target vs Achieved — ${RENEWAL_TARGET_SETTINGS.year}</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Month</th><th>Target</th><th>Achieved</th><th>Invoices</th><th>Progress</th></tr></thead>
+      <tbody>${monthRows}</tbody>
+    </table></div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Order Bookers by Division — YTD</div></div>
+    <div class="status">Every booker's year-to-date sales, grouped under the division they resolve to (segmentOf) — same filters as above. This is the "who sold what" view.</div>
+    ${renderRenewalBookersByDivision()}
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Day by Day Comparison</div></div>
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap">
+      <div><label class="input-label">Period A — From</label><input type="date" style="max-width:150px" value="${pA.from}" min="${dayMin}" max="${dayMax}" onchange="setRenewalPeriod('a','from',this.value)"></div>
+      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pA.to}" min="${dayMin}" max="${dayMax}" onchange="setRenewalPeriod('a','to',this.value)"></div>
+      <div><label class="input-label">Period B — From</label><input type="date" style="max-width:150px" value="${pB.from}" min="${dayMin}" max="${dayMax}" onchange="setRenewalPeriod('b','from',this.value)"></div>
+      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pB.to}" min="${dayMin}" max="${dayMax}" onchange="setRenewalPeriod('b','to',this.value)"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-header"><div class="card-title">Period A — ${escapeHTML(renewalFmtDate(pA.from))} to ${escapeHTML(renewalFmtDate(pA.to))}</div></div>
+        <div class="dv-spark">${sparkFor(datesA, seriesA)}</div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Period B — ${escapeHTML(renewalFmtDate(pB.from))} to ${escapeHTML(renewalFmtDate(pB.to))}</div></div>
+        <div class="dv-spark">${sparkFor(datesB, seriesB)}</div></div>
+    </div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Period A</div></div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
+      <thead><tr><th>Day</th><th>Invoices</th><th>Untaxed</th><th>vs Prev Day</th><th>Running Total</th></tr></thead>
+      <tbody>${dayTableRows || '<tr><td colspan="5" class="no-results">No days in range</td></tr>'}</tbody>
+    </table></div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Division Breakdown (Period A)</div></div>
+    ${renewalDayDivisionTable(datesA, pA)}`;
+}
+
+// Same tab, no target section (targets only ever track renewal revenue),
+// defaults to every quotation template instead of just Subscription Renewal —
+// "how much did we sell this month/period" across TGA, BASIC, SFDA,
+// Professional Services, Ownership Transfer, etc., not just renewals. Reads
+// the SAME RENEWAL_MONTH_MATRIX/RENEWAL_DAY_MATRIX pull — no second fetch —
+// through its own ALLSALES_FILTER_*/ALLSALES_PERIOD_* state so it never
+// disturbs the Renewal Revenue tab's own filters.
+function renderAllSalesTab() {
+  const rep = RENEWAL_MONTH_MATRIX, repDay = RENEWAL_DAY_MATRIX;
+  if (!rep || !repDay) return '<div class="dv-panel"><div class="status"><span class="spinner"></span>Loading sales from Odoo... (bridge sleeps when idle, first call can take ~30s)</div></div>';
+  if (rep.error || repDay.error) return `<div class="dv-panel"><div class="status error">Failed to load: ${escapeHTML(rep.error || repDay.error)}</div></div>`;
+
+  const divOptions = renewalDivisionOptions();
+  const tplOptions = renewalTemplateOptions();
+  const invOptions = [
+    { key: 'paid', label: 'Paid' }, { key: 'all', label: 'All Statuses' }, { key: 'open', label: 'Open' },
+    { key: 'partial', label: 'Partial' }, { key: 'draft', label: 'Draft' }, { key: 'cancelled', label: 'Cancelled' }
+  ];
+  const div = ALLSALES_FILTER_DIV, inv = ALLSALES_FILTER_INV, tpl = ALLSALES_FILTER_TPL;
+
+  const months = renewalMonthlySeries(div, inv, tpl);
+  const now = new Date();
+  const curM = now.getMonth();
+  let ytdA = 0, ytdC = 0;
+  for (let i = 0; i <= curM; i++) { ytdA += months[i].untaxed; ytdC += months[i].count; }
+
+  const monthRows = MONTH_NAMES_SHORT.slice(0, curM + 1).map((name, i) => `
+    <tr${i === curM ? ' style="background:var(--c-surface-2)"' : ''}>
+      <td>${name}${i === curM ? ' (to date)' : ''}</td>
+      <td>${sarFmt(months[i].untaxed)}</td>
+      <td>${months[i].count.toLocaleString()}</td>
+      <td>${sarFmt(months[i].count ? months[i].untaxed / months[i].count : 0)}</td>
+    </tr>`).join('');
+
+  const dayRows = repDay.rows;
+  const dayMin = dayRows.length ? dayRows.reduce((m, r) => r.bucket < m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
+  const dayMax = dayRows.length ? dayRows.reduce((m, r) => r.bucket > m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
+  const pA = ALLSALES_PERIOD_A, pB = ALLSALES_PERIOD_B;
+  const datesA = renewalDatesBetween(pA.from, pA.to);
+  const datesB = renewalDatesBetween(pB.from, pB.to);
+  const seriesA = renewalRangeSeries(pA.from, pA.to, div, inv, tpl);
+  const seriesB = renewalRangeSeries(pB.from, pB.to, div, inv, tpl);
+  const maxDay = Math.max(1, ...datesA.map(d => (seriesA[d] || {}).untaxed || 0), ...datesB.map(d => (seriesB[d] || {}).untaxed || 0));
+
+  const sparkFor = (dates, series) => dates.length ? dates.map(d => `
+    <div class="dv-spark-col" title="${escapeHTML(renewalFmtDate(d))}: ${sarFmt((series[d] || {}).untaxed || 0)}">
+      <div class="dv-spark-bar revenue" data-h="${(((series[d] || {}).untaxed || 0) / maxDay * 100).toFixed(1)}"></div>
+      <span class="dv-spark-day">${d.slice(8, 10)}</span>
+    </div>`).join('') : '<div class="dv-empty">No days in range</div>';
+
+  let running = 0, prevU = null;
+  const dayTableRows = datesA.map(iso => {
+    const rec = seriesA[iso] || { untaxed: 0, tax: 0, total: 0, count: 0 };
+    running += rec.untaxed;
+    const delta = (prevU !== null && prevU > 0) ? (rec.untaxed - prevU) / prevU * 100 : null;
+    prevU = rec.untaxed;
+    return `<tr>
+      <td>${escapeHTML(renewalFmtDate(iso))}</td>
+      <td>${rec.count || '—'}</td>
+      <td>${rec.untaxed ? sarFmt(rec.untaxed) : '—'}</td>
+      <td style="color:${delta === null ? 'var(--c-fg-subtle)' : delta >= 0 ? 'var(--c-success)' : 'var(--c-danger)'};font-weight:700">${delta === null ? '—' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%'}</td>
+      <td>${sarFmt(running)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card-header" style="margin-top:0"><div class="card-title">All Sales — Every Quotation Template</div>
+      <button class="secondary small" onclick="loadRenewalMatrix()">${icon('table')} Refresh</button></div>
+    <div class="status">Same live pull as Renewal Revenue, but not limited to Subscription Renewal — defaults to every template (TGA, BASIC, SFDA, Professional Services, etc). No target line here: targets only ever track renewal revenue.</div>
+    <div class="input-label">Division</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(divOptions, div, 'toggleAllSalesDiv')}</div>
+    <div class="input-label">Invoice Status</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(invOptions, inv, 'toggleAllSalesInv')}</div>
+    <div class="input-label">Quotation Template</div>
+    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(tplOptions, tpl, 'toggleAllSalesTpl')}</div>
+
+    <div class="dv-hero">
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(ytdA)}</div><div class="lbl">YTD Achieved</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${ytdC.toLocaleString()}</div><div class="lbl">Invoices, YTD</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('users')}</div><div class="num">${sarFmt(ytdC ? ytdA / ytdC : 0)}</div><div class="lbl">Avg / Invoice</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${tpl.has('all') ? 'All' : tpl.size}</div><div class="lbl">${tpl.has('all') ? 'Templates included' : 'Template(s) selected'}</div></div>
+    </div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Month by Month — ${RENEWAL_TARGET_SETTINGS.year}</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Month</th><th>Achieved</th><th>Invoices</th><th>Avg / Invoice</th></tr></thead>
+      <tbody>${monthRows}</tbody>
+    </table></div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Order Bookers by Division — YTD</div></div>
+    <div class="status">Every booker's year-to-date sales for the selected templates, grouped under the division they resolve to.</div>
+    ${renderRenewalBookersByDivision(div, inv, tpl)}
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Day by Day Comparison</div></div>
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap">
+      <div><label class="input-label">Period A — From</label><input type="date" style="max-width:150px" value="${pA.from}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('a','from',this.value)"></div>
+      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pA.to}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('a','to',this.value)"></div>
+      <div><label class="input-label">Period B — From</label><input type="date" style="max-width:150px" value="${pB.from}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('b','from',this.value)"></div>
+      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pB.to}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('b','to',this.value)"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-header"><div class="card-title">Period A — ${escapeHTML(renewalFmtDate(pA.from))} to ${escapeHTML(renewalFmtDate(pA.to))}</div></div>
+        <div class="dv-spark">${sparkFor(datesA, seriesA)}</div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Period B — ${escapeHTML(renewalFmtDate(pB.from))} to ${escapeHTML(renewalFmtDate(pB.to))}</div></div>
+        <div class="dv-spark">${sparkFor(datesB, seriesB)}</div></div>
+    </div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Period A</div></div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
+      <thead><tr><th>Day</th><th>Invoices</th><th>Untaxed</th><th>vs Prev Day</th><th>Running Total</th></tr></thead>
+      <tbody>${dayTableRows || '<tr><td colspan="5" class="no-results">No days in range</td></tr>'}</tbody>
+    </table></div>
+
+    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Division Breakdown (Period A)</div></div>
+    ${renewalDayDivisionTable(datesA, pA, div, inv, tpl)}`;
+}
+
+// Day rows × division columns for Period A, respecting whatever Invoice
+// Status / Quotation Template filters are active (Division pills too — if
+// narrowed to a couple of divisions, only those become columns; on "All
+// Divisions" every division that actually has revenue in this range becomes
+// its own column).
+function renewalDayDivisionTable(dates, period, divSet, invSet, tplSet) {
+  divSet = divSet || RENEWAL_FILTER_DIV; invSet = invSet || RENEWAL_FILTER_INV; tplSet = tplSet || RENEWAL_FILTER_TPL;
+  if (!dates.length) return '<div class="no-results">No days in range</div>';
+
+  const columns = divSet.has('all')
+    ? renewalDivisionOptions().filter(o => o.key !== 'all').map(o => o.key)
+    : [...divSet];
+
+  const table = {};
+  dates.forEach(d => { table[d] = {}; });
+  (RENEWAL_DAY_MATRIX.rows || []).forEach(r => {
+    if (!renewalMatches(r, divSet, invSet, tplSet)) return;
+    if (r.bucket < period.from || r.bucket > period.to) return;
+    const div = renewalDivisionOf(r.bookerId);
+    const day = table[r.bucket];
+    if (!day) return;
+    if (!day[div]) day[div] = { untaxed: 0, count: 0 };
+    day[div].untaxed += r.untaxed; day[div].count += r.count;
+  });
+
+  const activeCols = columns.filter(c => dates.some(d => (table[d][c] || {}).untaxed > 0));
+  if (!activeCols.length) return '<div class="no-results">No invoices in this range for the selected filters</div>';
+
+  const rows = dates.map(d => {
+    const dayTotal = activeCols.reduce((s, c) => s + ((table[d][c] || {}).untaxed || 0), 0);
+    if (!dayTotal) return '';
+    return `<tr><td>${escapeHTML(renewalFmtDate(d))}</td>${activeCols.map(c => `<td>${(table[d][c] || {}).untaxed ? sarFmt(table[d][c].untaxed) : '—'}</td>`).join('')}<td><strong>${sarFmt(dayTotal)}</strong></td></tr>`;
+  }).join('');
+
+  const colTotals = activeCols.map(c => dates.reduce((s, d) => s + ((table[d][c] || {}).untaxed || 0), 0));
+  const grandTotal = colTotals.reduce((a, b) => a + b, 0);
+
+  return `<div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
+    <thead><tr><th>Date</th>${activeCols.map(c => `<th>${escapeHTML(c)}</th>`).join('')}<th>Total</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="${activeCols.length + 2}" class="no-results">No invoices in this range</td></tr>`}</tbody>
+    <tfoot><tr><td>Total</td>${colTotals.map(t => `<td>${sarFmt(t)}</td>`).join('')}<td><strong>${sarFmt(grandTotal)}</strong></td></tr></tfoot>
+  </table></div>`;
+}
+
+function renderRenewalBookerSummary() {
+  if (!BOOKER_LIST || !BOOKER_LIST.length) return '<div class="status"><span class="spinner"></span>Loading order bookers...</div>';
+  const counts = {};
+  DIVISION_TARGET_SEGMENTS.concat(['Other']).forEach(s => { counts[s] = 0; });
+  BOOKER_LIST.forEach(b => { const s = segmentOf(String(b.id)); counts[s] = (counts[s] || 0) + 1; });
+  return `<div class="stat-grid">${Object.entries(counts).filter(([, n]) => n).map(([seg, n]) => `<div class="stat-tile"><div class="num">${n}</div><div class="lbl">${escapeHTML(seg)}</div></div>`).join('')}</div>`;
+}
+
+function renderRenewalSettingsTab() {
+  const rep = RENEWAL_MONTH_MATRIX;
+  const templates = (rep && !rep.error) ? (() => {
+    const seen = new Map(), labels = {};
+    rep.rows.forEach(r => { seen.set(r.templateId, (seen.get(r.templateId) || 0) + r.untaxed); labels[r.templateId] = r.template; });
+    return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(([id, u]) => ({ id, label: labels[id], untaxed: u }));
+  })() : null;
+
+  return `
+    <div class="card-header" style="margin-top:0"><div class="card-title">Yearly Target</div></div>
+    <div class="status">Per-division monthly target for ${RENEWAL_TARGET_SETTINGS.year} — drives the Target vs Achieved table on both the Sales and Renewal Revenue tabs. Change the year to plan a different one.</div>
+    <div style="max-height:60vh;overflow-y:auto">${renewalTargetFormHtml('irt')}</div>
+    <div class="row" style="justify-content:flex-end;margin-top:var(--sp-3)"><button onclick="saveRenewalTargetSettingsFrom('irt')">Save Yearly Target</button></div>
+
+    <div class="card-header" style="margin-top:var(--sp-5)"><div class="card-title">Booker → Division / Region / City</div>
+      <button class="ghost small" onclick="refreshBookerList()">${icon('table')} Refresh Booker List</button></div>
+    <div class="status">This mapping is what makes the <b>CSU</b> division work on the Renewal Revenue tab — Odoo has no native "CSU" field, so a booker only counts as CSU here because they're assigned that way below. Add a division for a brand-new order booker, or fix one currently showing <b>Other</b> (highlighted amber, meaning missing), right here. Click "Refresh Booker List" first if a booker you just created in Odoo isn't showing yet.</div>
+    ${renderRenewalBookerSummary()}
+    ${BOOKER_LIST && BOOKER_LIST.length ? `${bookerSegmentTableHtml('ibs')}
+      <div class="row" style="justify-content:flex-end;margin-top:var(--sp-3)"><button onclick="saveBookerSegmentSettingsFrom('ibs')">Save Booker Divisions</button></div>`
+      : '<div class="status"><span class="spinner"></span>Loading order bookers...</div>'}
+
+    <div class="card-header" style="margin-top:var(--sp-5)"><div class="card-title">Quotation Templates</div></div>
+    <div class="status">Reference list of every quotation template seen on invoices this year — this is what feeds the Quotation Template filter on the Renewal Revenue tab. Names come straight from Odoo; nothing here is editable.</div>
+    ${templates ? `<div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Template</th><th>YTD Revenue (Without VAT)</th></tr></thead>
+      <tbody>${templates.map(t => `<tr${t.id === String(RENEWAL_TEMPLATE_ID) ? ' style="background:var(--c-primary-soft)"' : ''}><td>${escapeHTML(t.id)}</td><td>${escapeHTML(t.label)}${t.id === String(RENEWAL_TEMPLATE_ID) ? ' <span class="match-tag">Default for this tab</span>' : ''}</td><td>${sarFmt(t.untaxed)}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<div class="status"><span class="spinner"></span>Loading — open the Renewal Revenue tab once first, or click Refresh below.</div>'}
+    <div class="row" style="margin-top:var(--sp-3)"><button class="secondary" onclick="loadRenewalMatrix()">${icon('table')} Refresh</button></div>`;
+}
+
 function switchDashboardSubtab(key) {
   DASHBOARD_SUBTAB = key;
   if (key === 'sales' && !DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
   if (key === 'sales' && !RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
   if (key === 'sales' && !DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
   if (key === 'tickets' && !TICKETS_REPORT) loadTicketsReport('this-month');
+  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !BOOKER_LIST) Promise.all([loadBookerSegments(), loadBookerList()]).then(renderDashboard);
+  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
+  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !RENEWAL_MONTH_MATRIX) loadRenewalMatrix();
   renderDashboard();
 }
 
 function renderDashboardPipelineHtml() {
-  if (!REQUESTS_CACHE.length) return '<div class="card"><div class="status"><span class="spinner"></span>Loading pipeline data...</div></div>';
+  if (!REQUESTS_CACHE.length) return '<div class="dv-panel"><div class="status"><span class="spinner"></span>Loading pipeline data...</div></div>';
 
   const active = REQUESTS_CACHE.filter(r => !r.duplicate && !r.rectification && !isTransferOnlyPending(r));
 
@@ -5950,49 +6942,53 @@ function renderDashboardPipelineHtml() {
   const maxTeam = Math.max(1, ...team.map(t => t[1].count));
 
   return `
-    <div class="stat-grid">
-      <div class="stat-tile"><div class="num">${active.length}</div><div class="lbl">Active Cases</div></div>
-      <div class="stat-tile"><div class="num">SAR ${totalAmount.toLocaleString()}</div><div class="lbl">Amount Entered (App)</div></div>
-      <div class="stat-tile"><div class="num">${trend[trend.length - 1].count}</div><div class="lbl">New Today</div></div>
-      <div class="stat-tile"><div class="num">${team.length}</div><div class="lbl">Active Agents</div></div>
+    <div class="dv-hero">
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${active.length}</div><div class="lbl">Active Cases</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(totalAmount)}</div><div class="lbl">Amount Entered (App)</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('plus')}</div><div class="num">${trend[trend.length - 1].count}</div><div class="lbl">New Today</div></div>
+      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('users')}</div><div class="num">${team.length}</div><div class="lbl">Active Agents</div></div>
     </div>
-    <div class="grid2">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Pipeline — Stage-wise Cases</div></div>
+    <div class="dv-grid">
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('list')} Pipeline — Stage-wise Cases</div></div>
         ${STAGE_TAB_NAMES.map((_, i) => `
-          <div class="dash-bar-row">
-            <span class="dash-bar-label" title="${escapeHTML(STAGE_LABELS[i + 1])}">${i + 1}. ${escapeHTML(STAGE_LABELS[i + 1])}</span>
-            <div class="dash-bar-track"><div class="dash-bar-fill" data-w="${(stageCounts[i] / maxStage * 100).toFixed(1)}"></div></div>
-            <span class="dash-bar-value">${stageCounts[i]}</span>
+          <div class="dv-rank-row">
+            <span class="dv-rank-num">${i + 1}</span>
+            <div class="dv-rank-body">
+              <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(STAGE_LABELS[i + 1])}">${escapeHTML(STAGE_LABELS[i + 1])}</span><span class="dv-rank-value">${stageCounts[i]}</span></div>
+              <div class="dv-rank-track"><div class="dv-rank-fill" data-w="${(stageCounts[i] / maxStage * 100).toFixed(1)}"></div></div>
+            </div>
           </div>`).join('')}
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Team Performance (App)</div></div>
-        ${team.length ? team.map(([user, d]) => `
-          <div class="dash-bar-row">
-            <span class="dash-bar-label" title="${escapeHTML(user)}">${escapeHTML(user.split('@')[0])}</span>
-            <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(d.count / maxTeam * 100).toFixed(1)}"></div></div>
-            <span class="dash-bar-value">${d.count}</span>
-          </div>`).join('') : '<div class="no-results">No data yet</div>'}
+      <div class="dv-panel">
+        <div class="dv-panel-head"><div class="dv-panel-title">${icon('users')} Team Performance (App)</div></div>
+        ${team.length ? team.map(([user, d], i) => `
+          <div class="dv-rank-row">
+            <span class="dv-rank-num">${i + 1}</span>
+            <div class="dv-rank-body">
+              <div class="dv-rank-top"><span class="dv-rank-name" title="${escapeHTML(user)}">${escapeHTML(user.split('@')[0])}</span><span class="dv-rank-value">${d.count}</span></div>
+              <div class="dv-rank-track"><div class="dv-rank-fill accent" data-w="${(d.count / maxTeam * 100).toFixed(1)}"></div></div>
+            </div>
+          </div>`).join('') : '<div class="dv-empty">No data yet</div>'}
       </div>
     </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">New Requests — Last 14 Days</div></div>
-      <div class="dash-trend">
+    <div class="dv-panel" style="margin-bottom:var(--sp-3)">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} New Requests — Last 14 Days</div></div>
+      <div class="dv-spark">
         ${trend.map(t => `
-          <div class="dash-trend-col" title="${t.day.toLocaleDateString()}: ${t.count} case(s)">
-            <div class="dash-trend-bar" data-h="${(t.count / maxCount * 100).toFixed(1)}"></div>
-            <span class="dash-trend-day">${t.day.getDate()}</span>
+          <div class="dv-spark-col" title="${t.day.toLocaleDateString()}: ${t.count} case(s)">
+            <div class="dv-spark-bar" data-h="${(t.count / maxCount * 100).toFixed(1)}"></div>
+            <span class="dv-spark-day">${t.day.getDate()}</span>
           </div>`).join('')}
       </div>
     </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Amount Entered (App) — Last 14 Days</div></div>
-      <div class="dash-trend">
+    <div class="dv-panel">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('chart')} Amount Entered (App) — Last 14 Days</div></div>
+      <div class="dv-spark">
         ${trend.map(t => `
-          <div class="dash-trend-col" title="${t.day.toLocaleDateString()}: SAR ${t.amount.toLocaleString()}">
-            <div class="dash-trend-bar revenue" data-h="${(t.amount / maxAmount * 100).toFixed(1)}"></div>
-            <span class="dash-trend-day">${t.day.getDate()}</span>
+          <div class="dv-spark-col" title="${t.day.toLocaleDateString()}: SAR ${t.amount.toLocaleString()}">
+            <div class="dv-spark-bar revenue" data-h="${(t.amount / maxAmount * 100).toFixed(1)}"></div>
+            <span class="dv-spark-day">${t.day.getDate()}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -6000,10 +6996,19 @@ function renderDashboardPipelineHtml() {
 
 function renderDashboard() {
   const body = document.getElementById('dashboard-body');
-  const nav = `<div class="case-type-nav" style="margin-bottom:var(--sp-3)">
-    <button type="button" class="${DASHBOARD_SUBTAB === 'sales' ? 'active' : ''}" onclick="switchDashboardSubtab('sales')">Sales</button>
-    <button type="button" class="${DASHBOARD_SUBTAB === 'pipeline' ? 'active' : ''}" onclick="switchDashboardSubtab('pipeline')">Pipeline — App Data</button>
-    <button type="button" class="${DASHBOARD_SUBTAB === 'tickets' ? 'active' : ''}" onclick="switchDashboardSubtab('tickets')">Tickets</button>
+  const nav = `<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap">
+    <div class="dv-tabs">
+      <button type="button" class="${DASHBOARD_SUBTAB === 'sales' ? 'active' : ''}" onclick="switchDashboardSubtab('sales')">${icon('chart')} Sales</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'pipeline' ? 'active' : ''}" onclick="switchDashboardSubtab('pipeline')">${icon('list')} Pipeline — App Data</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'tickets' ? 'active' : ''}" onclick="switchDashboardSubtab('tickets')">${icon('ticket')} Tickets</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'renewal' ? 'active' : ''}" onclick="switchDashboardSubtab('renewal')">${icon('receipt')} Renewal Revenue</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'allsales' ? 'active' : ''}" onclick="switchDashboardSubtab('allsales')">${icon('building')} All Sales</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'settings' ? 'active' : ''}" onclick="switchDashboardSubtab('settings')">${icon('settings')} Settings</button>
+    </div>
+    <div class="row" style="margin-bottom:0">
+      <button type="button" class="ghost small" onclick="dashboardRefreshCurrentSubtab()">${icon('table')} Refresh Now</button>
+      <button type="button" class="ghost small${DASHBOARD_AUTO_REFRESH ? ' active' : ''}" onclick="toggleDashboardAutoRefresh()" title="Automatically re-pulls this subtab's data every 2 minutes while you're on the Dashboard">${icon('chart')} Auto-Refresh: ${DASHBOARD_AUTO_REFRESH ? 'On (2m)' : 'Off'}</button>
+    </div>
   </div>`;
 
   let content;
@@ -6011,14 +7016,20 @@ function renderDashboard() {
     content = renderDashboardPipelineHtml();
   } else if (DASHBOARD_SUBTAB === 'tickets') {
     content = renderTicketsSection();
+  } else if (DASHBOARD_SUBTAB === 'renewal') {
+    content = renderRenewalRevenueTab();
+  } else if (DASHBOARD_SUBTAB === 'allsales') {
+    content = renderAllSalesTab();
+  } else if (DASHBOARD_SUBTAB === 'settings') {
+    content = renderRenewalSettingsTab();
   } else {
-    content = `<div class="card">${renderDashboardOdooSection()}</div>` + renderRenewalTargetSection() + renderDivisionTargetTable() + renderDivisionBreakdownSection();
+    content = renderDashboardOdooSection() + renderRenewalTargetSection() + renderDivisionTargetTable() + renderDivisionBreakdownSection();
   }
 
   body.innerHTML = nav + content;
   setTimeout(() => {
-    body.querySelectorAll('.dash-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
-    body.querySelectorAll('.dash-trend-bar').forEach(el => { el.style.height = Math.max(2, el.dataset.h) + '%'; });
+    body.querySelectorAll('.dash-bar-fill, .dv-rank-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    body.querySelectorAll('.dash-trend-bar, .dv-spark-bar').forEach(el => { el.style.height = Math.max(2, el.dataset.h) + '%'; });
   }, 20);
 }
 
@@ -6476,6 +7487,336 @@ function exportExcel() {
 }
 
 renderNav();
+</script>
+
+<!-- ==================== Assistant (local, no API) ====================
+     Answers from REQUESTS_CACHE / DAILY_CACHE that are already in memory —
+     no network call, no API key, nothing to pay for. Every action it offers
+     routes through the app's existing functions (openCaseView, assignToMe,
+     sendToStage) rather than writing to Firestore itself. -->
+<style>
+#bot-fab { position: fixed; right: 20px; bottom: 20px; z-index: 2400; width: 54px; height: 54px; border-radius: var(--r-full);
+  background: var(--c-primary); color: var(--c-on-primary); border: none; cursor: pointer; box-shadow: var(--sh-3);
+  display: flex; align-items: center; justify-content: center; transition: transform var(--dur) var(--ease-spring); }
+#bot-fab:hover { transform: scale(1.08); }
+#bot-fab svg { width: 26px; height: 26px; }
+#bot-panel { position: fixed; right: 20px; bottom: 84px; z-index: 2400; width: min(400px, calc(100vw - 40px)); height: min(560px, calc(100vh - 130px));
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg); box-shadow: var(--sh-3);
+  display: none; flex-direction: column; overflow: hidden; }
+#bot-panel.open { display: flex; animation: botPop var(--dur-slow) var(--ease-spring); }
+@keyframes botPop { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+.bot-head { background: var(--c-navy); color: #fff; padding: var(--sp-3) var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.bot-head b { font-size: 14px; } .bot-head small { opacity: .7; display: block; font-size: 11px; }
+.bot-head button { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; }
+.bot-lang { display: flex; gap: 2px; background: rgba(255,255,255,.12); border-radius: var(--r-full); padding: 2px; }
+.bot-lang button { font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: var(--r-full); opacity: .65; }
+.bot-lang button.active { background: #fff; color: var(--c-navy); opacity: 1; }
+#bot-panel[dir="rtl"] .bot-foot, #bot-panel[dir="rtl"] .bot-chips { direction: rtl; }
+#bot-log { flex: 1; overflow-y: auto; padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); background: var(--c-surface-2); }
+.bot-msg { max-width: 92%; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg); font-size: 13px; line-height: 1.5; }
+.bot-msg.me { align-self: flex-end; background: var(--c-primary); color: var(--c-on-primary); }
+.bot-msg.bot { align-self: flex-start; background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-fg); }
+.bot-msg .mono { font-family: var(--font-mono); }
+.bot-case { border: 1px solid var(--c-border); border-radius: var(--r-md); padding: var(--sp-2); margin-top: var(--sp-2); background: var(--c-surface-2); }
+.bot-case .t { font-weight: 700; font-family: var(--font-mono); }
+.bot-case .s { color: var(--c-fg-muted); font-size: 12px; margin: 2px 0 6px; }
+.bot-case .acts { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.bot-case .acts button, .bot-case .acts select { font-size: 11px; padding: 3px 7px; }
+.bot-foot { display: flex; gap: var(--sp-2); padding: var(--sp-2); border-top: 1px solid var(--c-border); background: var(--c-surface); }
+.bot-foot input { flex: 1; }
+.bot-chips { display: flex; gap: var(--sp-1); flex-wrap: wrap; padding: 0 var(--sp-2) var(--sp-2); background: var(--c-surface); }
+.bot-chips button { font-size: 11px; padding: 3px 8px; border-radius: var(--r-full); border: 1px solid var(--c-border); background: var(--c-surface-2); color: var(--c-fg-muted); cursor: pointer; }
+.bot-chips button:hover { border-color: var(--c-primary); color: var(--c-primary); }
+</style>
+
+<button id="bot-fab" onclick="botToggle()" title="Assistant" aria-label="Open assistant">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+</button>
+
+<div id="bot-panel" role="dialog" aria-label="Assistant">
+  <div class="bot-head">
+    <div><b id="bot-title">Assistant</b><small id="bot-subtitle">Plate, mobile, RN-id ya sawal likhein</small></div>
+    <div class="bot-lang">
+      <button type="button" data-lang="en" onclick="botSetLang('en')">EN</button>
+      <button type="button" data-lang="ar" onclick="botSetLang('ar')">AR</button>
+    </div>
+    <button onclick="botToggle()" aria-label="Close">&times;</button>
+  </div>
+  <div id="bot-log"></div>
+  <div class="bot-chips">
+    <button id="bot-chip-0" onclick="botAsk(BOT_STRINGS[BOT_LANG].qMine)">Mere cases</button>
+    <button id="bot-chip-1" onclick="botAsk(BOT_STRINGS[BOT_LANG].qToday)">Aaj</button>
+    <button id="bot-chip-2" onclick="botAsk(BOT_STRINGS[BOT_LANG].qSummary)">Summary</button>
+    <button id="bot-chip-3" onclick="botAsk(BOT_STRINGS[BOT_LANG].qDaily)">Daily pending</button>
+    <button id="bot-chip-4" onclick="botAsk(BOT_STRINGS[BOT_LANG].qHelp)">Help</button>
+  </div>
+  <div class="bot-foot">
+    <input id="bot-input" placeholder="e.g. 2205 TDB / 0542315449 / stage 3" onkeydown="if(event.key==='Enter')botSend()">
+    <button class="small" id="bot-send-btn" onclick="botSend()">Send</button>
+  </div>
+</div>
+
+<script>
+// ---- language ----
+// UI chrome + response phrasing are localized (UR/EN/AR); intent *matching*
+// in botAnswer() below recognizes keywords from all three regardless of
+// which chrome language is active, so typing in any language still works.
+const BOT_STRINGS = {
+  en: {
+    dir: 'ltr', title: 'Assistant', subtitle: 'Type a plate, mobile, RN-id or question',
+    chips: ['My cases', 'Today', 'Summary', 'Daily pending', 'Help'],
+    qMine: 'my cases', qToday: 'today', qSummary: 'summary', qDaily: 'daily pending', qHelp: 'help',
+    placeholder: 'e.g. 2205 TDB / 0542315449 / stage 3', send: 'Send', stageWord: 'Stage',
+    helpHtml: `I can save you time on:<br>
+      • Type any <b>plate / mobile / RN-id / Sale Order</b> — the case and its stage show up instantly, with Open / Assign / Send-to-stage buttons.<br>
+      • <b>my cases</b> — cases assigned to you<br>
+      • <b>stage 3</b> — cases at that stage<br>
+      • <b>today</b> — today's new requests<br>
+      • <b>summary</b> — totals, stage-wise, amount<br>
+      • <b>unassigned</b> / <b>on hold</b> / <b>urgent</b><br>
+      • <b>daily pending</b> — pending daily requests<br>
+      • <b>assign 2205 TDB to me</b> — direct assign<br>
+      • <b>company</b> / <b>devices</b> / <b>services</b> / <b>certificates</b> / <b>offices</b> / <b>contact</b> — company profile info`,
+    loading: 'Data is still loading — ask again in a couple seconds.',
+    dailyLoading: 'Daily requests are loading — ask again.',
+    dailyAllDone: 'Daily requests: all Done ✔', dailyPendingTitle: 'Pending daily requests',
+    myCasesTitle: 'Your assigned cases', unassignedTitle: 'Unassigned cases', onHoldTitle: 'On Hold cases', urgentTitle: 'Urgent cases',
+    todayTitle: amt => `Today's new requests (SAR ${amt})`,
+    summary: (open, closed, byStage, amt, mine, unassigned) =>
+      `Open cases: <b>${open}</b> · Closed: <b>${closed}</b><br>${byStage}<br>Open amount: <b>SAR ${amt}</b> · Yours: <b>${mine}</b> · Unassigned: <b>${unassigned}</b>`,
+    none: 'nothing found.', more: n => `…and ${n} more — see the full list in the tab.`,
+    noneFor: q => `No case found for "${q}". Type <b>help</b> to see commands.`, found: 'Found',
+    assignedOk: n => `Assigned — ${n}.`, assignNone: q => `No case found for "${q}".`, assignMulti: 'Found more than one — which one to assign?'
+  },
+  ar: {
+    dir: 'rtl', title: 'المساعد', subtitle: 'اكتب لوحة، جوال، RN-id أو سؤال',
+    chips: ['حالاتي', 'اليوم', 'ملخص', 'يومي المعلقة', 'مساعدة'],
+    qMine: 'حالاتي', qToday: 'اليوم', qSummary: 'ملخص', qDaily: 'يومي المعلقة', qHelp: 'مساعدة',
+    placeholder: 'مثال: 2205 TDB / 0542315449 / stage 3', send: 'إرسال', stageWord: 'مرحلة',
+    helpHtml: `يمكنني توفير وقتك في:<br>
+      • اكتب أي <b>لوحة / رقم جوال / RN-id / رقم أمر بيع</b> — تظهر الحالة ومرحلتها فورًا مع أزرار فتح / تعيين / إرسال إلى مرحلة.<br>
+      • <b>حالاتي</b> — الحالات المسندة إليك<br>
+      • <b>مرحلة 3</b> — حالات تلك المرحلة<br>
+      • <b>اليوم</b> — الطلبات الجديدة اليوم<br>
+      • <b>ملخص</b> — الإجمالي، حسب المرحلة، المبلغ<br>
+      • <b>غير مسندة</b> / <b>معلق</b> / <b>عاجل</b><br>
+      • <b>يومي</b> — الطلبات اليومية المعلقة<br>
+      • تعيين حالة لنفسك متاح حاليًا بالإنجليزية/الأردية فقط: assign 2205 TDB to me<br>
+      • <b>company</b> / <b>devices</b> / <b>services</b> / <b>certificates</b> / <b>offices</b> / <b>contact</b> — معلومات عن الشركة`,
+    loading: 'البيانات قيد التحميل — اسأل مرة أخرى بعد ثانيتين.',
+    dailyLoading: 'الطلبات اليومية قيد التحميل — اسأل مرة أخرى.',
+    dailyAllDone: 'الطلبات اليومية: كل شيء منجز ✔', dailyPendingTitle: 'الطلبات اليومية المعلقة',
+    myCasesTitle: 'حالاتك المسندة', unassignedTitle: 'حالات غير مسندة', onHoldTitle: 'حالات معلقة', urgentTitle: 'حالات عاجلة',
+    todayTitle: amt => `طلبات اليوم الجديدة (${amt} ريال)`,
+    summary: (open, closed, byStage, amt, mine, unassigned) =>
+      `الحالات المفتوحة: <b>${open}</b> · المغلقة: <b>${closed}</b><br>${byStage}<br>المبلغ المفتوح: <b>${amt} ريال</b> · لديك: <b>${mine}</b> · غير مسندة: <b>${unassigned}</b>`,
+    none: 'لم يتم العثور على شيء.', more: n => `…و${n} أخرى — شاهد القائمة الكاملة في التبويب.`,
+    noneFor: q => `لم يتم العثور على حالة لـ "${q}". اكتب <b>مساعدة</b> لعرض الأوامر.`, found: 'تم العثور على',
+    assignedOk: n => `تم التعيين — ${n}.`, assignNone: q => `لم يتم العثور على حالة لـ "${q}".`, assignMulti: 'تم العثور على أكثر من واحدة — أيها تريد تعيينها؟'
+  }
+};
+let BOT_LANG = localStorage.getItem('bot_lang') || 'en';
+if (!BOT_STRINGS[BOT_LANG]) BOT_LANG = 'en';
+
+// ---- company profile knowledge (from Tracking Company Profile.pdf) ----
+const COMPANY_INFO = {
+  about: `<b>Tracking</b> — first & only Saudi company in the vehicle tracking industry with its own software and hardware developed and manufactured in the Kingdom (MADE IN SAUDI PROGRAM member).<br><br>
+    <b>Mission:</b> Empower the tracking industry with actionable insights to optimize operations, enhance efficiency, and drive sustainable growth aligned with Saudi Vision 2030.<br>
+    <b>Vision:</b> To be the leading AI-driven IoT platform in the Kingdom, driving digital transformation in the tracking industry.`,
+  devices: `<b>Saudi-made devices:</b><br>
+    • <b>TFB303</b> — Basic GPS Tracking Device<br>
+    • <b>TFB313</b> — Standard GPS Tracking Device<br>
+    • <b>TFB323</b> — Customized Advance GPS Device (24 BT Temp/Humidity sensors)<br>
+    • <b>TFB402</b> — 4G CAT1 Tracking Device (positioning, monitor, alarm)<br>
+    • <b>TFB404</b> — GPS 4G Tracking Device with Weight Sensing<br>
+    • <b>TFA412</b> — Advanced 4G Tracking Device with Weight Sensing<br>
+    • <b>TS-TH01</b> — Bluetooth Temperature & Humidity Sensor`,
+  services: `<b>Solutions we offer:</b><br>
+    Standard Tracking, School Tracking, RFID Fleet Monitoring, Fleeti (AI chatbot), Journey Management, Electronic Shelf Label, Person Tracking, Smart Tracking, Fuel Management, Oil Tracking, Driver Management, Hajj & Umrah Transport, TGA Educational Transport, Animal Tracking, Camel Tracking, Temperature Monitoring, RSD-AI-PAM (camera analytics), Waste Management, Dashcam & ADAS, Weight Tracking & Monitoring, Taxi Management, Container Tracking, Firmware Over The Air, Tire Track Pro.`,
+  certificates: `<b>Accreditations & certificates:</b><br>
+    • Made in Saudi Program<br>
+    • Approved by TGA (Transport General Authority)<br>
+    • Approved by Naqabah<br>
+    • Approved by SFDA (Saudi Food & Drug Authority)<br>
+    • Approved by PTA-WASL<br>
+    • AVL Provider Certificate<br>
+    • CST Certificate`,
+  offices: `<b>Local offices (Saudi Arabia):</b> Riyadh (HQ), Jeddah, Dammam, Madinah, Tabuk, Qassim, Hail, Taif, Jizan, Khamis Mushait, Khumrah, Johra.<br>
+    <b>International:</b> Canada, Pakistan, United Arab Emirates.`,
+  contact: `<b>Riyadh Office</b> — Al Nafal, Riyadh, Saudi Arabia<br>
+    UAN: <b>+920017273</b><br>
+    Email: <b>info@tracking.me</b><br>
+    Website: <b>www.tracking.me</b> · @TrackingKSA`
+};
+
+function botApplyChrome() {
+  const S = BOT_STRINGS[BOT_LANG];
+  document.getElementById('bot-title').textContent = S.title;
+  document.getElementById('bot-subtitle').textContent = S.subtitle;
+  document.getElementById('bot-input').placeholder = S.placeholder;
+  document.getElementById('bot-send-btn').textContent = S.send;
+  S.chips.forEach((label, i) => { document.getElementById('bot-chip-' + i).textContent = label; });
+  document.getElementById('bot-panel').dir = S.dir;
+  document.querySelectorAll('.bot-lang button').forEach(b => b.classList.toggle('active', b.dataset.lang === BOT_LANG));
+}
+function botSetLang(lang) {
+  BOT_LANG = lang;
+  localStorage.setItem('bot_lang', lang);
+  botApplyChrome();
+  document.getElementById('bot-log').innerHTML = '';
+  botSay('bot', botHelp());
+}
+botApplyChrome();
+
+// ---- plumbing ----
+function botToggle() {
+  const p = document.getElementById('bot-panel');
+  const opening = !p.classList.contains('open');
+  p.classList.toggle('open', opening);
+  if (opening) {
+    if (!REQUESTS_CACHE.length) loadRequests();
+    if (!document.getElementById('bot-log').children.length) botSay('bot', botHelp());
+    document.getElementById('bot-input').focus();
+  }
+}
+function botSay(who, html) {
+  const log = document.getElementById('bot-log');
+  const d = document.createElement('div');
+  d.className = 'bot-msg ' + who;
+  d.innerHTML = html;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+function botSend() {
+  const el = document.getElementById('bot-input');
+  const q = el.value.trim();
+  if (!q) return;
+  el.value = '';
+  botAsk(q);
+}
+function botAsk(q) {
+  if (!document.getElementById('bot-panel').classList.contains('open')) botToggle();
+  botSay('me', escapeHTML(q));
+  botSay('bot', botAnswer(q));
+}
+
+function botHelp() {
+  return BOT_STRINGS[BOT_LANG].helpHtml;
+}
+
+// ---- matching ----
+function botMatch(r, q) {
+  const ql = q.toLowerCase().trim();
+  const p = normalizePhone(q);
+  return (r.plate || '').toLowerCase().includes(ql)
+    || (r.renewal_id || '').toLowerCase().includes(ql)
+    || (r.sale_order || '').toLowerCase().includes(ql)
+    || (r.company_name || '').toLowerCase().includes(ql)
+    || (p.length >= 4 && normalizePhone(r.mobile || '').includes(p));
+}
+function botLive() { return REQUESTS_CACHE.filter(r => isVisibleRequest(r) && !r.duplicate); }
+function botMyEmail() { return (auth.currentUser && auth.currentUser.email) || ME.email; }
+
+function botCaseCard(r) {
+  const stage = r.stage || 1;
+  const stageOpts = [1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${n === stage ? 'selected' : ''}>Stage ${n}</option>`).join('');
+  return `<div class="bot-case">
+    <div class="t">${escapeHTML(r.plate || '—')} · ${escapeHTML(r.renewal_id || '')}</div>
+    <div class="s">${escapeHTML(r.mobile || '')} — Stage ${stage}: ${escapeHTML(STAGE_LABELS[stage] || '')}${r.customer_closed ? ' · Closed' : ''}<br>
+      ${r.assigned_to_name ? 'Assigned: ' + escapeHTML(r.assigned_to_name) : 'Unassigned'}${r.on_hold ? ' · On Hold' : ''}</div>
+    <div class="acts">
+      <button class="secondary small" onclick="openCaseView('${r.id}')">Open</button>
+      <button class="secondary small" onclick="assignToMe('${r.id}')">Assign to Me</button>
+      <select id="bot-stage-${r.id}">${stageOpts}</select>
+      <button class="secondary small" onclick="botSendStage('${r.id}')">Send</button>
+    </div>
+  </div>`;
+}
+// Routes through the app's own sendToStage so the transfer hand-off fix and
+// the confirm() guard there apply here too.
+function botSendStage(docId) {
+  sendToStage(docId, parseInt(document.getElementById('bot-stage-' + docId).value, 10));
+}
+function botList(cases, title, limit) {
+  const S = BOT_STRINGS[BOT_LANG];
+  if (!cases.length) return `${title}: <b>0</b> — ${S.none}`;
+  const shown = cases.slice(0, limit || 8);
+  const more = cases.length > shown.length ? `<div class="s" style="margin-top:6px">${S.more(cases.length - shown.length)}</div>` : '';
+  return `${title}: <b>${cases.length}</b>${shown.map(botCaseCard).join('')}${more}`;
+}
+
+// ---- intents ----
+// Keyword matching accepts Roman Urdu / English / Arabic terms together —
+// whichever language chrome is active, typing in any of the three still
+// routes to the right intent; only the *response phrasing* follows BOT_LANG.
+function botAnswer(qRaw) {
+  const S = BOT_STRINGS[BOT_LANG];
+  const q = qRaw.trim();
+  const ql = q.toLowerCase();
+  if (!REQUESTS_CACHE.length) { loadRequests(); return S.loading; }
+  const live = botLive();
+
+  if (/^(help|madad|\?|commands?|مساعدة|أوامر)$/.test(ql)) return botHelp();
+
+  // company profile knowledge — static, no case data needed
+  if (/^(company|about( us)?|kaunsi company|hamari company|من نحن|عن الشركة)$/.test(ql)) return COMPANY_INFO.about;
+  if (/device|hardware|tfb\d|tfa\d|ts-th01|جهاز|أجهزة/.test(ql)) return COMPANY_INFO.devices;
+  if (/\bservices?\b|\bsolutions?\b|khidmat|خدمات|حلول/.test(ql)) return COMPANY_INFO.services;
+  if (/certificat|accreditat|approved by|sanad|شهادات|اعتماد/.test(ql)) return COMPANY_INFO.certificates;
+  if (/\boffice(s)?\b|branch|shakha|فروع|مكاتب/.test(ql)) return COMPANY_INFO.offices;
+  if (/\bcontact\b|phone number|email address|tawasul|اتصل|تواصل/.test(ql)) return COMPANY_INFO.contact;
+
+  // assign <something> to me (English/Urdu phrasing only for now)
+  const asg = /^assign\s+(.+?)(?:\s+(?:to\s+)?(?:me|mujhe|khud))?$/i.exec(q);
+  if (asg && /^assign/i.test(q)) {
+    const found = live.filter(r => botMatch(r, asg[1].trim()));
+    if (!found.length) return S.assignNone(escapeHTML(asg[1]));
+    if (found.length === 1) { assignToMe(found[0].id); return S.assignedOk(escapeHTML(found[0].plate || found[0].renewal_id)); }
+    return botList(found, S.assignMulti);
+  }
+
+  if (/(mere|meri|my|حالاتي|قضاياي)/.test(ql) && !/plate|mobile/.test(ql)) {
+    const me = botMyEmail();
+    return botList(live.filter(r => r.assigned_to === me && !r.customer_closed), S.myCasesTitle);
+  }
+  if (/unassign|غير مسند/.test(ql)) return botList(live.filter(r => !r.assigned_to && !r.customer_closed), S.unassignedTitle);
+  if (/on\s*hold|hold pe|معلق/.test(ql)) return botList(live.filter(r => r.on_hold), S.onHoldTitle);
+  if (/urgent|zaroori|عاجل/.test(ql)) return botList(live.filter(r => /urgent/i.test(r.priority || '') && !r.customer_closed), S.urgentTitle);
+
+  const st = /(?:stage|مرحلة)\s*([1-7])/.exec(ql);
+  if (st) {
+    const n = +st[1];
+    return botList(live.filter(r => (r.stage || 1) === n && !r.customer_closed && !isTransferOnlyPending(r)), `${S.stageWord} ${n} — ${STAGE_LABELS[n]}`);
+  }
+
+  if (/^(aaj|today|اليوم)/.test(ql)) {
+    const t = todayISO();
+    const today = live.filter(r => { const d = caseCreatedDate(r); return d && d.toISOString().slice(0, 10) === t; });
+    const amt = today.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    return botList(today, S.todayTitle(amt.toLocaleString()));
+  }
+
+  if (/summary|report|total|kitne|ملخص|تقرير/.test(ql)) {
+    const open = live.filter(r => !r.customer_closed);
+    const byStage = [1, 2, 3, 4, 5, 6, 7].map(n => `${S.stageWord} ${n}: <b>${open.filter(r => (r.stage || 1) === n).length}</b>`).join(' · ');
+    const amt = open.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const mine = open.filter(r => r.assigned_to === botMyEmail()).length;
+    return S.summary(open.length, live.filter(r => r.customer_closed).length, byStage, amt.toLocaleString(), mine, open.filter(r => !r.assigned_to).length);
+  }
+
+  if (/daily|يومي/.test(ql)) {
+    if (!DAILY_UNSUB) { loadDailyRequests(); return S.dailyLoading; }
+    const pend = DAILY_CACHE.filter(r => r.status !== 'Done');
+    if (!pend.length) return S.dailyAllDone;
+    return `${S.dailyPendingTitle}: <b>${pend.length}</b><br>` + pend.slice(0, 10)
+      .map(r => `• <span class="mono">${escapeHTML(r.mobile || '')}</span> — ${escapeHTML(r.task || '')} <span class="s">(${escapeHTML(r.encoder || '')})</span>`).join('<br>');
+  }
+
+  // default: treat as a search
+  const found = live.filter(r => botMatch(r, q));
+  if (!found.length) return S.noneFor(escapeHTML(q));
+  return botList(found, S.found);
+}
 </script>
 </body>
 </html>
