@@ -958,6 +958,7 @@ tr.reseller-match:hover td { background: #E0E7FF; }
     <div id="tab-onlinepaid" style="display:none">
       <div class="row">
         <button class="secondary small" onclick="loadOnlinePayments()">Refresh</button>
+        <label class="chip"><input type="checkbox" id="onlinepaid-notify-toggle" onchange="toggleOnlinePaidNotify()"> Notify me when a new payment comes in</label>
       </div>
       <div id="onlinepaid-status" class="status">Loading...</div>
       <div id="onlinepaid-result"></div>
@@ -1512,6 +1513,10 @@ function showApp(user) {
   loadUsers();
   warmOdooBridge();
   if (!window.ODOO_WARM_TIMER) window.ODOO_WARM_TIMER = setInterval(warmOdooBridge, 14 * 60 * 1000);
+  // Resume background "notify me" polling from a previous session — only if
+  // the browser still actually has permission granted (the user may have
+  // revoked it since last time, in which case this silently no-ops).
+  if (ONLINE_PAID_NOTIFY && 'Notification' in window && Notification.permission === 'granted') startOnlinePaidAutoRefresh();
   // Loaded right at login (not lazily on first Dashboard visit) so the
   // "missing division" nav badge is already accurate the moment the app opens.
   Promise.all([loadBookerSegments(), loadBookerList()]).then(updateNavBadges);
@@ -1582,6 +1587,7 @@ function switchTab(name) {
   currentActiveTab = name;
   stopDashboardAutoRefresh(); // re-armed below only if we're actually landing on 'dashboard' — never polls in the background from another tab
   stopOnlinePaidAutoRefresh(); // same rule — only polls Odoo while 'onlinepaid' is the open tab
+  stopSimpleOdooRefresh(); // re-armed below only if we're landing on one of SIMPLE_ODOO_REFRESH_TABS
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('[id^="tab-"]').forEach(el => { el.style.display = el.id === 'tab-' + name ? 'block' : 'none'; });
 
@@ -1613,7 +1619,12 @@ function switchTab(name) {
     renderDashboard();
   }
   if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
-  if (name === 'onlinepaid') { loadOnlinePayments(); startOnlinePaidAutoRefresh(); }
+  if (name === 'onlinepaid') {
+    document.getElementById('onlinepaid-notify-toggle').checked = ONLINE_PAID_NOTIFY;
+    loadOnlinePayments();
+    startOnlinePaidAutoRefresh();
+  }
+  startSimpleOdooRefresh(name); // no-op unless name is one of SIMPLE_ODOO_REFRESH_TABS
 }
 
 // Tabs that get a nav badge without being a numbered stage. 'closed' was
@@ -3452,20 +3463,51 @@ async function searchOdooOrders() {
 // ==================== Odoo tab — Online Paid (Moyasar receipts) ====================
 // Odoo has no push channel the browser can subscribe to, so "auto-updating,
 // no manual refresh" means polling on a timer — same pattern as the
-// Dashboard's own auto-refresh (see startDashboardAutoRefresh), armed only
-// while this tab is actually open (see switchTab).
+// Dashboard's own auto-refresh (see startDashboardAutoRefresh). Normally
+// only armed while this tab is open (see switchTab), but if the user has
+// turned notifications on, the poll keeps running in the background so a new
+// payment is caught even while they're on another tab — see
+// onlinePaidShouldPoll/toggleOnlinePaidNotify.
 let ONLINE_PAID_REFRESH_TIMER = null;
 const ONLINE_PAID_REFRESH_MS = 30000;
+
+// Persisted so "notify me" survives a reload without asking again — the
+// browser Notification permission itself is also remembered by the browser,
+// this just remembers whether the user *wants* it on.
+let ONLINE_PAID_NOTIFY = localStorage.getItem('onlinepaid_notify') === '1';
+// null until the first fetch, so turning notifications on doesn't fire one
+// notification per already-existing payment — only ones seen after that.
+let ONLINE_PAID_SEEN_IDS = null;
+
+function onlinePaidShouldPoll() { return currentActiveTab === 'onlinepaid' || ONLINE_PAID_NOTIFY; }
+
+function notifyNewOnlinePayments(payments) {
+  const ids = payments.map(p => p.id);
+  if (ONLINE_PAID_SEEN_IDS === null) { ONLINE_PAID_SEEN_IDS = new Set(ids); return; }
+  const fresh = payments.filter(p => !ONLINE_PAID_SEEN_IDS.has(p.id));
+  ids.forEach(id => ONLINE_PAID_SEEN_IDS.add(id));
+  if (!fresh.length) return;
+
+  showToast(`${fresh.length} new online payment(s) received`, 'success');
+  if (!ONLINE_PAID_NOTIFY || Notification.permission !== 'granted') return;
+  fresh.forEach(p => new Notification('New online payment received', {
+    body: `${p.partner_id ? p.partner_id[1] : 'Customer'} — ${sarFmt(p.amount)}${p.ref_no ? ' · ' + p.ref_no : ''}`,
+    tag: 'onlinepaid-' + p.id
+  }));
+}
 
 async function loadOnlinePayments() {
   const statusEl = document.getElementById('onlinepaid-status');
   const resultEl = document.getElementById('onlinepaid-result');
-  statusEl.className = 'status';
-  statusEl.innerHTML = '<span class="spinner"></span>Loading online payments...';
+  const onTab = currentActiveTab === 'onlinepaid';
+  if (onTab) { statusEl.className = 'status'; statusEl.innerHTML = '<span class="spinner"></span>Loading online payments...'; }
 
   try {
     const data = await odooFetch('/api/online-payments?limit=100');
     const payments = data.payments || [];
+    notifyNewOnlinePayments(payments);
+    if (!onTab) return;
+
     statusEl.className = 'status ready';
     statusEl.textContent = `${payments.length} online payment(s) — live, updates every ${ONLINE_PAID_REFRESH_MS / 1000}s`;
 
@@ -3499,11 +3541,30 @@ async function loadOnlinePayments() {
 }
 
 function startOnlinePaidAutoRefresh() {
-  if (ONLINE_PAID_REFRESH_TIMER) return;
+  if (ONLINE_PAID_REFRESH_TIMER || !onlinePaidShouldPoll()) return;
   ONLINE_PAID_REFRESH_TIMER = setInterval(loadOnlinePayments, ONLINE_PAID_REFRESH_MS);
 }
 function stopOnlinePaidAutoRefresh() {
+  if (onlinePaidShouldPoll()) return; // still needed for the other reason (tab open, or notify still on)
   if (ONLINE_PAID_REFRESH_TIMER) { clearInterval(ONLINE_PAID_REFRESH_TIMER); ONLINE_PAID_REFRESH_TIMER = null; }
+}
+
+async function toggleOnlinePaidNotify() {
+  const cb = document.getElementById('onlinepaid-notify-toggle');
+  if (cb.checked) {
+    if (!('Notification' in window)) { showToast('Notifications are not supported in this browser', 'error'); cb.checked = false; return; }
+    let perm = Notification.permission;
+    if (perm === 'default') perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showToast('Notification permission denied — allow it in the browser\'s site settings to use this', 'error'); cb.checked = false; return; }
+    ONLINE_PAID_NOTIFY = true;
+    localStorage.setItem('onlinepaid_notify', '1');
+    showToast('You\'ll be notified here when a new online payment comes in', 'success');
+    startOnlinePaidAutoRefresh();
+  } else {
+    ONLINE_PAID_NOTIFY = false;
+    localStorage.removeItem('onlinepaid_notify');
+    stopOnlinePaidAutoRefresh();
+  }
 }
 
 function odooSearchCustomer(name) {
@@ -6293,6 +6354,34 @@ function renderDashboardOdooSection() {
     <div class="row" style="justify-content:center;margin-top:var(--sp-3);margin-bottom:0">
       <button class="secondary" onclick="switchTab('salesreport')">Full Breakdown — Region, Template, Team, Type &amp; More</button>
     </div>`;
+}
+
+// ==================== Simple Odoo tabs — auto-refresh ====================
+// Sale Orders / Customers / Tickets / Sales Report all show live Odoo data
+// but, unlike Online Paid, only ever refresh on an explicit search/click.
+// This re-runs whichever one is open on the same 30s cadence as Online Paid,
+// so none of them go stale while you're sitting on them — same "only while
+// this exact tab is open" rule as Dashboard/Online Paid, armed/disarmed in
+// switchTab. Master (All Stages) and the pipeline/stage tabs need no such
+// timer — REQUESTS_CACHE is already a live Firestore onSnapshot listener.
+const SIMPLE_ODOO_REFRESH_MS = 30000;
+const SIMPLE_ODOO_REFRESH_TABS = {
+  odoo: () => searchOdooOrders(),
+  // Re-runs the same search the user already typed; an empty box has no
+  // results shown yet, so there's nothing worth re-fetching every 30s.
+  customers: () => { if (document.getElementById('cust-q').value.trim()) searchOdooCustomers(); },
+  tickets: () => searchOdooTickets(),
+  salesreport: () => loadSalesReport()
+};
+let SIMPLE_ODOO_REFRESH_TIMER = null;
+
+function startSimpleOdooRefresh(name) {
+  const fn = SIMPLE_ODOO_REFRESH_TABS[name];
+  if (!fn || SIMPLE_ODOO_REFRESH_TIMER) return;
+  SIMPLE_ODOO_REFRESH_TIMER = setInterval(fn, SIMPLE_ODOO_REFRESH_MS);
+}
+function stopSimpleOdooRefresh() {
+  if (SIMPLE_ODOO_REFRESH_TIMER) { clearInterval(SIMPLE_ODOO_REFRESH_TIMER); SIMPLE_ODOO_REFRESH_TIMER = null; }
 }
 
 // Dashboard has 3 sub-tabs, each with its own lazily-loaded data source:
