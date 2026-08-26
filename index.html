@@ -2324,6 +2324,13 @@ const CONFIRMED_ORDER_STATES = 'sale,done,approved';
 let DASHBOARD_ORDERS_REPORT = null;
 let DASHBOARD_CONFIRMED_REPORT = null;
 
+// "Today" is its own always-today range, independent of whatever preset
+// (This month/Last 90 days/etc.) the rest of the Sales subtab is showing —
+// answers "kitne sale order aaj bane" without state filtering, so a
+// quotation booked minutes ago shows up immediately, not just confirmed ones.
+let DASHBOARD_TODAY_REPORT = null;
+let DASHBOARD_TODAY_RENEWAL_REPORT = null;
+
 async function loadDashboardSalesReport(preset) {
   if (preset) DASHBOARD_RANGE = preset;
   const now = new Date();
@@ -2340,15 +2347,22 @@ async function loadDashboardSalesReport(preset) {
   const invoiceParams = new URLSearchParams({ ...range, state: 'paid' });
   const orderParams = new URLSearchParams(range);
   const confirmedParams = new URLSearchParams({ ...range, state: CONFIRMED_ORDER_STATES });
+  const today = isoDay(now);
+  const todayParams = new URLSearchParams({ from: today, to: today, interval: 'day' });
+  const todayRenewalParams = new URLSearchParams({ from: today, to: today, interval: 'day', template: String(RENEWAL_TEMPLATE_ID) });
 
-  const [invRes, ordRes, confRes] = await Promise.allSettled([
+  const [invRes, ordRes, confRes, todayRes, todayRenRes] = await Promise.allSettled([
     odooFetch('/api/invoice-report?' + invoiceParams),
     odooFetch('/api/sales-report?' + orderParams),
-    odooFetch('/api/sales-report?' + confirmedParams)
+    odooFetch('/api/sales-report?' + confirmedParams),
+    odooFetch('/api/sales-report?' + todayParams),
+    odooFetch('/api/sales-report?' + todayRenewalParams)
   ]);
   DASHBOARD_SALES_REPORT = invRes.status === 'fulfilled' ? invRes.value : { error: invRes.reason.message };
   DASHBOARD_ORDERS_REPORT = ordRes.status === 'fulfilled' ? ordRes.value : { error: ordRes.reason.message };
   DASHBOARD_CONFIRMED_REPORT = confRes.status === 'fulfilled' ? confRes.value : { error: confRes.reason.message };
+  DASHBOARD_TODAY_REPORT = todayRes.status === 'fulfilled' ? todayRes.value : { error: todayRes.reason.message };
+  DASHBOARD_TODAY_RENEWAL_REPORT = todayRenRes.status === 'fulfilled' ? todayRenRes.value : { error: todayRenRes.reason.message };
 
   if (currentActiveTab === 'dashboard') renderDashboard();
 }
@@ -6272,6 +6286,26 @@ function renderOrderInvoiceFunnel() {
     </div>`;
 }
 
+// "How many sale orders were booked today" — order date, every state
+// (quotations included), so it moves the moment someone books one. Separate
+// panel from renderOrderInvoiceFunnel below, which is confirmed-orders-only
+// over whatever range the user picked (This month/90d/etc).
+function renderDashboardTodayOrders() {
+  const all = DASHBOARD_TODAY_REPORT, ren = DASHBOARD_TODAY_RENEWAL_REPORT;
+  const head = `<div class="dv-panel-head"><div class="dv-panel-title">${icon('list')} Today — Sale Orders Booked</div></div>`;
+  if (!all || !ren) return `<div class="dv-panel">${head}<div class="status"><span class="spinner"></span>Loading...</div></div>`;
+  if (all.error || ren.error) return `<div class="dv-panel">${head}<div class="status error">Failed to load: ${escapeHTML(all.error || ren.error)}</div></div>`;
+  return `
+    <div class="dv-panel">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('list')} Today — Sale Orders Booked</div><span class="card-id">${escapeHTML(all.range.from)}</span></div>
+      <div class="dv-hero">
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${all.totals.orders.toLocaleString()}</div><div class="lbl">All Sale Orders Today (${sarFmt(all.totals.untaxed)})</div></div>
+        <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${ren.totals.orders.toLocaleString()}</div><div class="lbl">Renewal Orders Today (${sarFmt(ren.totals.untaxed)})</div></div>
+      </div>
+      <div class="status">Counts every sale order booked today by order date, including quotations not yet confirmed or invoiced.</div>
+    </div>`;
+}
+
 // Live-from-Odoo section: PAID orders only (inv_status='paid') — see
 // DASHBOARD_SALES_REPORT/loadDashboardSalesReport. Independent of the App
 // section below it, so one can render before the other finishes loading.
@@ -6306,6 +6340,7 @@ function renderDashboardOdooSection() {
       <span class="card-id">${escapeHTML(rep.range.from)} → ${escapeHTML(rep.range.to)}</span>
     </div>
     ${rangeBtns}
+    ${renderDashboardTodayOrders()}
     <div class="dv-hero">
       <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${t.orders.toLocaleString()}</div><div class="lbl">Paid Invoices</div></div>
       <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(t.untaxed)}</div><div class="lbl">Paid Revenue (Without VAT)</div></div>
