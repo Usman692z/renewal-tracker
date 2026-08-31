@@ -6,9 +6,6 @@
 <title>Vehicle Renewal Tracker</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <!-- defer: ~900KB, only used by the export/backup buttons, never at parse time -->
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -1136,6 +1133,10 @@ tr.reseller-match:hover td { background: #E0E7FF; }
   <div class="modal-box" id="renewal-target-modal-box" style="max-width:520px"></div>
 </div>
 
+<!-- moved below the visible HTML so the login screen/app shell paint before these download -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 // ---- Firebase project config (public client key, protected by Firestore rules) ----
 const firebaseConfig = {
@@ -1613,8 +1614,6 @@ function switchTab(name) {
   if (name === 'daily' && !DAILY_UNSUB) loadDailyRequests();
   if (name === 'dashboard') {
     if (!DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
-    if (!RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
-    if (!DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
     startDashboardAutoRefresh();
     renderDashboard();
   }
@@ -2400,7 +2399,11 @@ const sumDivisionTargets = dt => Array.from({ length: 12 }, (_, i) =>
   DIVISION_TARGET_SEGMENTS.reduce((s, seg) => s + ((dt[seg] && dt[seg][i]) || 0), 0));
 
 let RENEWAL_TARGET_SETTINGS = { year: DEFAULT_RENEWAL_TARGET_YEAR, targets: sumDivisionTargets(DEFAULT_DIVISION_TARGETS), divisionTargets: DEFAULT_DIVISION_TARGETS };
-let RENEWAL_TARGET_REPORT = null;
+// Guards the one-time Firestore fetch below — the achieved-vs-target
+// figures themselves no longer need their own fetch, they're computed from
+// RENEWAL_MONTH_MATRIX (already loaded for the Revenue tab) by
+// renderRenewalTargetStatCards/renderDivisionTargetTable.
+let RENEWAL_TARGET_SETTINGS_LOADED = false;
 
 async function loadRenewalTargetSettings() {
   try {
@@ -2416,20 +2419,7 @@ async function loadRenewalTargetSettings() {
       }
     }
   } catch (err) { /* keep default fallback */ }
-  await loadRenewalTargetReport();
-}
-
-async function loadRenewalTargetReport() {
-  const year = RENEWAL_TARGET_SETTINGS.year;
-  const params = new URLSearchParams({
-    from: `${year}-01-01`, to: `${year}-12-31`, interval: 'month',
-    state: 'paid', template: String(RENEWAL_TEMPLATE_ID)
-  });
-  try {
-    RENEWAL_TARGET_REPORT = await odooFetch('/api/invoice-report?' + params);
-  } catch (err) {
-    RENEWAL_TARGET_REPORT = { error: err.message };
-  }
+  RENEWAL_TARGET_SETTINGS_LOADED = true;
   if (currentActiveTab === 'dashboard') renderDashboard();
 }
 
@@ -2496,7 +2486,6 @@ async function saveRenewalTargetSettingsFrom(idPrefix, onDone) {
     RENEWAL_TARGET_SETTINGS = { year, targets, divisionTargets };
     showToast('Renewal target saved', 'success');
     if (onDone) onDone();
-    await loadRenewalTargetReport();
     if (currentActiveTab === 'dashboard') renderDashboard();
   } catch (err) {
     showToast('Save failed: ' + err.message, 'error');
@@ -2505,28 +2494,21 @@ async function saveRenewalTargetSettingsFrom(idPrefix, onDone) {
 
 const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function renderRenewalTargetSection() {
-  const rep = RENEWAL_TARGET_REPORT;
+// Stat-cards only (the month-by-month table this used to also render is now
+// covered by the Target vs Achieved table below, computed from the same
+// RENEWAL_MONTH_MATRIX — having both was two numbers for one question, see
+// [[project_odoo_bridge_revenue_bug]]-style drift risk). Reads the already
+// -loaded matrix instead of its own /api/invoice-report fetch, so switching
+// months/years here can never disagree with the table right below it.
+function renderRenewalTargetStatCards() {
   const { year, targets } = RENEWAL_TARGET_SETTINGS;
   const yearTotal = targets.reduce((a, b) => a + b, 0);
-  const settingsBtn = `<button class="ghost small" onclick="openRenewalTargetSettings()">${icon('settings')} Settings</button>
-    <button class="secondary small" onclick="loadRenewalTargetReport()">${icon('table')} Refresh</button>`;
+  const settingsBtn = `<button class="ghost small" onclick="openRenewalTargetSettings()">${icon('settings')} Target Settings</button>`;
 
-  if (!rep) return `<div class="card">
-    <div class="card-header"><div class="card-title">${year} Subscription Renewal Target (Without VAT)</div>${settingsBtn}</div>
-    <div class="status"><span class="spinner"></span>Loading ${year} renewal target...</div></div>`;
-  if (rep.error) return `<div class="card">
-    <div class="card-header"><div class="card-title">${year} Subscription Renewal Target (Without VAT)</div>${settingsBtn}</div>
-    <div class="status error">Renewal target failed to load: ${escapeHTML(rep.error)}</div></div>`;
-
-  const byMonth = new Array(12).fill(0);
-  // p.sort is a plain "YYYY-MM-DD" string (first of the month) — parse the
-  // month directly rather than via new Date(), which reads it as UTC and
-  // can roll it back a month in negative-UTC timezones.
   // Without VAT (amount_untaxed), not with — explicit user instruction: this
   // target is tracked against untaxed revenue, unlike the "Sales — Live from
   // Odoo" tiles above which show both.
-  (rep.timeline || []).forEach(p => { byMonth[Number(String(p.sort).slice(5, 7)) - 1] = p.untaxed; });
+  const byMonth = renewalMonthlySeries(new Set(['all']), new Set(['paid']), new Set([String(RENEWAL_TEMPLATE_ID)])).map(m => m.untaxed);
 
   const now = new Date();
   const isCurrentYear = now.getFullYear() === year;
@@ -2540,22 +2522,6 @@ function renderRenewalTargetSection() {
   const thisMonthTarget = curMonth >= 0 ? (targets[curMonth] || 0) : 0;
   const thisMonthAchieved = curMonth >= 0 ? (byMonth[curMonth] || 0) : 0;
   const remainingMonth = Math.max(0, thisMonthTarget - thisMonthAchieved);
-
-  const rows = MONTH_NAMES_SHORT.map((name, i) => {
-    const target = targets[i];
-    const achieved = byMonth[i];
-    const pct = target ? (achieved / target * 100) : 0;
-    return `<tr${i === curMonth ? ' style="background:var(--c-surface-2)"' : ''}>
-      <td>${name}${i === curMonth ? ' (current)' : ''}</td>
-      <td>${sarFmt(target)}</td>
-      <td>${sarFmt(achieved)}</td>
-      <td>${sarFmt(Math.max(0, target - achieved))}</td>
-      <td style="min-width:120px">
-        <div class="dash-bar-track"><div class="dash-bar-fill${pct >= 100 ? ' accent' : ''}" data-w="${Math.min(100, pct).toFixed(1)}"></div></div>
-        <span class="dash-trend-day">${pct.toFixed(1)}%</span>
-      </td>
-    </tr>`;
-  }).join('');
 
   return `
     <div class="card">
@@ -2572,10 +2538,6 @@ function renderRenewalTargetSection() {
         <div class="stat-tile"><div class="num">${sarFmt(remainingYear)}</div><div class="lbl">${year} Remaining</div></div>
         ${isCurrentYear ? `<div class="stat-tile"><div class="num">${sarFmt(remainingYear / daysLeftInYear)}</div><div class="lbl">Daily Needed (${daysLeftInYear}d left this year)</div></div>` : '<div class="stat-tile"><div class="num">—</div><div class="lbl">Daily Needed</div></div>'}
       </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Month</th><th>Target</th><th>Achieved</th><th>Remaining</th><th>Progress</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
     </div>`;
 }
 
@@ -2674,8 +2636,6 @@ function matchSeedBooker(odooName) {
 let BOOKER_LIST = null; // [{id, name, orders, segment}] from Odoo, fetched once
 let BOOKER_NATIVE_SEGMENT = {}; // { [bookerId]: nativeSegmentLabel } — derived from BOOKER_LIST, for O(1) lookup
 let BOOKER_SEGMENTS = {}; // { [bookerId]: { segment, region, city, mergedInto } } — user override, always wins
-let DIVISION_DAILY_REPORT = null;
-
 // Same person under two Odoo partner ids (e.g. "Faisal Zaman" x3, a typo'd
 // duplicate) can be marked mergedInto the id you actually want to keep —
 // every report then attributes that id's revenue to the target's segment.
@@ -2722,61 +2682,17 @@ async function loadBookerSegments() {
   }
 }
 
-// Which month the "Renewal by Segment" table shows — defaults to the
-// current month, changeable via the Month filter without needing a new
-// range picker UI.
+// Which month the Division Target Table shows — defaults to the current
+// month, changeable via its own Month filter without needing a new range
+// picker UI (Period A/B on the rest of the Revenue tab is a separate axis:
+// arbitrary day ranges vs. this table's calendar-month + YTD-through-month
+// framing).
 const now_ = new Date();
 let DIVISION_YEAR = now_.getFullYear();
 let DIVISION_MONTH = now_.getMonth(); // 0-11
-let DIVISION_STATUS = 'paid'; // '' (All) | draft | open | partial | paid | cancelled
-let DIVISION_FILTER_BOOKER = 'all';
-let DIVISION_FILTER_SEGMENT = 'all';
-
-async function loadDivisionDailyReport() {
-  const from = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH, 1));
-  const to = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH + 1, 0));
-  const params = new URLSearchParams({ from, to, dim: 'booker', template: String(RENEWAL_TEMPLATE_ID) });
-  if (DIVISION_STATUS) params.set('state', DIVISION_STATUS);
-  try {
-    DIVISION_DAILY_REPORT = await odooFetch('/api/invoice-report-daily?' + params);
-  } catch (err) {
-    DIVISION_DAILY_REPORT = { error: err.message };
-  }
-  if (currentActiveTab === 'dashboard') renderDashboard();
-}
-
-// Jan 1 -> today, id-keyed by booker (unlike RENEWAL_TARGET_REPORT's
-// breakdown.booker, which is keyed by name and would silently merge
-// same-named-different-id bookers like the 3 "Faisal Zaman"s). Used only
-// for the YTD column of the by-division target table.
-let DIVISION_YTD_REPORT = null;
-
-async function loadDivisionYtdReport() {
-  const year = RENEWAL_TARGET_SETTINGS.year;
-  const from = `${year}-01-01`;
-  const to = isoDay(new Date());
-  const params = new URLSearchParams({ from, to, dim: 'booker', state: 'paid', template: String(RENEWAL_TEMPLATE_ID) });
-  try {
-    DIVISION_YTD_REPORT = await odooFetch('/api/invoice-report-daily?' + params);
-  } catch (err) {
-    DIVISION_YTD_REPORT = { error: err.message };
-  }
-  if (currentActiveTab === 'dashboard') renderDashboard();
-}
 
 function setDivisionMonth(monthIndex) {
   DIVISION_MONTH = Number(monthIndex);
-  loadDivisionDailyReport();
-}
-
-function setDivisionStatus(status) {
-  DIVISION_STATUS = status;
-  loadDivisionDailyReport();
-}
-
-function setDivisionFilter(kind, value) {
-  if (kind === 'booker') DIVISION_FILTER_BOOKER = value;
-  if (kind === 'segment') DIVISION_FILTER_SEGMENT = value;
   renderDashboard();
 }
 
@@ -2888,71 +2804,33 @@ async function refreshBookerList() {
   if (currentActiveTab === 'dashboard') renderDashboard();
 }
 
-const DIVISION_STATUS_OPTIONS = [['', 'All'], ['paid', 'Paid'], ['open', 'Open'], ['partial', 'Partial'], ['draft', 'Draft'], ['cancelled', 'Cancelled']];
-
-function renderDivisionFilterBar() {
-  // Merged-away bookers are hidden: their revenue is reported under the
-  // merge target, so picking one here could only ever return nothing.
-  const bookerOptions = (BOOKER_LIST || [])
-    .filter(b => resolveBookerKey(String(b.id)) === String(b.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  return `
-    <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:var(--sp-3)">
-      <div><label class="input-label" for="div-month">Month</label>
-        <select id="div-month" onchange="setDivisionMonth(this.value)">
-          ${MONTH_NAMES_SHORT.map((m, i) => `<option value="${i}"${i === DIVISION_MONTH ? ' selected' : ''}>${m} ${DIVISION_YEAR}</option>`).join('')}
-        </select></div>
-      <div><label class="input-label" for="div-status">Status</label>
-        <select id="div-status" onchange="setDivisionStatus(this.value)">
-          ${DIVISION_STATUS_OPTIONS.map(([v, l]) => `<option value="${v}"${v === DIVISION_STATUS ? ' selected' : ''}>${l}</option>`).join('')}
-        </select></div>
-      <div><label class="input-label" for="div-segment">Segment</label>
-        <select id="div-segment" onchange="setDivisionFilter('segment', this.value)">
-          <option value="all"${DIVISION_FILTER_SEGMENT === 'all' ? ' selected' : ''}>All</option>
-          ${SEGMENT_NAMES.map(s => `<option value="${s}"${s === DIVISION_FILTER_SEGMENT ? ' selected' : ''}>${s}</option>`).join('')}
-        </select></div>
-      <div><label class="input-label" for="div-booker">Order Booker</label>
-        <select id="div-booker" onchange="setDivisionFilter('booker', this.value)" style="max-width:200px">
-          <option value="all"${DIVISION_FILTER_BOOKER === 'all' ? ' selected' : ''}>All</option>
-          ${bookerOptions.map(b => `<option value="${b.id}"${String(b.id) === DIVISION_FILTER_BOOKER ? ' selected' : ''}>${escapeHTML(b.name)}</option>`).join('')}
-        </select></div>
-      <div style="align-self:flex-end">
-        <button class="secondary" onclick="loadDivisionDailyReport()">${icon('table')} Refresh</button>
-      </div>
-    </div>`;
-}
-
 // "Renewal Revenue (Overall)" — MTD/YTD Actual vs Target per division,
 // mirroring management's own reference table (LY comparison columns
 // deliberately left out, per explicit instruction not to build that yet).
+// Sourced from RENEWAL_MONTH_MATRIX (via renewalMonthlySeries, same helper
+// the Target vs Achieved table and Bookers-by-Division use) instead of its
+// own /api/invoice-report-daily fetch — one source of truth, always
+// paid-only regardless of whatever Invoice Status pill is selected
+// elsewhere on this tab (a target can only ever be compared to paid
+// revenue).
 function renderDivisionTargetTable() {
-  if (!DIVISION_DAILY_REPORT || DIVISION_DAILY_REPORT.error || !DIVISION_YTD_REPORT || DIVISION_YTD_REPORT.error) return '';
   const { divisionTargets } = RENEWAL_TARGET_SETTINGS;
+  const tplSet = new Set([String(RENEWAL_TEMPLATE_ID)]);
+  const paid = new Set(['paid']);
+  const monthsAll = renewalMonthlySeries(new Set(['all']), paid, tplSet).map(m => m.untaxed);
 
-  // Both columns follow the Month filter, so "YTD" always means Jan through
-  // the month being shown. Mixing the filter's month with today's month made
-  // the two columns describe different periods whenever a past month was
-  // selected. `outside` catches revenue whose segment isn't one of the four
-  // target divisions — it belongs in the grand total even without a target.
-  let outsideMtd = 0, outsideYtd = 0;
-  const monthEnd = isoDay(new Date(DIVISION_YEAR, DIVISION_MONTH + 1, 0));
-  const sumBySegment = (report, cutoff) => {
-    const out = {};
-    DIVISION_TARGET_SEGMENTS.forEach(s => { out[s] = 0; });
-    let other = 0;
-    report.days.forEach(day => {
-      if (cutoff && day.date > cutoff) return;
-      Object.entries(day.groups).forEach(([bookerKey, amount]) => {
-        const seg = segmentOf(bookerKey);
-        if (out[seg] !== undefined) out[seg] += amount; else other += amount;
-      });
-    });
-    return { out, other };
-  };
-  const mtd = sumBySegment(DIVISION_DAILY_REPORT);
-  const ytd = sumBySegment(DIVISION_YTD_REPORT, monthEnd);
-  const mtdActual = mtd.out, ytdActual = ytd.out;
-  outsideMtd = mtd.other; outsideYtd = ytd.other;
+  const mtdActual = {}, ytdActual = {};
+  DIVISION_TARGET_SEGMENTS.forEach(seg => {
+    const months = renewalMonthlySeries(new Set([seg]), paid, tplSet).map(m => m.untaxed);
+    mtdActual[seg] = months[DIVISION_MONTH] || 0;
+    ytdActual[seg] = months.slice(0, DIVISION_MONTH + 1).reduce((a, b) => a + b, 0);
+  });
+  // Revenue whose resolved segment isn't one of the four target divisions
+  // (native Odoo segments like Trading/New Sale, or unmapped "Other") —
+  // belongs in the grand total even without a target of its own.
+  const grandMonthsAll = monthsAll.slice(0, DIVISION_MONTH + 1).reduce((a, b) => a + b, 0);
+  const outsideMtd = monthsAll[DIVISION_MONTH] - DIVISION_TARGET_SEGMENTS.reduce((s, seg) => s + mtdActual[seg], 0);
+  const outsideYtd = grandMonthsAll - DIVISION_TARGET_SEGMENTS.reduce((s, seg) => s + ytdActual[seg], 0);
 
   const mtdTarget = {}, ytdTarget = {};
   DIVISION_TARGET_SEGMENTS.forEach(s => {
@@ -2986,7 +2864,11 @@ function renderDivisionTargetTable() {
   return `
     <div class="card">
       <div class="card-header">
-        <div class="card-title">Renewal Revenue by Division — ${MONTH_NAMES_SHORT[DIVISION_MONTH]} ${DIVISION_YEAR} (Without VAT)</div>
+        <div class="card-title">Renewal Revenue by Division (Without VAT)</div>
+        <div><label class="input-label" for="div-month">Month</label>
+          <select id="div-month" onchange="setDivisionMonth(this.value)">
+            ${MONTH_NAMES_SHORT.map((m, i) => `<option value="${i}"${i === DIVISION_MONTH ? ' selected' : ''}>${m} ${DIVISION_YEAR}</option>`).join('')}
+          </select></div>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Division</th><th>Month Actual</th><th>Month Target</th><th>Ach%</th><th>YTD Actual</th><th>YTD Target</th><th>Ach%</th></tr></thead>
@@ -3002,98 +2884,7 @@ function renderDivisionTargetTable() {
           </tr>
         </tbody>
       </table></div>
-      <div class="status" style="margin-top:var(--sp-3)">YTD = Jan through the month selected above. Per-division targets are editable from the Renewal Target card's Settings button.${outsideYtd ? ' <strong>Unassigned</strong> revenue has no division yet — set those bookers in Booker → Segment.' : ''}</div>
-    </div>`;
-}
-
-function renderDivisionBreakdownSection() {
-  const rep = DIVISION_DAILY_REPORT;
-  const settingsBtn = `<button class="ghost small" onclick="openBookerSegmentSettings()">${icon('settings')} Booker → Segment</button>`;
-  const title = `Renewal by Segment — ${MONTH_NAMES_SHORT[DIVISION_MONTH]} ${DIVISION_YEAR}`;
-
-  if (!rep) return `<div class="card">
-    <div class="card-header"><div class="card-title">${title}</div>${settingsBtn}</div>
-    ${renderDivisionFilterBar()}
-    <div class="status"><span class="spinner"></span>Loading daily breakdown...</div></div>`;
-  if (rep.error) return `<div class="card">
-    <div class="card-header"><div class="card-title">${title}</div>${settingsBtn}</div>
-    ${renderDivisionFilterBar()}
-    <div class="status error">Failed to load: ${escapeHTML(rep.error)}</div></div>`;
-
-  const today = isoDay(new Date());
-  const mtdBySegment = {};
-  SEGMENT_NAMES.forEach(s => { mtdBySegment[s] = 0; });
-
-  // Booker/Segment filters are applied here client-side (no refetch needed):
-  // a (bookerKey, amount) pair only counts toward a day/segment total if it
-  // passes both.
-  const passesFilter = bookerKey =>
-    // resolveBookerKey so filtering by a merge target also picks up
-    // whichever duplicate ids were merged into it.
-    (DIVISION_FILTER_BOOKER === 'all' || resolveBookerKey(bookerKey) === DIVISION_FILTER_BOOKER) &&
-    (DIVISION_FILTER_SEGMENT === 'all' || segmentOf(bookerKey) === DIVISION_FILTER_SEGMENT);
-
-  const dayTotals = []; // { label, total } per calendar day, for the trend chart below — includes zero-total days
-  const dayData = rep.days.map(day => {
-    const bySeg = {};
-    SEGMENT_NAMES.forEach(s => { bySeg[s] = 0; });
-    let dayTotal = 0;
-    Object.entries(day.groups).forEach(([bookerKey, amount]) => {
-      if (!passesFilter(bookerKey)) return;
-      const seg = segmentOf(bookerKey);
-      bySeg[seg] += amount;
-      mtdBySegment[seg] += amount;
-      dayTotal += amount;
-    });
-    // day.date is a plain "YYYY-MM-DD" calendar day — parse it directly
-    // instead of via new Date(), which reads it as UTC and can roll the
-    // displayed day back by one in negative-UTC timezones.
-    const [, mm, dd] = day.date.split('-');
-    const label = `${MONTH_NAMES_SHORT[Number(mm) - 1]} ${Number(dd)}`;
-    dayTotals.push({ label, day: Number(dd), total: dayTotal, isToday: day.date === today });
-    return { date: day.date, label, bySeg, dayTotal, isToday: day.date === today };
-  });
-
-  const mtdTotal = Object.values(mtdBySegment).reduce((a, b) => a + b, 0);
-  const maxSeg = Math.max(1, ...Object.values(mtdBySegment));
-  const maxDayTotal = Math.max(1, ...dayTotals.map(d => d.total));
-  // Only columns/rows for segments that actually have revenue this month —
-  // Odoo's own segment list (Trading/New Sale/Renwal Sales/etc.) is mostly
-  // unused by this business, so an all-dash column is just noise.
-  const activeSegments = SEGMENT_NAMES.filter(s => mtdBySegment[s]);
-
-  const dayRows = dayData.map(d => {
-    if (!d.dayTotal) return '';
-    return `<tr>
-      <td>${escapeHTML(d.label)}${d.isToday ? ' *' : ''}</td>
-      ${activeSegments.map(s => `<td>${d.bySeg[s] ? sarFmt(d.bySeg[s]) : '—'}</td>`).join('')}
-      <td><strong>${sarFmt(d.dayTotal)}</strong></td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <div class="card">
-      <div class="card-header"><div class="card-title">${title} (Without VAT)</div>${settingsBtn}</div>
-      ${renderDivisionFilterBar()}
-      ${activeSegments.map(s => `
-        <div class="dash-bar-row">
-          <span class="dash-bar-label">${s}</span>
-          <div class="dash-bar-track"><div class="dash-bar-fill accent" data-w="${(mtdBySegment[s] / maxSeg * 100).toFixed(1)}"></div></div>
-          <span class="dash-bar-value">${sarFmt(mtdBySegment[s])}${mtdTotal ? ` (${(mtdBySegment[s] / mtdTotal * 100).toFixed(0)}%)` : ''}</span>
-        </div>`).join('')}
-      <div class="card-header" style="margin-top:var(--sp-3)"><div class="card-title">Renewal Sales — Daily</div></div>
-      <div class="dash-trend">
-        ${dayTotals.map(d => `
-          <div class="dash-trend-col" title="${escapeHTML(d.label)}${d.isToday ? ' (today)' : ''}: ${sarFmt(d.total)}">
-            <div class="dash-trend-bar revenue" data-h="${(d.total / maxDayTotal * 100).toFixed(1)}"></div>
-            <span class="dash-trend-day">${d.day}</span>
-          </div>`).join('')}
-      </div>
-      <div class="table-wrap" style="margin-top:var(--sp-3)"><table>
-        <thead><tr><th>Date</th>${activeSegments.map(s => `<th>${s}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody>${dayRows || `<tr><td colspan="${activeSegments.length + 2}" class="no-results">No renewal orders match this filter</td></tr>`}</tbody>
-      </table></div>
-      <div class="status" style="margin-top:var(--sp-3)">* = today. Segment shown here comes from each order's booker → segment mapping (Booker → Segment button above).</div>
+      <div class="status" style="margin-top:var(--sp-3)">YTD = Jan through the month selected above. Always paid invoices, Subscription Renewal template only. Per-division targets are editable from the Renewal Target card's Settings button.${outsideYtd ? ' <strong>Unassigned</strong> revenue has no division yet — set those bookers in Booker → Segment.' : ''}</div>
     </div>`;
 }
 
@@ -6439,11 +6230,9 @@ const DASHBOARD_REFRESH_INTERVAL_MS = 120000;
 function dashboardRefreshCurrentSubtab() {
   if (DASHBOARD_SUBTAB === 'sales') {
     loadDashboardSalesReport();
-    loadRenewalTargetReport();
-    if (BOOKER_LIST) { loadDivisionDailyReport(); loadDivisionYtdReport(); }
   } else if (DASHBOARD_SUBTAB === 'tickets') {
     loadTicketsReport();
-  } else if (DASHBOARD_SUBTAB === 'renewal' || DASHBOARD_SUBTAB === 'settings' || DASHBOARD_SUBTAB === 'allsales') {
+  } else if (DASHBOARD_SUBTAB === 'renewal' || DASHBOARD_SUBTAB === 'settings') {
     loadRenewalMatrix();
   }
 }
@@ -6465,7 +6254,7 @@ function toggleDashboardAutoRefresh() {
 // Multi-select Division / Invoice Status / Quotation Template filters, all
 // recomputed client-side from one wide pull — see /api/renewal-matrix. Kept
 // as live global state (not closure-local) so onclick="" handlers in the
-// generated HTML can reach it, matching how DIVISION_FILTER_BOOKER etc. work
+// generated HTML can reach it, matching how DIVISION_MONTH etc. work
 // elsewhere in this file.
 let RENEWAL_MONTH_MATRIX = null;
 let RENEWAL_DAY_MATRIX = null;
@@ -6474,18 +6263,6 @@ let RENEWAL_FILTER_INV = new Set(['paid']);
 let RENEWAL_FILTER_TPL = null; // seeded to {RENEWAL_TEMPLATE_ID} once the matrix loads and we know it's present
 let RENEWAL_PERIOD_A = { from: '', to: '' };
 let RENEWAL_PERIOD_B = { from: '', to: '' };
-
-// ==================== Dashboard — All Sales (every quotation template) ====================
-// Same /api/renewal-matrix pull as Renewal Revenue (RENEWAL_MONTH_MATRIX /
-// RENEWAL_DAY_MATRIX), own independent filter state so switching templates
-// here never disturbs the Renewal Revenue tab's own selection. Defaults to
-// every template (not just Subscription Renewal) and has no target section —
-// targets only ever track renewal revenue.
-let ALLSALES_FILTER_DIV = new Set(['all']);
-let ALLSALES_FILTER_INV = new Set(['paid']);
-let ALLSALES_FILTER_TPL = new Set(['all']);
-let ALLSALES_PERIOD_A = { from: '', to: '' };
-let ALLSALES_PERIOD_B = { from: '', to: '' };
 
 async function loadRenewalMatrix() {
   const now = new Date();
@@ -6497,9 +6274,8 @@ async function loadRenewalMatrix() {
       odooFetch(`/api/renewal-matrix?bucket=month&from=${yearStart}&to=${today}`),
       odooFetch(`/api/renewal-matrix?bucket=day&from=${dayFrom}&to=${today}`)
     ]);
-    // Same pull feeds both the Renewal Revenue and All Sales tabs — the bridge
-    // endpoint carries every quotation template already, so "all templates"
-    // is just a different default filter over the same rows, not a second fetch.
+    // Endpoint carries every quotation template already, so "all templates"
+    // is just a different filter selection over the same rows, not a second fetch.
     RENEWAL_MONTH_MATRIX = m;
     RENEWAL_DAY_MATRIX = dd;
     if (!RENEWAL_FILTER_TPL) {
@@ -6512,10 +6288,6 @@ async function loadRenewalMatrix() {
       const prevMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
       const prevMonthTo = new Date(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), Math.min(now.getDate(), prevMonthLastDay));
       RENEWAL_PERIOD_B = { from: isoDay(prevMonthStart), to: isoDay(prevMonthTo) };
-    }
-    if (!ALLSALES_PERIOD_A.from) {
-      ALLSALES_PERIOD_A = { ...RENEWAL_PERIOD_A };
-      ALLSALES_PERIOD_B = { ...RENEWAL_PERIOD_B };
     }
   } catch (err) {
     RENEWAL_MONTH_MATRIX = { error: err.message };
@@ -6644,17 +6416,10 @@ function setRenewalPeriod(which, field, value) {
   (which === 'a' ? RENEWAL_PERIOD_A : RENEWAL_PERIOD_B)[field] = value;
   renderDashboard();
 }
-function toggleAllSalesDiv(key) { renewalToggle(ALLSALES_FILTER_DIV, key); }
-function toggleAllSalesInv(key) { renewalToggle(ALLSALES_FILTER_INV, key); }
-function toggleAllSalesTpl(key) { renewalToggle(ALLSALES_FILTER_TPL, key); }
-function setAllSalesPeriod(which, field, value) {
-  (which === 'a' ? ALLSALES_PERIOD_A : ALLSALES_PERIOD_B)[field] = value;
-  renderDashboard();
-}
 
 // onclickFnName is passed explicitly (not inferred from which global the set
-// happens to be) so this same renderer works for both RENEWAL_FILTER_* and
-// ALLSALES_FILTER_* without the two tabs' pills wiring to each other's toggle.
+// happens to be) so this same renderer can be reused for any RENEWAL_FILTER_*
+// set with its own toggle function.
 function renewalPillRow(options, selectedSet, onclickFnName) {
   return options.map(o =>
     `<button type="button" class="${selectedSet.has(o.key) ? 'active' : ''}" onclick="${onclickFnName}('${o.key}')">${escapeHTML(o.label)}</button>`
@@ -6715,7 +6480,11 @@ function renderRenewalRevenueTab() {
   const months = renewalMonthlySeries();
   const now = new Date();
   const curM = now.getMonth();
-  const target = (RENEWAL_FILTER_INV.size === 1 && RENEWAL_FILTER_INV.has('paid')) ? renewalTargetFor() : null;
+  // Target data only exists for the Subscription Renewal template — showing
+  // it against an "All Templates" selection would compare achieved-across-
+  // everything to a target meant for one product line.
+  const isRenewalTplOnly = RENEWAL_FILTER_TPL.size === 1 && RENEWAL_FILTER_TPL.has(String(RENEWAL_TEMPLATE_ID));
+  const target = (isRenewalTplOnly && RENEWAL_FILTER_INV.size === 1 && RENEWAL_FILTER_INV.has('paid')) ? renewalTargetFor() : null;
   const targetPartial = target && !renewalTargetCoversSelection();
   let ytdA = 0, ytdC = 0;
   for (let i = 0; i <= curM; i++) { ytdA += months[i].untaxed; ytdC += months[i].count; }
@@ -6765,7 +6534,8 @@ function renderRenewalRevenueTab() {
   }).join('');
 
   return `
-    <div class="card-header" style="margin-top:0"><div class="card-title">Renewal Revenue — Filterable</div>
+    <div class="card-header" style="margin-top:0"><div class="card-title">Revenue — Filterable</div>
+      <button class="ghost small" onclick="openBookerSegmentSettings()">${icon('settings')} Booker → Segment</button>
       <button class="secondary small" onclick="loadRenewalMatrix()">${icon('table')} Refresh</button></div>
     <div class="input-label">Division</div>
     <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(divOptions, RENEWAL_FILTER_DIV, 'toggleRenewalDiv')}</div>
@@ -6782,11 +6552,15 @@ function renderRenewalRevenueTab() {
     </div>
     ${targetPartial ? `<div class="status">Target line only covers the selected divisions that have one defined — the rest show achieved revenue only.</div>` : ''}
 
+    ${isRenewalTplOnly ? renderRenewalTargetStatCards() : ''}
+
     <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Target vs Achieved — ${RENEWAL_TARGET_SETTINGS.year}</div></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Month</th><th>Target</th><th>Achieved</th><th>Invoices</th><th>Progress</th></tr></thead>
       <tbody>${monthRows}</tbody>
     </table></div>
+
+    ${renderDivisionTargetTable()}
 
     <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Order Bookers by Division — YTD</div></div>
     <div class="status">Every booker's year-to-date sales, grouped under the division they resolve to (segmentOf) — same filters as above. This is the "who sold what" view.</div>
@@ -6816,122 +6590,6 @@ function renderRenewalRevenueTab() {
     ${renewalDayDivisionTable(datesA, pA)}`;
 }
 
-// Same tab, no target section (targets only ever track renewal revenue),
-// defaults to every quotation template instead of just Subscription Renewal —
-// "how much did we sell this month/period" across TGA, BASIC, SFDA,
-// Professional Services, Ownership Transfer, etc., not just renewals. Reads
-// the SAME RENEWAL_MONTH_MATRIX/RENEWAL_DAY_MATRIX pull — no second fetch —
-// through its own ALLSALES_FILTER_*/ALLSALES_PERIOD_* state so it never
-// disturbs the Renewal Revenue tab's own filters.
-function renderAllSalesTab() {
-  const rep = RENEWAL_MONTH_MATRIX, repDay = RENEWAL_DAY_MATRIX;
-  if (!rep || !repDay) return '<div class="dv-panel"><div class="status"><span class="spinner"></span>Loading sales from Odoo... (bridge sleeps when idle, first call can take ~30s)</div></div>';
-  if (rep.error || repDay.error) return `<div class="dv-panel"><div class="status error">Failed to load: ${escapeHTML(rep.error || repDay.error)}</div></div>`;
-
-  const divOptions = renewalDivisionOptions();
-  const tplOptions = renewalTemplateOptions();
-  const invOptions = [
-    { key: 'paid', label: 'Paid' }, { key: 'all', label: 'All Statuses' }, { key: 'open', label: 'Open' },
-    { key: 'partial', label: 'Partial' }, { key: 'draft', label: 'Draft' }, { key: 'cancelled', label: 'Cancelled' }
-  ];
-  const div = ALLSALES_FILTER_DIV, inv = ALLSALES_FILTER_INV, tpl = ALLSALES_FILTER_TPL;
-
-  const months = renewalMonthlySeries(div, inv, tpl);
-  const now = new Date();
-  const curM = now.getMonth();
-  let ytdA = 0, ytdC = 0;
-  for (let i = 0; i <= curM; i++) { ytdA += months[i].untaxed; ytdC += months[i].count; }
-
-  const monthRows = MONTH_NAMES_SHORT.slice(0, curM + 1).map((name, i) => `
-    <tr${i === curM ? ' style="background:var(--c-surface-2)"' : ''}>
-      <td>${name}${i === curM ? ' (to date)' : ''}</td>
-      <td>${sarFmt(months[i].untaxed)}</td>
-      <td>${months[i].count.toLocaleString()}</td>
-      <td>${sarFmt(months[i].count ? months[i].untaxed / months[i].count : 0)}</td>
-    </tr>`).join('');
-
-  const dayRows = repDay.rows;
-  const dayMin = dayRows.length ? dayRows.reduce((m, r) => r.bucket < m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
-  const dayMax = dayRows.length ? dayRows.reduce((m, r) => r.bucket > m ? r.bucket : m, dayRows[0].bucket) : isoDay(now);
-  const pA = ALLSALES_PERIOD_A, pB = ALLSALES_PERIOD_B;
-  const datesA = renewalDatesBetween(pA.from, pA.to);
-  const datesB = renewalDatesBetween(pB.from, pB.to);
-  const seriesA = renewalRangeSeries(pA.from, pA.to, div, inv, tpl);
-  const seriesB = renewalRangeSeries(pB.from, pB.to, div, inv, tpl);
-  const maxDay = Math.max(1, ...datesA.map(d => (seriesA[d] || {}).untaxed || 0), ...datesB.map(d => (seriesB[d] || {}).untaxed || 0));
-
-  const sparkFor = (dates, series) => dates.length ? dates.map(d => `
-    <div class="dv-spark-col" title="${escapeHTML(renewalFmtDate(d))}: ${sarFmt((series[d] || {}).untaxed || 0)}">
-      <div class="dv-spark-bar revenue" data-h="${(((series[d] || {}).untaxed || 0) / maxDay * 100).toFixed(1)}"></div>
-      <span class="dv-spark-day">${d.slice(8, 10)}</span>
-    </div>`).join('') : '<div class="dv-empty">No days in range</div>';
-
-  let running = 0, prevU = null;
-  const dayTableRows = datesA.map(iso => {
-    const rec = seriesA[iso] || { untaxed: 0, tax: 0, total: 0, count: 0 };
-    running += rec.untaxed;
-    const delta = (prevU !== null && prevU > 0) ? (rec.untaxed - prevU) / prevU * 100 : null;
-    prevU = rec.untaxed;
-    return `<tr>
-      <td>${escapeHTML(renewalFmtDate(iso))}</td>
-      <td>${rec.count || '—'}</td>
-      <td>${rec.untaxed ? sarFmt(rec.untaxed) : '—'}</td>
-      <td style="color:${delta === null ? 'var(--c-fg-subtle)' : delta >= 0 ? 'var(--c-success)' : 'var(--c-danger)'};font-weight:700">${delta === null ? '—' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%'}</td>
-      <td>${sarFmt(running)}</td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <div class="card-header" style="margin-top:0"><div class="card-title">All Sales — Every Quotation Template</div>
-      <button class="secondary small" onclick="loadRenewalMatrix()">${icon('table')} Refresh</button></div>
-    <div class="status">Same live pull as Renewal Revenue, but not limited to Subscription Renewal — defaults to every template (TGA, BASIC, SFDA, Professional Services, etc). No target line here: targets only ever track renewal revenue.</div>
-    <div class="input-label">Division</div>
-    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(divOptions, div, 'toggleAllSalesDiv')}</div>
-    <div class="input-label">Invoice Status</div>
-    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(invOptions, inv, 'toggleAllSalesInv')}</div>
-    <div class="input-label">Quotation Template</div>
-    <div class="case-type-nav" style="margin-bottom:var(--sp-3)">${renewalPillRow(tplOptions, tpl, 'toggleAllSalesTpl')}</div>
-
-    <div class="dv-hero">
-      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('chart')}</div><div class="num">${sarFmt(ytdA)}</div><div class="lbl">YTD Achieved</div></div>
-      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('list')}</div><div class="num">${ytdC.toLocaleString()}</div><div class="lbl">Invoices, YTD</div></div>
-      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('users')}</div><div class="num">${sarFmt(ytdC ? ytdA / ytdC : 0)}</div><div class="lbl">Avg / Invoice</div></div>
-      <div class="dv-kpi"><div class="dv-kpi-icon">${icon('receipt')}</div><div class="num">${tpl.has('all') ? 'All' : tpl.size}</div><div class="lbl">${tpl.has('all') ? 'Templates included' : 'Template(s) selected'}</div></div>
-    </div>
-
-    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Month by Month — ${RENEWAL_TARGET_SETTINGS.year}</div></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Month</th><th>Achieved</th><th>Invoices</th><th>Avg / Invoice</th></tr></thead>
-      <tbody>${monthRows}</tbody>
-    </table></div>
-
-    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Order Bookers by Division — YTD</div></div>
-    <div class="status">Every booker's year-to-date sales for the selected templates, grouped under the division they resolve to.</div>
-    ${renderRenewalBookersByDivision(div, inv, tpl)}
-
-    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">Day by Day Comparison</div></div>
-    <div class="row" style="align-items:flex-end;flex-wrap:wrap">
-      <div><label class="input-label">Period A — From</label><input type="date" style="max-width:150px" value="${pA.from}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('a','from',this.value)"></div>
-      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pA.to}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('a','to',this.value)"></div>
-      <div><label class="input-label">Period B — From</label><input type="date" style="max-width:150px" value="${pB.from}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('b','from',this.value)"></div>
-      <div><label class="input-label">To</label><input type="date" style="max-width:150px" value="${pB.to}" min="${dayMin}" max="${dayMax}" onchange="setAllSalesPeriod('b','to',this.value)"></div>
-    </div>
-    <div class="grid2">
-      <div class="card"><div class="card-header"><div class="card-title">Period A — ${escapeHTML(renewalFmtDate(pA.from))} to ${escapeHTML(renewalFmtDate(pA.to))}</div></div>
-        <div class="dv-spark">${sparkFor(datesA, seriesA)}</div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Period B — ${escapeHTML(renewalFmtDate(pB.from))} to ${escapeHTML(renewalFmtDate(pB.to))}</div></div>
-        <div class="dv-spark">${sparkFor(datesB, seriesB)}</div></div>
-    </div>
-
-    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Period A</div></div>
-    <div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
-      <thead><tr><th>Day</th><th>Invoices</th><th>Untaxed</th><th>vs Prev Day</th><th>Running Total</th></tr></thead>
-      <tbody>${dayTableRows || '<tr><td colspan="5" class="no-results">No days in range</td></tr>'}</tbody>
-    </table></div>
-
-    <div class="card-header" style="margin-top:var(--sp-4)"><div class="card-title">By Day — Division Breakdown (Period A)</div></div>
-    ${renewalDayDivisionTable(datesA, pA, div, inv, tpl)}`;
-}
 
 // Day rows × division columns for Period A, respecting whatever Invoice
 // Status / Quotation Template filters are active (Division pills too — if
@@ -6995,7 +6653,7 @@ function renderRenewalSettingsTab() {
 
   return `
     <div class="card-header" style="margin-top:0"><div class="card-title">Yearly Target</div></div>
-    <div class="status">Per-division monthly target for ${RENEWAL_TARGET_SETTINGS.year} — drives the Target vs Achieved table on both the Sales and Renewal Revenue tabs. Change the year to plan a different one.</div>
+    <div class="status">Per-division monthly target for ${RENEWAL_TARGET_SETTINGS.year} — drives the Target vs Achieved table and Division table on the Revenue tab. Change the year to plan a different one.</div>
     <div style="max-height:60vh;overflow-y:auto">${renewalTargetFormHtml('irt')}</div>
     <div class="row" style="justify-content:flex-end;margin-top:var(--sp-3)"><button onclick="saveRenewalTargetSettingsFrom('irt')">Save Yearly Target</button></div>
 
@@ -7019,12 +6677,10 @@ function renderRenewalSettingsTab() {
 function switchDashboardSubtab(key) {
   DASHBOARD_SUBTAB = key;
   if (key === 'sales' && !DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
-  if (key === 'sales' && !RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
-  if (key === 'sales' && !DIVISION_DAILY_REPORT) Promise.all([loadBookerSegments(), loadBookerList()]).then(() => { loadDivisionDailyReport(); loadDivisionYtdReport(); });
   if (key === 'tickets' && !TICKETS_REPORT) loadTicketsReport('this-month');
-  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !BOOKER_LIST) Promise.all([loadBookerSegments(), loadBookerList()]).then(renderDashboard);
-  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !RENEWAL_TARGET_REPORT) loadRenewalTargetSettings();
-  if ((key === 'renewal' || key === 'settings' || key === 'allsales') && !RENEWAL_MONTH_MATRIX) loadRenewalMatrix();
+  if ((key === 'renewal' || key === 'settings') && !BOOKER_LIST) Promise.all([loadBookerSegments(), loadBookerList()]).then(renderDashboard);
+  if ((key === 'renewal' || key === 'settings') && !RENEWAL_TARGET_SETTINGS_LOADED) loadRenewalTargetSettings();
+  if ((key === 'renewal' || key === 'settings') && !RENEWAL_MONTH_MATRIX) loadRenewalMatrix();
   renderDashboard();
 }
 
@@ -7122,11 +6778,10 @@ function renderDashboard() {
   const body = document.getElementById('dashboard-body');
   const nav = `<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap">
     <div class="dv-tabs">
-      <button type="button" class="${DASHBOARD_SUBTAB === 'sales' ? 'active' : ''}" onclick="switchDashboardSubtab('sales')">${icon('chart')} Sales</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'sales' ? 'active' : ''}" onclick="switchDashboardSubtab('sales')">${icon('chart')} Overview</button>
       <button type="button" class="${DASHBOARD_SUBTAB === 'pipeline' ? 'active' : ''}" onclick="switchDashboardSubtab('pipeline')">${icon('list')} Pipeline — App Data</button>
       <button type="button" class="${DASHBOARD_SUBTAB === 'tickets' ? 'active' : ''}" onclick="switchDashboardSubtab('tickets')">${icon('ticket')} Tickets</button>
-      <button type="button" class="${DASHBOARD_SUBTAB === 'renewal' ? 'active' : ''}" onclick="switchDashboardSubtab('renewal')">${icon('receipt')} Renewal Revenue</button>
-      <button type="button" class="${DASHBOARD_SUBTAB === 'allsales' ? 'active' : ''}" onclick="switchDashboardSubtab('allsales')">${icon('building')} All Sales</button>
+      <button type="button" class="${DASHBOARD_SUBTAB === 'renewal' ? 'active' : ''}" onclick="switchDashboardSubtab('renewal')">${icon('receipt')} Revenue</button>
       <button type="button" class="${DASHBOARD_SUBTAB === 'settings' ? 'active' : ''}" onclick="switchDashboardSubtab('settings')">${icon('settings')} Settings</button>
     </div>
     <div class="row" style="margin-bottom:0">
@@ -7142,12 +6797,10 @@ function renderDashboard() {
     content = renderTicketsSection();
   } else if (DASHBOARD_SUBTAB === 'renewal') {
     content = renderRenewalRevenueTab();
-  } else if (DASHBOARD_SUBTAB === 'allsales') {
-    content = renderAllSalesTab();
   } else if (DASHBOARD_SUBTAB === 'settings') {
     content = renderRenewalSettingsTab();
   } else {
-    content = renderDashboardOdooSection() + renderRenewalTargetSection() + renderDivisionTargetTable() + renderDivisionBreakdownSection();
+    content = renderDashboardOdooSection();
   }
 
   body.innerHTML = nav + content;
