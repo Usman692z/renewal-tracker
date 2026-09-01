@@ -2174,18 +2174,23 @@ function odooStatePill(state) {
 }
 
 function odooOrderRows(orders, withCustomer) {
-  return orders.map(so => `
-    <tr>
+  return orders.map(so => {
+    const partnerId = so.partner_id ? so.partner_id[0] : null;
+    const partnerName = so.partner_id ? so.partner_id[1] : '';
+    const reseller = matchReseller(partnerId, partnerName);
+    return `
+    <tr${reseller ? ' class="reseller-match"' : ''}>
       <td style="font-family:var(--font-mono);font-weight:600">${escapeHTML(so.name)}</td>
       <td style="font-family:var(--font-mono)">${escapeHTML(so.order_rfq)}</td>
       <td><span class="tpl-tag">${escapeHTML(so.quotation_template_id ? so.quotation_template_id[1] : '—')}</span></td>
       <td>${odooStatePill(so.state)}</td>
-      ${withCustomer ? `<td>${escapeHTML(so.partner_id ? so.partner_id[1] : '')}</td>` : ''}
+      ${withCustomer ? `<td>${escapeHTML(partnerName)}${reseller ? `<span class="reseller-tag" title="Odoo Erp ${reseller.erpId}">Reseller: ${escapeHTML(reseller.reseller)}</span>` : ''}</td>` : ''}
       <td>${so.amount_total || 0}</td>
       <td>${escapeHTML(so.date)}</td>
       <td>${so.no_of_vehicles || 0}</td>
       <td class="actions-cell">${odooLink('sale.order.wags', so.id, 'Open')}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function renderOdooPanel(data, error) {
@@ -2193,8 +2198,9 @@ function renderOdooPanel(data, error) {
   if (error) { el.innerHTML = `<div class="status error">Odoo: ${escapeHTML(error)}</div>`; return; }
   if (!data) { el.innerHTML = ''; return; }
 
+  const custReseller = data.customer ? matchReseller(data.customer.id, data.customer.name) : null;
   const customerBlock = data.customer
-    ? `${fld('Odoo Customer', data.customer.name)}${fld('Phone', data.customer.phone || data.customer.mobile)}${fld('Email', data.customer.email)}`
+    ? `<div class="field${custReseller ? ' field-hl' : ''}"><span class="field-name">Odoo Customer</span><span class="field-value">${escapeHTML(data.customer.name)}${custReseller ? `<span class="reseller-tag" title="Odoo Erp ${custReseller.erpId}">Reseller: ${escapeHTML(custReseller.reseller)}</span>` : ''}</span></div>${fld('Phone', data.customer.phone || data.customer.mobile)}${fld('Email', data.customer.email)}`
     : `<div class="field"><span class="field-value empty">No matching Odoo customer</span></div>`;
 
   const ticketRows = (data.tickets || []).map(t => `
