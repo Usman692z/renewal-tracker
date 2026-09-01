@@ -901,6 +901,7 @@ tr.reseller-match:hover td { background: #E0E7FF; }
         <button class="secondary" onclick="document.getElementById('q').value='';doSearch()">Clear</button>
       </div>
       <div id="data-status" class="status loading">Loading vehicle data... please wait</div>
+      <div id="portal-creds-panel"></div>
       <div id="info" class="results-info"></div>
       <div id="results"></div>
       <div id="pager" class="pagination"></div>
@@ -1599,7 +1600,7 @@ function switchTab(name) {
   }
   renderCaseTypeNav(name);
 
-  if (name === 'search') ensureVehicleData();
+  if (name === 'search') { ensureVehicleData(); ensurePortalCredentials(); }
   if (name === 'help' && !HELP_CACHE.length) loadHelpArticles();
   if (name === 'status') loadRenewals();
   if (name === 'admin') loadUsers();
@@ -4041,6 +4042,77 @@ async function loadVehicleData() {
   }
 }
 
+// ==================== Tracking portal credentials (client-side) ====================
+// Real login credentials (URL/username/password) per company for the
+// tracking-portal tenant that company was migrated onto — a separate
+// dataset from the vehicle master data above, same gzip+base64-chunked
+// storage shape (see loadVehicleData). Read access is open to every
+// signed-in user, same as Search & Renew itself (explicit user decision).
+let PORTAL_CREDS = [];
+let PORTAL_CREDS_BY_NAME = new Map();
+let PORTAL_CREDS_PROMISE = null;
+function ensurePortalCredentials() { return PORTAL_CREDS_PROMISE || (PORTAL_CREDS_PROMISE = loadPortalCredentials()); }
+
+async function loadPortalCredentials() {
+  try {
+    const snap = await db.collection('portal_credentials_chunks').orderBy('index').get();
+    if (snap.empty) { PORTAL_CREDS = []; return; }
+    const b64 = snap.docs.map(d => d.data().data).join('');
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const ds = new DecompressionStream('gzip');
+    const blob = new Blob([bin]);
+    const stream = blob.stream().pipeThrough(ds);
+    const text = await new Response(stream).text();
+    PORTAL_CREDS = JSON.parse(text);
+    PORTAL_CREDS_BY_NAME = new Map();
+    PORTAL_CREDS.forEach(c => {
+      const key = c.n.trim().toLowerCase();
+      if (!PORTAL_CREDS_BY_NAME.has(key)) PORTAL_CREDS_BY_NAME.set(key, c);
+    });
+  } catch (e) {
+    PORTAL_CREDS_PROMISE = null;   // let the next visit to the Search tab retry
+    PORTAL_CREDS = [];
+  }
+}
+
+// Exact normalized-name match first (typing the real company name); falls
+// back to a substring scan (typing part of it) capped at 5 hits so a very
+// generic query doesn't flood the panel.
+function findPortalCredentials(q) {
+  const query = q.trim().toLowerCase();
+  if (!query) return [];
+  const exact = PORTAL_CREDS_BY_NAME.get(query);
+  if (exact) return [exact];
+  return PORTAL_CREDS.filter(c => c.n.toLowerCase().includes(query)).slice(0, 5);
+}
+
+// Matches on two independent signals so this works whether the user typed
+// a company name directly, or searched by plate/vehicle and the matching
+// vehicle's own Company Name (r.cn) happens to be a known tenant — dedup'd
+// by name so a page full of the same company's vehicles only shows the
+// credential card once, not once per row.
+function renderPortalCredsPanel(q, resultsSlice) {
+  const el = document.getElementById('portal-creds-panel');
+  const matches = new Map();
+  findPortalCredentials(q).forEach(c => matches.set(c.n.toLowerCase(), c));
+  (resultsSlice || []).forEach(r => {
+    if (!r.cn) return;
+    const exact = PORTAL_CREDS_BY_NAME.get(String(r.cn).trim().toLowerCase());
+    if (exact) matches.set(exact.n.toLowerCase(), exact);
+  });
+  const list = [...matches.values()];
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = list.map(c => `
+    <div class="card" style="margin-bottom:var(--sp-3)">
+      <div class="card-header"><div class="card-title">${icon('building')} Tracking Portal Login — ${escapeHTML(c.n)}</div></div>
+      <div class="grid">
+        ${fld('Tenant URL', c.u, true)}
+        ${fld('Username', c.us, true)}
+        ${fld('Password', c.p, true, true)}
+      </div>
+    </div>`).join('');
+}
+
 // highlight: the fields an encoder actually retypes into WASL — worth making
 // them findable at a glance in a card of ~30 fields.
 function fld(label, val, copyable, highlight) {
@@ -4204,6 +4276,7 @@ function doSearch() {
     document.getElementById('results').innerHTML = '<div class="no-results">Enter a value to search</div>';
     document.getElementById('info').textContent = '';
     document.getElementById('pager').innerHTML = '';
+    document.getElementById('portal-creds-panel').innerHTML = '';
     return;
   }
   const looksLikeFullPlate = field === 'pn' && /\d/.test(q) && /[a-z]/i.test(q);
@@ -4238,6 +4311,7 @@ function renderPage() {
   const start = PAGE * PER_PAGE;
   const slice = RESULTS.slice(start, start + PER_PAGE);
   document.getElementById('results').innerHTML = slice.map(renderCard).join('') || '<div class="no-results">No matches found</div>';
+  renderPortalCredsPanel(document.getElementById('q').value, slice);
   const totalPages = Math.ceil(RESULTS.length / PER_PAGE);
   document.getElementById('info').textContent = RESULTS.length > 0
     ? `Showing ${start+1}–${Math.min(start+PER_PAGE, RESULTS.length)} of ${RESULTS.length.toLocaleString()} matches`

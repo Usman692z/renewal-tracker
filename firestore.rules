@@ -62,5 +62,14 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update, delete: if false;
     }
+    // Tracking-portal login credentials per company (real passwords), same
+    // gzip+base64 chunked shape as vehicle_data_chunks. Read open to every
+    // signed-in user (matches Search & Renew's own access level, per explicit
+    // user decision 2026-09-01); only an admin can (re-)upload.
+    match /portal_credentials_chunks/{chunkId} {
+      allow read: if request.auth != null;
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
   }
 }
