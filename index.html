@@ -946,6 +946,20 @@ tr.reseller-match:hover td { background: #E0E7FF; }
       <div id="rectification-list"></div>
     </div>
 
+    <!-- ---------- Renewal Report (live SharePoint Excel) ---------- -->
+    <div id="tab-sprenewal" style="display:none">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:0">
+          <div id="sprenewal-meta" class="status">Loading…</div>
+          <button class="secondary" onclick="loadSpRenewalReport(true)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div id="sprenewal-result"></div>
+    </div>
+
     <!-- ---------- Transfer / Plate Change ---------- -->
     <div id="tab-transferplate" style="display:none">
       <div id="transferplate-status" class="status"></div>
@@ -1372,6 +1386,7 @@ const TAB_REGISTRY = [
   { key: 'requests', group: 'Reports', label: 'Master (All Stages)', icon: 'table', sub: 'Every case in one editable table' },
   { key: 'duplicates', group: 'Reports', label: 'Duplicates', icon: 'x', sub: 'Requests marked as duplicate — kept for audit, out of the active pipeline' },
   { key: 'rectification', group: 'Reports', label: 'Rectification', icon: 'alert', sub: 'Rectification cases — tracked separately from the Renewal pipeline' },
+  { key: 'sprenewal', group: 'Reports', label: 'Renewal Report (SharePoint)', icon: 'chart', sub: 'Live from imran’s Tracking Dashboard.xlsx — division status, account-manager teams, top customers' },
   { key: 'admin',    group: 'Administration', label: 'Users & Access', icon: 'users', sub: 'Decide what each user can open', adminOnly: true }
 ];
 const ALL_TAB_KEYS = TAB_REGISTRY.filter(t => !t.adminOnly).map(t => t.key);
@@ -1600,7 +1615,7 @@ function switchTab(name) {
   }
   renderCaseTypeNav(name);
 
-  if (name === 'search') { ensureVehicleData(); ensurePortalCredentials(); }
+  if (name === 'search') { ensureVehicleData(); ensurePortalCredentials(); ensureAssetDetails(); }
   if (name === 'help' && !HELP_CACHE.length) loadHelpArticles();
   if (name === 'status') loadRenewals();
   if (name === 'admin') loadUsers();
@@ -1612,13 +1627,17 @@ function switchTab(name) {
   if (name === 'transferplate') renderTransferPlateTab();
   if (name === 'allcases') renderAllCasesTab();
   if (name === 'closed') renderClosedTab();
-  if (name === 'daily' && !DAILY_UNSUB) loadDailyRequests();
+  if (name === 'daily') {
+    document.getElementById('daily-date').value = formatDateDMY(todayISO());
+    if (!DAILY_UNSUB) loadDailyRequests();
+  }
   if (name === 'dashboard') {
     if (!DASHBOARD_SALES_REPORT) loadDashboardSalesReport('this-month');
     startDashboardAutoRefresh();
     renderDashboard();
   }
   if (name === 'salesreport' && !document.getElementById('sr-from').value) setSalesRange('this-month');
+  if (name === 'sprenewal' && !SP_RENEWAL_REPORT) loadSpRenewalReport();
   if (name === 'onlinepaid') {
     document.getElementById('onlinepaid-notify-toggle').checked = ONLINE_PAID_NOTIFY;
     loadOnlinePayments();
@@ -3165,6 +3184,87 @@ async function odooFetch(path) {
   return data;
 }
 
+// ==================== Renewal Report (live SharePoint Excel) ====================
+// Pulls the bridge's /api/sharepoint-renewal-report endpoint (imran's "Tracking
+// Dashboard.xlsx" > "Renewal Revenue Segmentation" sheet, read live via Microsoft
+// Graph). The Excel is hand-edited, not a transactional system, so this is a manual
+// Refresh button, not an auto-polling tab like the Odoo-backed ones.
+let SP_RENEWAL_REPORT = null;
+
+async function loadSpRenewalReport(force) {
+  const meta = document.getElementById('sprenewal-meta');
+  meta.className = 'status';
+  meta.innerHTML = '<span class="spinner"></span>Loading live renewal report from SharePoint...';
+  try {
+    const data = await odooFetch('/api/sharepoint-renewal-report' + (force ? '?refresh=1' : ''));
+    SP_RENEWAL_REPORT = data;
+    meta.className = 'status';
+    meta.textContent = `Source: "${data.sourceSheet}" · Updated ${new Date(data.fetchedAt).toLocaleString()}`;
+    renderSpRenewalReport(data);
+  } catch (err) {
+    meta.className = 'status error';
+    meta.textContent = 'Failed to load: ' + err.message;
+  }
+}
+
+function renderSpRenewalReport(data) {
+  const box = document.getElementById('sprenewal-result');
+  const total = data.divisions.find(d => d.name === 'Total');
+  const divisions = data.divisions.filter(d => d.name !== 'Total');
+  const ordered = total ? [total, ...divisions] : divisions;
+
+  const kpiCards = ordered.map(d => `
+    <div class="dv-kpi">
+      <div class="dv-kpi-icon">${icon('chart')}</div>
+      <div class="num">${sarFmt(d.ytdActuals)}</div>
+      <div class="lbl">${escapeHTML(d.name)} — YTD Actual</div>
+      <div style="margin-top:6px;font-size:12px;color:var(--c-fg-subtle)">Target ${sarFmt(d.ytdTargets)} · ${Math.round((d.achievement || 0) * 100)}% achieved</div>
+    </div>`).join('');
+
+  const maxTeam = Math.max(1, ...data.teams.map(t => t.ytdActuals));
+  const teamRows = data.teams.map((t, i) => `
+    <div class="dv-rank-row">
+      <span class="dv-rank-num">${i + 1}</span>
+      <div class="dv-rank-body">
+        <div class="dv-rank-top">
+          <span class="dv-rank-name" title="${escapeHTML(t.name)}">${escapeHTML(t.name)} <span style="color:var(--c-fg-subtle);font-weight:400">(${t.customerCount})</span></span>
+          <span class="dv-rank-value">${sarFmt(t.ytdActuals)}${t.achievement != null ? ` · ${Math.round(t.achievement * 100)}%` : ''}</span>
+        </div>
+        <div class="dv-rank-track"><div class="dv-rank-fill${i % 2 ? ' accent' : ''}" data-w="${(t.ytdActuals / maxTeam * 100).toFixed(1)}"></div></div>
+      </div>
+    </div>`).join('');
+
+  const custRows = data.customers.slice(0, 30).map(c => `
+    <tr>
+      <td>${escapeHTML(c.name)}</td>
+      <td>${escapeHTML(c.division)}</td>
+      <td>${escapeHTML(c.accountManager)}</td>
+      <td style="text-align:right">${sarFmt(c.ytdActuals)}</td>
+      <td style="text-align:right">${sarFmt(c.ytdTargets)}</td>
+      <td style="text-align:right">${Math.round((c.achievement || 0) * 100)}%</td>
+    </tr>`).join('');
+
+  box.innerHTML = `
+    <div class="dv-hero">${kpiCards}</div>
+    <div class="dv-panel">
+      <div class="dv-panel-head"><div class="dv-panel-title">${icon('users')} By Account Manager (Team)</div></div>
+      ${teamRows || '<div class="dv-empty">No data</div>'}
+    </div>
+    <div class="card" style="margin-top:var(--sp-4)">
+      <div class="pipeline-card-title" style="margin-bottom:10px">${icon('table')} Top Customers — YTD Actual vs Target</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Customer</th><th>Division</th><th>Account Manager</th><th style="text-align:right">YTD Actual</th><th style="text-align:right">YTD Target</th><th style="text-align:right">Achv.</th></tr></thead>
+          <tbody>${custRows || '<tr><td colspan="6">No data</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    box.querySelectorAll('.dv-rank-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+  }, 20);
+}
+
 // Some customers in Odoo are actually resellers operating under their own
 // trade name — a sale order booked to them was really sold by that reseller,
 // not a direct customer. Static reference table (rarely changes), matched by
@@ -4075,6 +4175,32 @@ async function loadPortalCredentials() {
   }
 }
 
+// ==================== Per-asset Install/Expiry/Reseller (client-side) ====================
+// Installation Date, Expiry Date and Reseller per device, keyed by IMEI —
+// same gzip+base64-chunked storage shape as PORTAL_CREDS above, sourced
+// from the tracking-portal asset export (2026-09-06).
+let ASSET_DETAILS_BY_IMEI = new Map();
+let ASSET_DETAILS_PROMISE = null;
+function ensureAssetDetails() { return ASSET_DETAILS_PROMISE || (ASSET_DETAILS_PROMISE = loadAssetDetails()); }
+
+async function loadAssetDetails() {
+  try {
+    const snap = await db.collection('asset_details_chunks').orderBy('index').get();
+    if (snap.empty) { ASSET_DETAILS_BY_IMEI = new Map(); return; }
+    const b64 = snap.docs.map(d => d.data().data).join('');
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const ds = new DecompressionStream('gzip');
+    const blob = new Blob([bin]);
+    const stream = blob.stream().pipeThrough(ds);
+    const text = await new Response(stream).text();
+    const list = JSON.parse(text);
+    ASSET_DETAILS_BY_IMEI = new Map(list.map(a => [a.im, a]));
+  } catch (e) {
+    ASSET_DETAILS_PROMISE = null;   // let the next visit to the Search tab retry
+    ASSET_DETAILS_BY_IMEI = new Map();
+  }
+}
+
 // Exact normalized-name match first (typing the real company name); falls
 // back to a substring scan (typing part of it) capped at 5 hits so a very
 // generic query doesn't flood the panel.
@@ -4144,6 +4270,7 @@ function identityBadge(idn) {
 function renderCard(r) {
   const hasPlate = r.pn && r.pn !== '';
   const plateBlock = hasPlate ? `<div class="plate-display">${escapeHTML(r.pl||'')} ${escapeHTML(r.pm||'')} ${escapeHTML(r.pr||'')} &nbsp;|&nbsp; ${escapeHTML(r.pn)}</div>` : '';
+  const assetDetails = ASSET_DETAILS_BY_IMEI.get(r.im);
   return `<div class="card">
     <div class="card-header">
       <div class="card-title">${escapeHTML(r.vnm) || escapeHTML(r.vn) || 'Vehicle #' + escapeHTML(r.vi)}</div>
@@ -4163,6 +4290,9 @@ function renderCard(r) {
         ${fld('Empty Weight', r.ew, true, true)}
         ${fld('Head Weight', r.hw, true, true)}
         ${fld('Driver ID', r.di)}
+        ${fld('Installation Date', assetDetails && assetDetails.id, true)}
+        ${fld('Expiry Date', assetDetails && assetDetails.ed, true, true)}
+        ${fld('Reseller', assetDetails && assetDetails.rs, true)}
       </div>
     </div>
     <div class="section">
